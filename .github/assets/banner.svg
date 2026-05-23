@@ -109,7 +109,7 @@
   </g>
 
   <g transform="translate(420 295)" font-family="JetBrains Mono, Menlo, Consolas, monospace" font-size="12" font-weight="600" letter-spacing="2">
-    <text x="0" y="0" fill="#22d3ee">v1.0.1</text>
+    <text x="0" y="0" fill="#22d3ee">v1.0.0</text>
     <text x="60" y="0" fill="#2a3142">/</text>
     <text x="76" y="0" fill="#7a8597">APACHE-2.0</text>
     <text x="186" y="0" fill="#2a3142">/</text>
