@@ -1,0 +1,76 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "DLSSync",
+  "version": "1.0.0",
+  "identifier": "io.github.xt0n1-t3ch.dlssync",
+  "build": {
+    "beforeBuildCommand": "pnpm --filter dlssync-frontend build",
+    "frontendDist": "../frontend/dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "DLSSync",
+        "width": 1200,
+        "height": 760,
+        "minWidth": 900,
+        "minHeight": 560,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": false,
+        "transparent": false,
+        "shadow": true,
+        "center": true,
+        "label": "main"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' data: https://cdn.cloudflare.steamstatic.com https://cdn.akamai.steamstatic.com https://shared.cloudflare.steamstatic.com https://s3.amazonaws.com https://cdn2.steamgriddb.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost https://cdn.jsdelivr.net https://api.github.com https://api.steampowered.com"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "publisher": "xt0n1",
+    "homepage": "https://xt0n1.com",
+    "copyright": "Copyright 2026 xt0n1. Licensed under Apache-2.0.",
+    "licenseFile": "../LICENSE",
+    "icon": [
+      "icons/32x32.png",
+      "icons/64x64.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
+    "category": "Utility",
+    "shortDescription": "Keep DLSS, FSR, and XeSS DLLs in sync with upstream",
+    "longDescription": "DLSSync detects games installed via Steam, Epic, GOG, Ubisoft, Xbox, EA Desktop, and Battle.net, then keeps their DLSS Super Resolution, Frame Generation, Ray Reconstruction, Streamline, FSR, and XeSS DLLs synchronized with the latest NVIDIA, AMD, and Intel upstream releases.",
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "installerIcon": "icons/icon.ico",
+        "headerImage": null,
+        "sidebarImage": null,
+        "displayLanguageSelector": false,
+        "languages": ["English"],
+        "compression": "lzma"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://github.com/xt0n1-t3ch/DLSSync/releases/latest/download/latest.json"
+      ],
+      "dialog": false,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IERCRjQwRkNFMjIwNjU0MEIKUldRTFZBWWl6Zy8wMjBvallseERDaVA4dkdOWHB5dHozWTk5WW84eHd5S1laV25WcUhJdXorTGoK",
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
+}

@@ -1,0 +1,65 @@
+# DLSSync
+
+> Open-source Windows desktop app that keeps DLSS, FSR and XeSS DLLs in sync with the latest NVIDIA, AMD, Intel and Microsoft upstream releases. Hash-verified, vendor-signed, fully reversible. Built with Rust + Tauri 2 + Svelte 5. Apache-2.0.
+
+DLSSync is the modern open-source successor to DLSS Updater / DLSS Swapper for Windows gamers.
+
+## What
+
+DLSSync detects games installed via Steam, Epic Games, GOG Galaxy, Ubisoft Connect, EA Desktop, Xbox / Microsoft Store and Battle.net, then keeps their DLSS, FSR, XeSS, NVIDIA Reflex, NVIDIA Streamline and Microsoft DirectStorage DLLs synchronized with each vendor's latest publisher release.
+
+Every replacement is gated by two independent checks: a SHA-256 hash match against a public CDN-hosted catalog manifest, and an Authenticode publisher signature gate that refuses any DLL not signed by NVIDIA, AMD, Intel or Microsoft. Every replaced DLL is auto-snapshotted into a local SQLite backup store so a one-click revert is always available.
+
+## Stack
+
+- Shell: Tauri 2 with native Windows WebView2 (no bundled Chromium)
+- Frontend: Svelte 5 + Vite 6 + TypeScript 5
+- Backend: Rust workspace (7 crates) — `pelite` for PE inspection, `jwalk` for parallel directory walking, `winreg` for launcher discovery, `rusqlite` (bundled) for the backup store, `reqwest` (rustls + brotli) for CDN fetch
+- Bundle: NSIS portable installer, `installMode: currentUser`, per-user install at `%LOCALAPPDATA%\DLSSync\`, no admin required
+- Auto-update: Ed25519-signed payload via `tauri-plugin-updater`, in-place hot-swap
+- Tray + Efficiency Mode: `tauri-plugin-autostart` + `win32-ecoqos` for EcoQoS green-leaf badge
+- License: Apache-2.0 — see LICENSE and NOTICE files
+
+## Footprint
+
+- Installer: under 5 MB
+- Binary: about 12 MB
+- Cold start: under 500 ms
+- Idle RAM: under 100 MB
+- Idle CPU: near 0 % when minimized (Windows EcoQoS Efficiency Mode)
+- Telemetry: zero. No analytics, no usage counters, no error reporting
+
+## Network surface
+
+DLSSync only makes outbound requests to:
+
+- `api.github.com` — release update check, at most once per 6 h
+- `cdn.jsdelivr.net` — DLL catalog manifest
+- `cdn.cloudflare.steamstatic.com` and `cdn2.steamgriddb.com` — game cover art (only if not already cached)
+
+All requests are unauthenticated. No hardware ID, install list or any identifying information is sent.
+
+## Security model
+
+- Update payloads are Ed25519-signed; the app refuses unsigned or invalid signatures
+- Every DLL retains its original vendor Authenticode signature; DLSSync never re-signs or repackages
+- A SHA-256 + publisher subject gate runs before any DLL is written
+- Every replaced DLL is backed up locally before replacement
+- No driver, no kernel hook, no in-process injection, no memory writes
+
+## Anti-cheat compatibility
+
+DLSSync only writes files into the game's own install directory — equivalent to a manual file swap. Anti-cheats that detect modified game files (EAC, BattlEye, Vanguard, Denuvo Anti-Tamper) will still flag a swapped DLL the same way they would any manual swap. Verify your specific title's policy before applying.
+
+## Links
+
+- Repo: https://github.com/xt0n1-t3ch/DLSSync
+- Latest release: https://github.com/xt0n1-t3ch/DLSSync/releases/latest
+- Author: https://github.com/xt0n1-t3ch
+- Web: https://xt0n1.com
+- Issues: https://github.com/xt0n1-t3ch/DLSSync/issues
+- License: https://github.com/xt0n1-t3ch/DLSSync/blob/main/LICENSE
+
+## Keywords
+
+DLSS updater, DLSS swapper, DLSS Frame Generation, DLSS Ray Reconstruction, FSR 3, FSR Frame Generation, Intel XeSS, NVIDIA Reflex, NVIDIA Streamline, Microsoft DirectStorage, upscaling, frame generation, RTX, GeForce, Radeon, Intel Arc, Steam, Epic Games, GOG, Ubisoft Connect, EA Desktop, Xbox, Battle.net, open source, Rust, Tauri, Svelte, Windows portable, zero telemetry, hash-verified, vendor-signed

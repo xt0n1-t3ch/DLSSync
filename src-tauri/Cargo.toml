@@ -1,0 +1,62 @@
+[package]
+name = "dlssync"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "DLSSync - keep your DLSS, FSR, XeSS DLLs in sync with upstream"
+
+[lib]
+name = "dlssync_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "dlssync"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-shell = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-single-instance = "2"
+tauri-plugin-store = "2"
+tauri-plugin-os = "2"
+tauri-plugin-process = "2"
+tauri-plugin-clipboard-manager = "2"
+tauri-plugin-autostart = "2"
+
+anyhow.workspace = true
+thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+parking_lot.workspace = true
+once_cell.workspace = true
+chrono.workspace = true
+reqwest.workspace = true
+sha2.workspace = true
+tempfile.workspace = true
+uuid.workspace = true
+sysinfo.workspace = true
+
+pe-version = { path = "../crates/pe-version" }
+launcher-scan = { path = "../crates/launcher-scan" }
+dll-scanner = { path = "../crates/dll-scanner" }
+dll-catalog = { path = "../crates/dll-catalog" }
+backup-store = { path = "../crates/backup-store" }
+
+[target.'cfg(windows)'.dependencies]
+winreg = { workspace = true }
+wmi = { workspace = true }
+windows = { workspace = true }
+win32-ecoqos = "0.6"
+
+[dev-dependencies]
+rusqlite = { workspace = true }

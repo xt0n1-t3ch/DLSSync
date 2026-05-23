@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  frontend:
+    name: Frontend (typecheck + build)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.0.0
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck (svelte-check)
+        run: pnpm --filter dlssync-frontend check
+
+      - name: Build (Vite)
+        run: pnpm --filter dlssync-frontend build
+
+  rust:
+    name: Rust (fmt + clippy + check)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: x86_64-pc-windows-msvc
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+
+      - name: Stub frontend dist for tauri::generate_context!
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path frontend/dist | Out-Null
+          Set-Content -Path frontend/dist/index.html -Value '<!doctype html><html><head><meta charset="utf-8"><title>DLSSync</title></head><body></body></html>'
+
+      - name: Format check
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Check
+        run: cargo check --workspace
+
+      - name: Test
+        run: cargo test --workspace --no-fail-fast

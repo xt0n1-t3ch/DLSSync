@@ -1,0 +1,301 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v1.0.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  build-windows:
+    name: Build Windows (x64)
+    runs-on: windows-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Extract version from tag
+        id: version
+        shell: pwsh
+        run: |
+          $tag = if ('${{ github.event_name }}' -eq 'workflow_dispatch') { '${{ inputs.tag }}' } else { '${{ github.ref_name }}' }
+          $version = $tag -replace '^v', ''
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "tag=$tag"         | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.0.0
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Materialize signing key
+        id: keymat
+        shell: pwsh
+        env:
+          PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          $keyPath = Join-Path $env:RUNNER_TEMP 'dlssync.key'
+          [System.IO.File]::WriteAllText($keyPath, $env:PRIVATE_KEY, (New-Object System.Text.UTF8Encoding $false))
+          "path=$keyPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Build (Tauri)
+        env:
+          TAURI_SIGNING_PRIVATE_KEY_PATH: ${{ steps.keymat.outputs.path }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: pnpm tauri build
+
+      - name: Sign installer (explicit safety net)
+        shell: pwsh
+        env:
+          TAURI_SIGNING_PRIVATE_KEY_PATH: ${{ steps.keymat.outputs.path }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          $installer = Get-ChildItem -Path target/release/bundle/nsis -Filter "*-setup.exe" -File | Select-Object -First 1
+          if (-not $installer) { throw "No installer .exe found to sign" }
+          if (Test-Path "$($installer.FullName).sig") { Write-Host "Signature already produced by tauri build"; exit 0 }
+          pnpm tauri signer sign $installer.FullName
+          if (-not (Test-Path "$($installer.FullName).sig")) { throw "Signer ran but no .sig file produced" }
+          Write-Host "Signature created: $($installer.Name).sig"
+
+      - name: Inventory bundle output
+        shell: pwsh
+        run: |
+          Write-Host "::group::target/release/bundle/nsis"
+          Get-ChildItem -Path target/release/bundle/nsis -ErrorAction SilentlyContinue | Format-Table Name,Length -AutoSize
+          Write-Host "::endgroup::"
+          Write-Host "::group::target/release (top level)"
+          Get-ChildItem -Path target/release -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -like '*.exe' -or $_.Name -like '*.sig' } | Format-Table Name,Length -AutoSize
+          Write-Host "::endgroup::"
+
+      - name: Build portable archive
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $portableDir = Join-Path $env:RUNNER_TEMP "DLSSync-portable"
+          New-Item -ItemType Directory -Force -Path $portableDir | Out-Null
+          Copy-Item -Path target/release/dlssync.exe -Destination (Join-Path $portableDir "DLSSync.exe")
+          $marker = @"
+          DLSSync Portable Build
+          ----------------------
+          Version: $env:VERSION
+          Mode:    portable
+
+          This build does not install itself and does not auto-update in place.
+          When a new version is released, DLSSync opens the GitHub release page
+          and you replace DLSSync.exe manually.
+
+          Settings are stored under %APPDATA%/DLSSync (per-user).
+
+          For unattended updates and tray integration, use the installer instead:
+            https://github.com/xt0n1-t3ch/DLSSync/releases/latest
+          "@
+          Set-Content -Path (Join-Path $portableDir "portable.txt") -Value $marker -Encoding UTF8
+          $zipPath = "target/release/bundle/nsis/DLSSync_${env:VERSION}_x64-portable.zip"
+          New-Item -ItemType Directory -Force -Path (Split-Path $zipPath -Parent) | Out-Null
+          Compress-Archive -Path "$portableDir/*" -DestinationPath $zipPath -Force
+          Write-Host "Built $zipPath"
+          (Get-Item $zipPath).Length
+
+      - name: Upload bundle artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dlssync-windows-unsigned
+          path: |
+            target/release/bundle/nsis/*.exe
+            target/release/bundle/nsis/*.exe.sig
+            target/release/bundle/nsis/*-portable.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  sign-windows:
+    name: Sign Windows artifacts (SignPath)
+    needs: build-windows
+    runs-on: ubuntu-latest
+    if: vars.SIGNPATH_ENABLED == 'true'
+    outputs:
+      signed: "true"
+    steps:
+      - name: Download unsigned artifact
+        id: download
+        uses: actions/download-artifact@v5
+        with:
+          name: dlssync-windows-unsigned
+          path: unsigned
+
+      - name: Submit to SignPath
+        uses: signpath/github-action-submit-signing-request@v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ secrets.SIGNPATH_ORG_ID }}
+          project-slug: dlssync
+          signing-policy-slug: release-signing
+          github-artifact-id: ${{ steps.download.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: signed
+
+      - name: Upload signed artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dlssync-windows-signed
+          path: signed/
+
+  publish:
+    name: Publish GitHub Release
+    needs: [build-windows, sign-windows]
+    if: always() && needs.build-windows.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Determine artifact source
+        id: source
+        run: |
+          if [ "${{ needs.sign-windows.result }}" = "success" ]; then
+            echo "name=dlssync-windows-signed" >> $GITHUB_OUTPUT
+          else
+            echo "name=dlssync-windows-unsigned" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download release artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: ${{ steps.source.outputs.name }}
+          path: release
+
+      - name: Locate bundle files
+        id: locate
+        run: |
+          exe=$(find release -name "*-setup.exe" -type f | head -n1)
+          sig=$(find release -name "*-setup.exe.sig" -type f | head -n1)
+          portable=$(find release -name "*-portable.zip" -type f | head -n1)
+          echo "exe=$exe" >> $GITHUB_OUTPUT
+          echo "sig=$sig" >> $GITHUB_OUTPUT
+          echo "portable=$portable" >> $GITHUB_OUTPUT
+          echo "exe_name=$(basename "$exe")" >> $GITHUB_OUTPUT
+
+      - name: Generate latest.json
+        env:
+          VERSION: ${{ needs.build-windows.outputs.version }}
+          TAG: v${{ needs.build-windows.outputs.version }}
+          EXE_NAME: ${{ steps.locate.outputs.exe_name }}
+          SIG_FILE: ${{ steps.locate.outputs.sig }}
+        run: |
+          signature=""
+          if [ -n "$SIG_FILE" ] && [ -f "$SIG_FILE" ]; then
+            signature=$(cat "$SIG_FILE")
+          fi
+          pub_date=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          cat > release/latest.json <<EOF
+          {
+            "version": "$VERSION",
+            "notes": "See release notes on GitHub.",
+            "pub_date": "$pub_date",
+            "platforms": {
+              "windows-x86_64": {
+                "signature": "$signature",
+                "url": "https://github.com/xt0n1-t3ch/DLSSync/releases/download/$TAG/$EXE_NAME"
+              }
+            }
+          }
+          EOF
+          cat release/latest.json
+
+      - name: Install git-cliff
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --version
+
+      - name: Compose release notes
+        id: notes
+        env:
+          VERSION: ${{ needs.build-windows.outputs.version }}
+          TAG: v${{ needs.build-windows.outputs.version }}
+        run: |
+          set -euo pipefail
+          if [ -f CHANGELOG.md ]; then
+            awk -v v="$VERSION" '
+              $0 ~ "^## \\[" v "\\]" { in_section=1; next }
+              in_section && /^
+              in_section { print }
+            ' CHANGELOG.md > release-body.md
+          else
+            : > release-body.md
+          fi
+          if [ ! -s release-body.md ] || [ "$(wc -c < release-body.md)" -lt 80 ]; then
+            echo "CHANGELOG.md section for $VERSION missing or too short; falling back to git-cliff."
+            git-cliff --config cliff.toml --tag "$TAG" --strip header --latest -o release-body.md
+          fi
+          if [ ! -s release-body.md ]; then
+            echo "git-cliff produced no output; writing minimal placeholder."
+            printf "Release **%s**.\n\nSee the [full changelog](https://github.com/%s/blob/main/CHANGELOG.md) for details.\n" "$TAG" "${{ github.repository }}" > release-body.md
+          fi
+          echo "::group::release-body.md"
+          cat release-body.md
+          echo "::endgroup::"
+          {
+            echo 'body<<RELEASE_BODY_EOF'
+            cat release-body.md
+            echo 'RELEASE_BODY_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Delete existing release (idempotent)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: v${{ needs.build-windows.outputs.version }}
+        run: gh release delete "$TAG" --repo ${{ github.repository }} --yes 2>/dev/null || true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.build-windows.outputs.version }}
+          name: DLSSync v${{ needs.build-windows.outputs.version }}
+          draft: false
+          prerelease: false
+          generate_release_notes: false
+          body: ${{ steps.notes.outputs.body }}
+          files: |
+            release/*-setup.exe
+            release/*-setup.exe.sig
+            release/*-portable.zip
+            release/latest.json

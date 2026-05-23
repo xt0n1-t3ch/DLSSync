@@ -1,0 +1,18 @@
+{
+  "name": "dlssync",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "check": "pnpm --filter dlssync-frontend check",
+    "lint:rust": "cargo clippy --workspace --all-targets -- -D warnings",
+    "fmt:rust": "cargo fmt --all",
+    "fmt:rust:check": "cargo fmt --all -- --check",
+    "test": "task test"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0"
+  },
+  "packageManager": "pnpm@9.0.0"
+}

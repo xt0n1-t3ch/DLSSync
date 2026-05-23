@@ -1,0 +1,27 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Default capability set for DLSSync main window",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:window:allow-minimize",
+    "core:window:allow-maximize",
+    "core:window:allow-unmaximize",
+    "core:window:allow-close",
+    "core:window:allow-start-dragging",
+    "core:window:allow-is-maximized",
+    "dialog:default",
+    "fs:default",
+    "notification:default",
+    "shell:default",
+    "shell:allow-open",
+    "updater:default",
+    "os:default",
+    "process:default",
+    "clipboard-manager:default",
+    "store:default",
+    "autostart:default"
+  ]
+}

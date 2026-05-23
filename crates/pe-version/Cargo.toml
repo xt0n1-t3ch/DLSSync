@@ -1,0 +1,14 @@
+[package]
+name = "pe-version"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+pelite.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+thiserror.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { workspace = true }

@@ -1,0 +1,46 @@
+DLSSync
+Copyright 2026 xt0n1
+
+This product includes software developed by xt0n1.
+
+Author / Maintainer
+-------------------
+xt0n1
+GitHub:  https://github.com/xt0n1-t3ch
+Web:     https://xt0n1.com
+Discord: https://discord.com/users/211189703641268224
+
+This software is licensed under the Apache License, Version 2.0.
+See the LICENSE file for the full license text.
+
+Attribution requirement
+-----------------------
+Per Section 4(c) of the Apache License 2.0, any redistribution of this
+software in source or object form, including Derivative Works, must
+preserve the attribution notices contained in this NOTICE file.
+
+Trademarks
+----------
+DLSSync is an independent project. It is not endorsed by, sponsored by,
+or affiliated with NVIDIA, Intel, AMD, or Microsoft.
+
+DLSS, NVIDIA, GeForce, RTX, Reflex, and Streamline are trademarks
+of NVIDIA Corporation.
+
+XeSS, Xe, Intel, and Arc are trademarks of Intel Corporation.
+
+FidelityFX, FSR, Radeon, and AMD are trademarks of Advanced Micro
+Devices, Inc.
+
+DirectStorage, DirectX, and Windows are trademarks of Microsoft
+Corporation.
+
+Every redistributed binary retains its original vendor Authenticode
+signature. This project never re-signs or repackages vendor DLLs.
+
+Third-party components
+----------------------
+This software depends on open-source components covered by their own
+licenses. A full list is generated at build time from Cargo.toml and
+package.json. See the upstream repositories for individual license
+terms.
