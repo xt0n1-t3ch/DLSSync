@@ -253,15 +253,7 @@ jobs:
           TAG: v${{ needs.build-windows.outputs.version }}
         run: |
           set -euo pipefail
-          if [ -f CHANGELOG.md ]; then
-            awk -v v="$VERSION" '
-              $0 ~ "^## \\[" v "\\]" { in_section=1; next }
-              in_section && /^
-              in_section { print }
-            ' CHANGELOG.md > release-body.md
-          else
-            : > release-body.md
-          fi
+          python3 scripts/extract-changelog-section.py "$VERSION" CHANGELOG.md > release-body.md || : > release-body.md
           if [ ! -s release-body.md ] || [ "$(wc -c < release-body.md)" -lt 80 ]; then
             echo "CHANGELOG.md section for $VERSION missing or too short; falling back to git-cliff."
             git-cliff --config cliff.toml --tag "$TAG" --strip header --latest -o release-body.md
