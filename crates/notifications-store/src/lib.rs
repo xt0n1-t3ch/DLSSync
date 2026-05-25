@@ -1,0 +1,649 @@
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
+
+pub const MAX_NOTIFICATIONS: usize = 200;
+pub const DEFAULT_LIST_LIMIT: u32 = 100;
+pub const NOTIFICATION_PUSHED_EVENT: &str = "notification:pushed";
+
+#[derive(Debug, thiserror::Error)]
+pub enum NotificationsError {
+    #[error("io: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("sqlite: {0}")]
+    Sqlite(#[from] rusqlite::Error),
+    #[error("not found: {0}")]
+    NotFound(String),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NotificationKind {
+    ApplySuccess,
+    ApplyFailure,
+    ApplyCancelled,
+    AppUpdateAvailable,
+    CatalogUpdateAvailable,
+    ScanFailed,
+    CatalogRefreshFailed,
+}
+
+impl NotificationKind {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::ApplySuccess => "apply_success",
+            Self::ApplyFailure => "apply_failure",
+            Self::ApplyCancelled => "apply_cancelled",
+            Self::AppUpdateAvailable => "app_update_available",
+            Self::CatalogUpdateAvailable => "catalog_update_available",
+            Self::ScanFailed => "scan_failed",
+            Self::CatalogRefreshFailed => "catalog_refresh_failed",
+        }
+    }
+
+    fn parse(value: &str) -> Result<Self, rusqlite::Error> {
+        match value {
+            "apply_success" => Ok(Self::ApplySuccess),
+            "apply_failure" => Ok(Self::ApplyFailure),
+            "apply_cancelled" => Ok(Self::ApplyCancelled),
+            "app_update_available" => Ok(Self::AppUpdateAvailable),
+            "catalog_update_available" => Ok(Self::CatalogUpdateAvailable),
+            "scan_failed" => Ok(Self::ScanFailed),
+            "catalog_refresh_failed" => Ok(Self::CatalogRefreshFailed),
+            _ => Err(rusqlite::Error::InvalidQuery),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NotificationEntry {
+    pub id: String,
+    pub kind: NotificationKind,
+    pub title: String,
+    pub body: Option<String>,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub read_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub dismissed_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub apply_id: Option<String>,
+    pub game_id: Option<String>,
+    pub error_class: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ListFilter {
+    pub include_dismissed: Option<bool>,
+    pub limit: Option<u32>,
+}
+
+pub struct NotificationsStore {
+    db_path: PathBuf,
+}
+
+impl NotificationsStore {
+    pub fn open(db_path: PathBuf) -> Result<Self, NotificationsError> {
+        if let Some(parent) = db_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let store = Self { db_path };
+        store.ensure_schema()?;
+        Ok(store)
+    }
+
+    fn conn(&self) -> Result<rusqlite::Connection, NotificationsError> {
+        Ok(rusqlite::Connection::open(&self.db_path)?)
+    }
+
+    fn ensure_schema(&self) -> Result<(), NotificationsError> {
+        let conn = self.conn()?;
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS notifications (
+                id            TEXT PRIMARY KEY,
+                kind          TEXT NOT NULL,
+                title         TEXT NOT NULL,
+                body          TEXT,
+                created_at    TEXT NOT NULL,
+                read_at       TEXT,
+                dismissed_at  TEXT,
+                apply_id      TEXT,
+                game_id       TEXT,
+                error_class   TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_notif_created ON notifications(created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_notif_unread  ON notifications(read_at) WHERE read_at IS NULL;",
+        )?;
+        Ok(())
+    }
+
+    pub fn insert(&self, entry: &NotificationEntry) -> Result<usize, NotificationsError> {
+        let conn = self.conn()?;
+        conn.execute(
+            "INSERT INTO notifications
+                (id, kind, title, body, created_at, read_at, dismissed_at,
+                 apply_id, game_id, error_class)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            rusqlite::params![
+                entry.id,
+                entry.kind.as_str(),
+                entry.title,
+                entry.body,
+                entry.created_at.to_rfc3339(),
+                entry.read_at.map(|d| d.to_rfc3339()),
+                entry.dismissed_at.map(|d| d.to_rfc3339()),
+                entry.apply_id,
+                entry.game_id,
+                entry.error_class,
+            ],
+        )?;
+        self.evict_to_cap_with(&conn)
+    }
+
+    fn evict_to_cap_with(&self, conn: &rusqlite::Connection) -> Result<usize, NotificationsError> {
+        let count: i64 = conn.query_row("SELECT COUNT(*) FROM notifications", [], |r| r.get(0))?;
+        if (count as usize) <= MAX_NOTIFICATIONS {
+            return Ok(0);
+        }
+        let to_remove = count as usize - MAX_NOTIFICATIONS;
+        let removed = conn.execute(
+            "DELETE FROM notifications WHERE id IN (
+                 SELECT id FROM notifications ORDER BY created_at ASC LIMIT ?1
+             )",
+            rusqlite::params![to_remove as i64],
+        )?;
+        if removed > 0 {
+            tracing::warn!(
+                removed,
+                cap = MAX_NOTIFICATIONS,
+                "notifications-store evicted oldest entries"
+            );
+        }
+        Ok(removed)
+    }
+
+    pub fn list(&self, filter: &ListFilter) -> Result<Vec<NotificationEntry>, NotificationsError> {
+        let conn = self.conn()?;
+        let include_dismissed = filter.include_dismissed.unwrap_or(false);
+        let limit = filter.limit.unwrap_or(DEFAULT_LIST_LIMIT) as i64;
+        let sql = if include_dismissed {
+            "SELECT id, kind, title, body, created_at, read_at, dismissed_at,
+                    apply_id, game_id, error_class
+             FROM notifications
+             ORDER BY created_at DESC
+             LIMIT ?1"
+        } else {
+            "SELECT id, kind, title, body, created_at, read_at, dismissed_at,
+                    apply_id, game_id, error_class
+             FROM notifications
+             WHERE dismissed_at IS NULL
+             ORDER BY created_at DESC
+             LIMIT ?1"
+        };
+        let mut stmt = conn.prepare(sql)?;
+        let rows = stmt.query_map(rusqlite::params![limit], |row| Ok(row_to_entry(row)))?;
+        let mut out = Vec::new();
+        for r in rows {
+            let inner = match r {
+                Ok(v) => v,
+                Err(e) => {
+                    tracing::warn!(error = %e, "notifications-store row read error");
+                    continue;
+                }
+            };
+            match inner {
+                Ok(entry) => out.push(entry),
+                Err(e) => {
+                    tracing::warn!(
+                        error = %e,
+                        "notifications-store skipping unparseable row"
+                    );
+                }
+            }
+        }
+        Ok(out)
+    }
+
+    pub fn mark_read(&self, id: &str) -> Result<(), NotificationsError> {
+        let conn = self.conn()?;
+        let now = chrono::Utc::now().to_rfc3339();
+        let affected = conn.execute(
+            "UPDATE notifications SET read_at = COALESCE(read_at, ?1) WHERE id = ?2",
+            rusqlite::params![now, id],
+        )?;
+        if affected == 0 {
+            return Err(NotificationsError::NotFound(id.to_string()));
+        }
+        Ok(())
+    }
+
+    pub fn mark_all_read(&self) -> Result<u32, NotificationsError> {
+        let conn = self.conn()?;
+        let now = chrono::Utc::now().to_rfc3339();
+        let affected = conn.execute(
+            "UPDATE notifications SET read_at = ?1 WHERE read_at IS NULL",
+            rusqlite::params![now],
+        )?;
+        Ok(affected as u32)
+    }
+
+    pub fn dismiss(&self, id: &str) -> Result<(), NotificationsError> {
+        let conn = self.conn()?;
+        let now = chrono::Utc::now().to_rfc3339();
+        let affected = conn.execute(
+            "UPDATE notifications SET dismissed_at = COALESCE(dismissed_at, ?1) WHERE id = ?2",
+            rusqlite::params![now, id],
+        )?;
+        if affected == 0 {
+            return Err(NotificationsError::NotFound(id.to_string()));
+        }
+        Ok(())
+    }
+
+    pub fn unread_count(&self) -> Result<u32, NotificationsError> {
+        let conn = self.conn()?;
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM notifications
+             WHERE read_at IS NULL AND dismissed_at IS NULL",
+            [],
+            |r| r.get(0),
+        )?;
+        Ok(count as u32)
+    }
+
+    pub fn total_count(&self) -> Result<u32, NotificationsError> {
+        let conn = self.conn()?;
+        let count: i64 = conn.query_row("SELECT COUNT(*) FROM notifications", [], |r| r.get(0))?;
+        Ok(count as u32)
+    }
+}
+
+fn row_to_entry(row: &rusqlite::Row<'_>) -> Result<NotificationEntry, rusqlite::Error> {
+    let kind_str: String = row.get(1)?;
+    let created: String = row.get(4)?;
+    let read: Option<String> = row.get(5)?;
+    let dismissed: Option<String> = row.get(6)?;
+    Ok(NotificationEntry {
+        id: row.get(0)?,
+        kind: NotificationKind::parse(&kind_str)?,
+        title: row.get(2)?,
+        body: row.get(3)?,
+        created_at: parse_iso(&created)?,
+        read_at: read.as_deref().map(parse_iso).transpose()?,
+        dismissed_at: dismissed.as_deref().map(parse_iso).transpose()?,
+        apply_id: row.get(7)?,
+        game_id: row.get(8)?,
+        error_class: row.get(9)?,
+    })
+}
+
+fn parse_iso(value: &str) -> Result<chrono::DateTime<chrono::Utc>, rusqlite::Error> {
+    chrono::DateTime::parse_from_rfc3339(value)
+        .map(|d| d.with_timezone(&chrono::Utc))
+        .map_err(|_| rusqlite::Error::InvalidQuery)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+    use std::thread;
+    use tempfile::tempdir;
+
+    fn fresh_store(dir: &tempfile::TempDir) -> NotificationsStore {
+        NotificationsStore::open(dir.path().join("Cache").join("notifications.db")).unwrap()
+    }
+
+    fn make_entry(kind: NotificationKind, title: &str) -> NotificationEntry {
+        NotificationEntry {
+            id: uuid::Uuid::new_v4().to_string(),
+            kind,
+            title: title.into(),
+            body: Some(format!("body for {title}")),
+            created_at: chrono::Utc::now(),
+            read_at: None,
+            dismissed_at: None,
+            apply_id: Some(format!("apply-{title}")),
+            game_id: Some(format!("steam-{title}")),
+            error_class: None,
+        }
+    }
+
+    fn insert_with_offset(store: &NotificationsStore, title: &str, secs_ago: i64) {
+        let mut entry = make_entry(NotificationKind::ApplySuccess, title);
+        entry.created_at = chrono::Utc::now() - chrono::Duration::seconds(secs_ago);
+        store.insert(&entry).unwrap();
+    }
+
+    #[test]
+    fn open_creates_db_and_schema_idempotent() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("Cache").join("notifications.db");
+        let _first = NotificationsStore::open(path.clone()).unwrap();
+        let second = NotificationsStore::open(path.clone()).unwrap();
+        assert_eq!(second.total_count().unwrap(), 0);
+        assert!(path.exists());
+    }
+
+    #[test]
+    fn insert_and_list_roundtrips_all_kinds() {
+        let dir = tempdir().unwrap();
+        let store = fresh_store(&dir);
+        let kinds = [
+            NotificationKind::ApplySuccess,
+            NotificationKind::ApplyFailure,
+            NotificationKind::ApplyCancelled,
+        ];
+        for (i, k) in kinds.iter().enumerate() {
+            let mut e = make_entry(*k, &format!("entry-{i}"));
+            e.created_at = chrono::Utc::now() - chrono::Duration::seconds((kinds.len() - i) as i64);
+            store.insert(&e).unwrap();
+        }
+        let listed = store.list(&ListFilter::default()).unwrap();
+        assert_eq!(listed.len(), 3);
+        let mut returned: Vec<NotificationKind> = listed.iter().map(|e| e.kind).collect();
+        returned.sort_by_key(|k| k.as_str());
+        let mut expected = kinds.to_vec();
+        expected.sort_by_key(|k| k.as_str());
+        assert_eq!(returned, expected);
+    }
+
+    #[test]
+    fn kind_as_str_parse_symmetry_for_every_variant() {
+        let all = [
+            NotificationKind::ApplySuccess,
+            NotificationKind::ApplyFailure,
+            NotificationKind::ApplyCancelled,
+            NotificationKind::AppUpdateAvailable,
+            NotificationKind::CatalogUpdateAvailable,
+            NotificationKind::ScanFailed,
+            NotificationKind::CatalogRefreshFailed,
+        ];
+        for k in all {
+            let s = k.as_str();
+            let parsed = NotificationKind::parse(s).unwrap();
+            assert_eq!(parsed, k, "round-trip mismatch for {s}");
+        }
+    }
+
+    #[test]
+    fn insert_and_list_roundtrips_signal_kinds() {
+        let dir = tempdir().unwrap();
+        let store = fresh_store(&dir);
+        let signals = [
+            NotificationKind::AppUpdateAvailable,
+            NotificationKind::CatalogUpdateAvailable,
+            NotificationKind::ScanFailed,
+            NotificationKind::CatalogRefreshFailed,
+        ];
+        for (i, k) in signals.iter().enumerate() {
+            let mut e = make_entry(*k, &format!("signal-{i}"));
+            e.created_at =
+                chrono::Utc::now() - chrono::Duration::seconds((signals.len() - i) as i64);
+            store.insert(&e).unwrap();
+        }
+        let listed = store.list(&ListFilter::default()).unwrap();
+        assert_eq!(listed.len(), 4);
+        let mut returned: Vec<NotificationKind> = listed.iter().map(|e| e.kind).collect();
+        returned.sort_by_key(|k| k.as_str());
+        let mut expected = signals.to_vec();
+        expected.sort_by_key(|k| k.as_str());
+        assert_eq!(returned, expected);
+    }
+
+    #[test]
+    fn list_excludes_dismissed_by_default() {
+        let dir = tempdir().unwrap();
+        let store = fresh_store(&dir);
+        let kept = make_entry(NotificationKind::ApplySuccess, "kept");
+        let dismissed = make_entry(NotificationKind::ApplyFailure, "dismissed");
+        store.insert(&kept).unwrap();
+        store.insert(&dismissed).unwrap();
+        store.dismiss(&dismissed.id).unwrap();
+        let listed = store.list(&ListFilter::default()).unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].id, kept.id);
+    }
+
+    #[test]
+    fn list_includes_dismissed_when_filter_set() {
+        let dir = tempdir().unwrap();
+        let store = fresh_store(&dir);
+        let kept = make_entry(NotificationKind::ApplySuccess, "kept");
+        let dismissed = make_entry(NotificationKind::ApplyFailure, "dismissed");
+        store.insert(&kept).unwrap();
+        store.insert(&dismissed).unwrap();
+        store.dismiss(&dismissed.id).unwrap();
+        let listed = store
+            .list(&ListFilter {
+                include_dismissed: Some(true),
+                limit: None,
+            })
+            .unwrap();
+        assert_eq!(listed.len(), 2);
+    }
+
+    #[test]
+    fn list_respects_limit() {
+        let dir = tempdir().unwrap();
+        let store = fresh_store(&dir);
+        for i in 0..5 {
+            insert_with_offset(&store, &format!("e-{i}"), (10 - i) as i64);
+        }
+        let listed = store
+            .list(&ListFilter {
+                include_dismissed: None,
+                limit: Some(2),
+            })
+            .unwrap();
+        assert_eq!(listed.len(), 2);
+    }
+
+    #[test]
+    fn list_with_limit_zero_returns_empty() {
+        let dir = tempdir().unwrap();
+        let store = fresh_store(&dir);
+        insert_with_offset(&store, "only", 1);
+        let listed = store
+            .list(&ListFilter {
+                include_dismissed: None,
+                limit: Some(0),
+            })
+            .unwrap();
+        assert!(listed.is_empty());
+    }
+
+    #[test]
+    fn mark_read_sets_read_at_and_is_idempotent() {
+        let dir = tempdir().unwrap();
+        let store = fresh_store(&dir);
+        let entry = make_entry(NotificationKind::ApplySuccess, "to-read");
+        store.insert(&entry).unwrap();
+        store.mark_read(&entry.id).unwrap();
+        let first = store.list(&ListFilter::default()).unwrap();
+        let first_read_at = first[0].read_at.unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        store.mark_read(&entry.id).unwrap();
+        let second = store.list(&ListFilter::default()).unwrap();
+        assert_eq!(second[0].read_at.unwrap(), first_read_at);
+    }
+
+    #[test]
+    fn mark_read_unknown_id_returns_not_found() {
+        let dir = tempdir().unwrap();
+        let store = fresh_store(&dir);
+        let res = store.mark_read("ghost");
+        assert!(matches!(res, Err(NotificationsError::NotFound(_))));
+    }
+
+    #[test]
+    fn mark_all_read_returns_count_and_clears_unread() {
+        let dir = tempdir().unwrap();
+        let store = fresh_store(&dir);
+        for i in 0..4 {
+            insert_with_offset(&store, &format!("u-{i}"), (10 - i) as i64);
+        }
+        assert_eq!(store.unread_count().unwrap(), 4);
+        let marked = store.mark_all_read().unwrap();
+        assert_eq!(marked, 4);
+        assert_eq!(store.unread_count().unwrap(), 0);
+        let marked_again = store.mark_all_read().unwrap();
+        assert_eq!(marked_again, 0);
+    }
+
+    #[test]
+    fn mark_all_read_on_empty_db_returns_zero() {
+        let dir = tempdir().unwrap();
+        let store = fresh_store(&dir);
+        assert_eq!(store.mark_all_read().unwrap(), 0);
+    }
+
+    #[test]
+    fn dismiss_excludes_from_default_list_but_keeps_row() {
+        let dir = tempdir().unwrap();
+        let store = fresh_store(&dir);
+        let entry = make_entry(NotificationKind::ApplyFailure, "to-dismiss");
+        store.insert(&entry).unwrap();
+        store.dismiss(&entry.id).unwrap();
+        assert!(store.list(&ListFilter::default()).unwrap().is_empty());
+        assert_eq!(store.total_count().unwrap(), 1);
+    }
+
+    #[test]
+    fn dismiss_unknown_id_returns_not_found() {
+        let dir = tempdir().unwrap();
+        let store = fresh_store(&dir);
+        let res = store.dismiss("ghost");
+        assert!(matches!(res, Err(NotificationsError::NotFound(_))));
+    }
+
+    #[test]
+    fn unread_count_excludes_read_and_dismissed() {
+        let dir = tempdir().unwrap();
+        let store = fresh_store(&dir);
+        let a = make_entry(NotificationKind::ApplySuccess, "a");
+        let b = make_entry(NotificationKind::ApplyFailure, "b");
+        let c = make_entry(NotificationKind::ApplyCancelled, "c");
+        store.insert(&a).unwrap();
+        store.insert(&b).unwrap();
+        store.insert(&c).unwrap();
+        store.mark_read(&a.id).unwrap();
+        store.dismiss(&b.id).unwrap();
+        assert_eq!(store.unread_count().unwrap(), 1);
+    }
+
+    #[test]
+    fn fifo_eviction_caps_at_max_when_over_by_many() {
+        let dir = tempdir().unwrap();
+        let store = fresh_store(&dir);
+        let overflow = 50;
+        let total = MAX_NOTIFICATIONS + overflow;
+        for i in 0..total {
+            insert_with_offset(&store, &format!("e-{i}"), (total - i) as i64);
+        }
+        assert_eq!(store.total_count().unwrap() as usize, MAX_NOTIFICATIONS);
+        let listed = store
+            .list(&ListFilter {
+                include_dismissed: None,
+                limit: Some(MAX_NOTIFICATIONS as u32),
+            })
+            .unwrap();
+        assert_eq!(listed.len(), MAX_NOTIFICATIONS);
+        let newest_title = &listed[0].title;
+        assert_eq!(newest_title, &format!("e-{}", total - 1));
+    }
+
+    #[test]
+    fn list_skips_unparseable_kind_gracefully() {
+        let dir = tempdir().unwrap();
+        let store = fresh_store(&dir);
+        let good = make_entry(NotificationKind::ApplySuccess, "good");
+        store.insert(&good).unwrap();
+        let conn =
+            rusqlite::Connection::open(dir.path().join("Cache").join("notifications.db")).unwrap();
+        conn.execute(
+            "INSERT INTO notifications (id, kind, title, created_at)
+             VALUES ('broken-kind', 'unknown_future_kind', 't', ?1)",
+            rusqlite::params![chrono::Utc::now().to_rfc3339()],
+        )
+        .unwrap();
+        drop(conn);
+        let listed = store.list(&ListFilter::default()).unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].id, good.id);
+    }
+
+    #[test]
+    fn list_skips_unparseable_timestamp_gracefully() {
+        let dir = tempdir().unwrap();
+        let store = fresh_store(&dir);
+        let good = make_entry(NotificationKind::ApplySuccess, "good");
+        store.insert(&good).unwrap();
+        let conn =
+            rusqlite::Connection::open(dir.path().join("Cache").join("notifications.db")).unwrap();
+        conn.execute(
+            "INSERT INTO notifications (id, kind, title, created_at)
+             VALUES ('broken-ts', 'apply_success', 't', 'not-a-timestamp')",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+        let listed = store.list(&ListFilter::default()).unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].id, good.id);
+    }
+
+    #[test]
+    fn future_dated_entry_preserves_desc_ordering() {
+        let dir = tempdir().unwrap();
+        let store = fresh_store(&dir);
+        let mut present = make_entry(NotificationKind::ApplySuccess, "present");
+        present.created_at = chrono::Utc::now();
+        let mut future = make_entry(NotificationKind::ApplySuccess, "future");
+        future.created_at = chrono::Utc::now() + chrono::Duration::days(365);
+        store.insert(&present).unwrap();
+        store.insert(&future).unwrap();
+        let listed = store.list(&ListFilter::default()).unwrap();
+        assert_eq!(listed[0].id, future.id);
+        assert_eq!(listed[1].id, present.id);
+    }
+
+    #[test]
+    fn concurrent_inserts_serialize_without_corruption() {
+        let dir = tempdir().unwrap();
+        let store = Arc::new(fresh_store(&dir));
+        let workers = 4;
+        let per_worker = 5;
+        let mut handles = Vec::new();
+        for w in 0..workers {
+            let store = Arc::clone(&store);
+            handles.push(thread::spawn(move || {
+                for i in 0..per_worker {
+                    let mut entry =
+                        make_entry(NotificationKind::ApplySuccess, &format!("w{w}-i{i}"));
+                    entry.created_at =
+                        chrono::Utc::now() - chrono::Duration::milliseconds((w * 100 + i) as i64);
+                    let mut attempts = 0;
+                    loop {
+                        match store.insert(&entry) {
+                            Ok(_) => break,
+                            Err(NotificationsError::Sqlite(rusqlite::Error::SqliteFailure(
+                                err,
+                                _,
+                            ))) if err.code == rusqlite::ErrorCode::DatabaseBusy
+                                && attempts < 5 =>
+                            {
+                                attempts += 1;
+                                thread::sleep(std::time::Duration::from_millis(10));
+                            }
+                            Err(e) => panic!("insert failed: {e:?}"),
+                        }
+                    }
+                }
+            }));
+        }
+        for h in handles {
+            h.join().unwrap();
+        }
+        assert_eq!(
+            store.total_count().unwrap() as usize,
+            (workers * per_worker) as usize
+        );
+    }
+}

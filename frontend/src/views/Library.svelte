@@ -17,20 +17,31 @@
     gameStatuses,
     relationContext,
     activeApplies,
+    applyModalOpen,
     hiddenIds,
     rescanGame,
-    type ApplyTracker,
+    manifestUpdatedAt,
+    requestApplyAllOutdated,
     type StatusFilter,
   } from "../lib/stores";
   import { dllRelation, targetVersion } from "../lib/relation";
-  import { addBlacklistEntry, removeBlacklistEntry, applyUpdate, type DllRecord } from "../lib/api";
-  import type { DetectedGame } from "../lib/api";
-  import { STATUS_LABELS, familyCatalogKey, familyVendor, launcherLabel } from "../lib/labels";
+  import { addBlacklistEntry, removeBlacklistEntry, type DllRecord } from "../lib/api";
+  import type { DetectedGame, LibraryViewMode, LibraryDensity, LibrarySort } from "../lib/api";
+  import {
+    LIBRARY_VIEW_MODES,
+    LIBRARY_DENSITIES,
+    LIBRARY_SORT_LABELS,
+    LIBRARY_VIEW_MODE_DEFAULT,
+    LIBRARY_DENSITY_DEFAULT,
+    LIBRARY_SORT_DEFAULT,
+  } from "../lib/ux";
+  import { STATUS_LABELS, launcherLabel, familyGroup, GROUP_LABELS, type FamilyGroup } from "../lib/labels";
   import GameCard from "../components/GameCard.svelte";
+  import GameListRow from "../components/GameListRow.svelte";
   import GameDetailDrawer from "../components/GameDetailDrawer.svelte";
-  import ApplyProgressModal from "../components/ApplyProgressModal.svelte";
-
-  let showApplyModal = $state(false);
+  import { dispatchApply, type ApplyTarget } from "../lib/applyController";
+  import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+  import { TRAY_SHOW_PROGRESS_EVENT } from "../lib/api";
 
   function outdatedDllsAcrossLibrary(): { game: DetectedGame; record: DllRecord; target: string }[] {
     const out: { game: DetectedGame; record: DllRecord; target: string }[] = [];
@@ -52,7 +63,14 @@
     return out;
   }
 
-  let outdatedTotal = $derived(outdatedDllsAcrossLibrary().length);
+  let outdatedItems = $derived(outdatedDllsAcrossLibrary());
+  let outdatedTotal = $derived(outdatedItems.length);
+  let outdatedBreakdown = $derived.by(() => {
+    const counts: Record<FamilyGroup, number> = { dlss: 0, fsr: 0, xess: 0, advanced: 0 };
+    for (const it of outdatedItems) counts[familyGroup(it.record.family)]++;
+    const order: FamilyGroup[] = ["dlss", "fsr", "xess", "advanced"];
+    return order.filter((g) => counts[g] > 0).map((g) => ({ group: g, label: GROUP_LABELS[g], count: counts[g] }));
+  });
 
   async function updateAllOutdated(): Promise<void> {
     const items = outdatedDllsAcrossLibrary();
@@ -60,58 +78,13 @@
       showToast("info", "Everything is already up to date");
       return;
     }
-    const trackers: Record<string, ApplyTracker> = {};
-    for (const it of items) {
-      const apply_id = crypto.randomUUID();
-      trackers[apply_id] = {
-        apply_id,
-        game_id: it.game.id,
-        game_label: `${launcherLabel(it.game.launcher)} - ${it.game.name}`,
-        dll_path: it.record.path,
-        family: it.record.family,
-        target_version: it.target,
-        stage: "download",
-        failed_at_stage: null,
-        message: "Queued",
-        progress: null,
-        error: null,
-      };
-    }
-    activeApplies.set(trackers);
-    showApplyModal = true;
-    showToast("info", `Queued ${items.length} update${items.length === 1 ? "" : "s"} across ${new Set(items.map((i) => i.game.id)).size} game${items.length === 1 ? "" : "s"}`);
-    for (const apply_id of Object.keys(trackers)) {
-      const t = trackers[apply_id];
-      try {
-        await applyUpdate({
-          apply_id,
-          game_id: t.game_id,
-          game_label: t.game_label,
-          dll_path: t.dll_path,
-          vendor: familyVendor(t.family as DllRecord["family"]),
-          family: familyCatalogKey(t.family as DllRecord["family"]),
-          target_version: t.target_version,
-        });
-      } catch (err: unknown) {
-        const msg =
-          err && typeof err === "object" && "message" in err
-            ? String((err as { message: unknown }).message)
-            : String(err);
-        activeApplies.update((m) => {
-          const existing = m[apply_id] ?? t;
-          return {
-            ...m,
-            [apply_id]: {
-              ...existing,
-              stage: "failed",
-              failed_at_stage: existing.failed_at_stage ?? existing.stage,
-              error: msg,
-              message: msg,
-            },
-          };
-        });
-      }
-    }
+    const targets: ApplyTarget[] = items.map((it) => ({
+      game_id: it.game.id,
+      game_label: `${launcherLabel(it.game.launcher)} - ${it.game.name}`,
+      record: it.record,
+      target_version: it.target,
+    }));
+    await dispatchApply(targets, { showModal: () => applyModalOpen.set(true) });
     const uniqueGames = new Set(items.map((i) => i.game.id));
     for (const gid of uniqueGames) {
       try {
@@ -122,10 +95,19 @@
     }
   }
 
+  let unlistenTrayProgress: UnlistenFn | undefined;
   onMount(() => {
     if ($games.length === 0) {
       void scanGames();
     }
+    void listen<void>(TRAY_SHOW_PROGRESS_EVENT, () => {
+      if (Object.keys($activeApplies).length > 0) {
+        applyModalOpen.set(true);
+      }
+    }).then((un) => {
+      unlistenTrayProgress = un;
+    });
+    return () => unlistenTrayProgress?.();
   });
 
   const launcherFilters = [
@@ -203,6 +185,80 @@
   }
 
   let availableLaunchers = $derived(new Set($games.map((g) => g.launcher)));
+
+  let viewMode: LibraryViewMode = $derived(($settings?.ui_prefs.library_view_mode ?? LIBRARY_VIEW_MODE_DEFAULT) as LibraryViewMode);
+  let density: LibraryDensity = $derived(($settings?.ui_prefs.library_density ?? LIBRARY_DENSITY_DEFAULT) as LibraryDensity);
+  let sortKey: LibrarySort = $derived(($settings?.ui_prefs.library_sort ?? LIBRARY_SORT_DEFAULT) as LibrarySort);
+
+  async function setViewMode(mode: LibraryViewMode): Promise<void> {
+    if (!$settings || !LIBRARY_VIEW_MODES.includes(mode)) return;
+    await persistSettings({ ...$settings, ui_prefs: { ...$settings.ui_prefs, library_view_mode: mode } });
+  }
+  async function setDensity(d: LibraryDensity): Promise<void> {
+    if (!$settings || !LIBRARY_DENSITIES.includes(d)) return;
+    await persistSettings({ ...$settings, ui_prefs: { ...$settings.ui_prefs, library_density: d } });
+  }
+  async function setSort(s: LibrarySort): Promise<void> {
+    if (!$settings) return;
+    await persistSettings({ ...$settings, ui_prefs: { ...$settings.ui_prefs, library_sort: s } });
+  }
+
+  const STATUS_SORT_RANK: Record<string, number> = {
+    outdated: 0,
+    scan_failed: 1,
+    up_to_date: 2,
+    no_dlls: 3,
+    unknown: 4,
+    scanning: 5,
+  };
+
+  function byOutdatedThenName(a: DetectedGame, b: DetectedGame): number {
+    const ra = STATUS_SORT_RANK[$gameStatuses[a.id]] ?? 9;
+    const rb = STATUS_SORT_RANK[$gameStatuses[b.id]] ?? 9;
+    return ra - rb || a.name.localeCompare(b.name);
+  }
+
+  let sortedActionable = $derived.by(() => {
+    const list = [...$libraryZones.actionable];
+    switch (sortKey) {
+      case "a_z":
+        return list.sort((a, b) => a.name.localeCompare(b.name));
+      case "z_a":
+        return list.sort((a, b) => b.name.localeCompare(a.name));
+      case "launcher":
+        return list.sort((a, b) => a.launcher.localeCompare(b.launcher) || a.name.localeCompare(b.name));
+      case "outdated_first":
+      case "default":
+      default:
+        return list.sort(byOutdatedThenName);
+    }
+  });
+
+  let outdatedGameCount = $derived.by(() => {
+    const set = new Set<string>();
+    for (const g of $games) {
+      if (!$hiddenIds.has(g.id) && $gameStatuses[g.id] === "outdated") set.add(g.id);
+    }
+    return set.size;
+  });
+
+  let noDllsRevealed = $state(false);
+  function toggleNoDllsZone(): void { noDllsRevealed = !noDllsRevealed; }
+
+  function reviewChanges(): void {
+    launcherFilter.set("all");
+    statusFilter.set("outdated");
+    searchQuery.set("");
+  }
+
+  let lastApplyAllSignal = $state(0);
+  $effect(() => {
+    const n = $requestApplyAllOutdated;
+    if (n !== lastApplyAllSignal) {
+      lastApplyAllSignal = n;
+      if (n > 0) void updateAllOutdated();
+    }
+  });
 </script>
 
 <header class="view-header">
@@ -224,52 +280,125 @@
         Rescan
       {/if}
     </button>
-    {#if outdatedTotal > 0}
-      <button class="btn btn-primary" onclick={updateAllOutdated} title="Apply all detected updates across every game">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-        Update all ({outdatedTotal})
-      </button>
-    {/if}
   </div>
 </header>
 
-<div class="filters-row">
-  <div class="filter-group">
-    <span class="filter-group-label">Launcher</span>
-    <div class="pills">
-      {#each launcherFilters as f}
-        {@const total = f.id === "all" ? $games.length : $games.filter((g) => g.launcher === f.id).length}
-        {#if f.id === "all" || availableLaunchers.has(f.id) || total > 0}
-          <button
-            class="pill"
-            class:active={$launcherFilter === f.id}
-            onclick={() => launcherFilter.set(f.id)}
-          >
-            {f.label}
-            <span class="pill-count">{total}</span>
-          </button>
+{#if outdatedTotal > 0}
+  <div class="hero-shell">
+  <section class="hero-band aura-card aura-card-xl" aria-label="Update summary">
+    <div class="aura-badge hero-glyph" data-tint="blue" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="23 4 23 10 17 10"/>
+        <polyline points="1 20 1 14 7 14"/>
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+      </svg>
+    </div>
+    <div class="aura-stack aura-stack-tight hero-meta">
+      <span class="hero-eyebrow">UPDATES READY</span>
+      <div class="hero-line">
+        <span class="hero-count">{outdatedTotal}</span>
+        <span class="hero-headline">
+          update{outdatedTotal === 1 ? "" : "s"} across {outdatedGameCount} game{outdatedGameCount === 1 ? "" : "s"}
+        </span>
+      </div>
+      <div class="hero-breakdown">
+        {#each outdatedBreakdown as bucket (bucket.group)}
+          <span class="hero-chip" data-group={bucket.group}>
+            <span class="hero-chip-dot" aria-hidden="true"></span>
+            {bucket.label}
+            <span class="hero-chip-count">{bucket.count}</span>
+          </span>
+        {/each}
+        {#if $manifestUpdatedAt}
+          <span class="hero-foot-time" title="Catalog manifest refresh time">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span class="mono">{$manifestUpdatedAt}</span>
+          </span>
         {/if}
-      {/each}
+      </div>
+    </div>
+    <div class="hero-actions">
+      <button class="aura-pill aura-pill-ghost" onclick={reviewChanges} title="Filter the library to just the games with pending updates">Review updates</button>
+      <button class="aura-pill aura-pill-primary" onclick={updateAllOutdated} title="Apply every detected update across the library">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Update everything
+      </button>
+    </div>
+  </section>
+  </div>
+{/if}
+
+<div class="filters-bar">
+  <div class="filters-primary">
+    <div class="filter-group">
+      <span class="filter-group-label">Launcher</span>
+      <div class="pills">
+        {#each launcherFilters as f}
+          {@const total = f.id === "all" ? $games.length : $games.filter((g) => g.launcher === f.id).length}
+          {#if f.id === "all" || availableLaunchers.has(f.id) || total > 0}
+            <button
+              class="pill"
+              class:active={$launcherFilter === f.id}
+              onclick={() => launcherFilter.set(f.id)}
+            >
+              {f.label}
+              <span class="pill-count">{total}</span>
+            </button>
+          {/if}
+        {/each}
+      </div>
+    </div>
+    <span class="filter-divider" aria-hidden="true"></span>
+    <div class="filter-group">
+      <span class="filter-group-label">Status</span>
+      <div class="pills">
+        {#each statusFilters as f}
+          {#if f.id !== "hidden" || hiddenCount > 0}
+            <button
+              class="pill"
+              class:active={$statusFilter === f.id}
+              class:is-hidden={f.id === "hidden"}
+              onclick={() => statusFilter.set(f.id)}
+            >
+              {f.label}
+              {#if f.id === "hidden"}
+                <span class="pill-count">{hiddenCount}</span>
+              {/if}
+            </button>
+          {/if}
+        {/each}
+      </div>
     </div>
   </div>
-  <div class="filter-group">
-    <span class="filter-group-label">Status</span>
-    <div class="pills">
-      {#each statusFilters as f}
-        {#if f.id !== "hidden" || hiddenCount > 0}
-          <button
-            class="pill"
-            class:active={$statusFilter === f.id}
-            class:is-hidden={f.id === "hidden"}
-            onclick={() => statusFilter.set(f.id)}
-          >
-            {f.label}
-            {#if f.id === "hidden"}
-              <span class="pill-count">{hiddenCount}</span>
-            {/if}
-          </button>
-        {/if}
-      {/each}
+
+  <div class="filters-secondary">
+    <div class="filter-group">
+      <span class="filter-group-label">Sort</span>
+      <select class="sort-select" value={sortKey} onchange={(e) => void setSort((e.currentTarget as HTMLSelectElement).value as LibrarySort)} aria-label="Sort library">
+        {#each LIBRARY_SORT_LABELS as opt (opt.id)}
+          <option value={opt.id} title={opt.hint ?? opt.label}>{opt.label}</option>
+        {/each}
+      </select>
+    </div>
+    <div class="filter-group">
+      <span class="filter-group-label">View</span>
+      <div class="seg">
+        <button class="seg-btn" class:active={viewMode === "grid"} onclick={() => void setViewMode("grid")} aria-pressed={viewMode === "grid"} title="Grid view">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          Grid
+        </button>
+        <button class="seg-btn" class:active={viewMode === "list"} onclick={() => void setViewMode("list")} aria-pressed={viewMode === "list"} title="List view">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          List
+        </button>
+      </div>
+    </div>
+    <div class="filter-group">
+      <span class="filter-group-label">Density</span>
+      <div class="seg">
+        <button class="seg-btn" class:active={density === "compact"} onclick={() => void setDensity("compact")} aria-pressed={density === "compact"} title="Compact density">Compact</button>
+        <button class="seg-btn" class:active={density === "comfy"} onclick={() => void setDensity("comfy")} aria-pressed={density === "comfy"} title="Comfy density">Comfy</button>
+      </div>
     </div>
   </div>
 </div>
@@ -306,32 +435,10 @@
     <button class="btn btn-accent" onclick={() => { searchQuery.set(""); launcherFilter.set("all"); statusFilter.set("all"); }}>Reset filters</button>
   </div>
 {:else}
-  {#if $libraryZones.actionable.length > 0}
-    <div class="grid">
-      {#each $libraryZones.actionable as g, i (g.id)}
-        <div class="grid-cell" style:--stagger="{Math.min(i, 20) * 24}ms">
-          <GameCard
-            game={g}
-            hidden={$hiddenIds.has(g.id)}
-            {onApply}
-            {onOpenFolder}
-            onBlacklist={onHideToggle}
-            onClick={onCardClick}
-          />
-        </div>
-      {/each}
-    </div>
-  {/if}
-  {#if $libraryZones.noDlls.length > 0}
-    <details class="zone-no-dlls">
-      <summary class="zone-summary">
-        <svg class="zone-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-        <span class="zone-title">Games without supported technologies</span>
-        <span class="zone-count">{$libraryZones.noDlls.length}</span>
-        <span class="zone-hint">DLSS · FSR · XeSS not detected — click to expand</span>
-      </summary>
-      <div class="grid grid-dimmed">
-        {#each $libraryZones.noDlls as g, i (g.id)}
+  {#if sortedActionable.length > 0}
+    {#if viewMode === "grid"}
+      <div class="grid" data-density={density}>
+        {#each sortedActionable as g, i (g.id)}
           <div class="grid-cell" style:--stagger="{Math.min(i, 20) * 24}ms">
             <GameCard
               game={g}
@@ -344,7 +451,54 @@
           </div>
         {/each}
       </div>
-    </details>
+    {:else}
+      <div class="list">
+        {#each sortedActionable as g, i (g.id)}
+          <div class="list-cell" style:--stagger="{Math.min(i, 20) * 12}ms">
+            <GameListRow
+              game={g}
+              hidden={$hiddenIds.has(g.id)}
+              {onApply}
+              {onOpenFolder}
+              onBlacklist={onHideToggle}
+              onClick={onCardClick}
+            />
+          </div>
+        {/each}
+      </div>
+    {/if}
+  {/if}
+  {#if $libraryZones.noDlls.length > 0}
+    <div class="zone-no-dlls">
+      <button
+        class="zone-summary"
+        class:is-open={noDllsRevealed}
+        type="button"
+        onclick={toggleNoDllsZone}
+        aria-expanded={noDllsRevealed}
+      >
+        <svg class="zone-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        <span class="zone-title">Games without supported technologies</span>
+        <span class="zone-count">{$libraryZones.noDlls.length}</span>
+        <span class="zone-hint">DLSS · FSR · XeSS not detected — click to expand</span>
+      </button>
+      {#if noDllsRevealed}
+        <div class="grid grid-dimmed stagger" data-density={density}>
+          {#each $libraryZones.noDlls as g (g.id)}
+            <div>
+              <GameCard
+                game={g}
+                hidden={$hiddenIds.has(g.id)}
+                {onApply}
+                {onOpenFolder}
+                onBlacklist={onHideToggle}
+                onClick={onCardClick}
+              />
+            </div>
+          {/each}
+        </div>
+      {/if}
+    </div>
   {/if}
 {/if}
 
@@ -352,12 +506,8 @@
   <GameDetailDrawer
     gameId={$drawerGameId}
     onClose={() => drawerGameId.set(null)}
-    onApplyStart={() => (showApplyModal = true)}
+    onApplyStart={() => applyModalOpen.set(true)}
   />
-{/if}
-
-{#if showApplyModal}
-  <ApplyProgressModal onClose={() => (showApplyModal = false)} />
 {/if}
 
 <style>
@@ -371,15 +521,36 @@
   }
   .view-header > div:first-child { flex: 1 1 240px; min-width: 0; }
   .header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; flex-shrink: 0; }
-  .filters-row {
+  .filters-bar {
     display: flex;
-    flex-wrap: wrap;
-    gap: 18px;
+    flex-direction: column;
+    gap: 16px;
     margin-bottom: 22px;
     padding-bottom: 18px;
     border-bottom: 1px solid var(--border);
   }
-  .filter-group { display: flex; flex-direction: column; gap: 6px; }
+  .filters-primary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 14px 22px;
+  }
+  .filters-secondary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 14px 20px;
+  }
+  .filter-divider {
+    align-self: stretch;
+    width: 1px;
+    background: var(--border);
+    margin: 2px 0;
+  }
+  @media (max-width: 720px) {
+    .filter-divider { display: none; }
+  }
+  .filter-group { display: flex; flex-direction: column; gap: 7px; }
   .filter-group-label {
     font-size: 10px;
     font-weight: 600;
@@ -392,12 +563,13 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 5px 12px;
+    height: 32px;
+    padding: 0 13px;
     border-radius: var(--radius-full);
     background: var(--bg-card);
     border: 1px solid var(--border);
     color: var(--text-secondary);
-    font-size: 12px;
+    font-size: 12.5px;
     font-weight: 500;
     transition: background 0.15s var(--ease), border-color 0.15s var(--ease), color 0.15s var(--ease);
   }
@@ -416,23 +588,176 @@
   .pill.active .pill-count { background: var(--accent-glow); color: var(--accent); }
   .pill.is-hidden.active .pill-count { background: rgba(239, 68, 68, 0.18); color: var(--danger); }
 
+  .hero-shell { container-type: inline-size; }
+  .hero-band {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "glyph meta actions";
+    align-items: center;
+    gap: 22px;
+    margin-bottom: 22px;
+    background:
+      radial-gradient(60% 120% at 0% 0%, var(--accent-soft) 0%, transparent 65%),
+      var(--bg-card);
+  }
+  .hero-glyph { grid-area: glyph; }
+  .hero-meta { grid-area: meta; }
+  .hero-actions { grid-area: actions; }
+  @container (max-width: 720px) {
+    .hero-band {
+      grid-template-columns: auto minmax(0, 1fr);
+      grid-template-areas: "glyph meta" "actions actions";
+      align-items: start;
+      row-gap: 18px;
+    }
+    .hero-actions { width: 100%; }
+    .hero-actions .aura-pill { flex: 1 1 0; justify-content: center; }
+  }
+  .hero-glyph { width: 48px; height: 48px; border-radius: 14px; }
+  .hero-glyph :global(svg) { width: 24px; height: 24px; }
+  .hero-meta { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .hero-eyebrow {
+    font-size: var(--fs-2xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: var(--letter-wider);
+    color: var(--accent);
+  }
+  .hero-line { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .hero-count {
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.025em;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .hero-headline {
+    font-size: var(--fs-md);
+    font-weight: 500;
+    color: var(--text-muted);
+    letter-spacing: var(--letter-tight);
+    line-height: 1.2;
+  }
+  .hero-breakdown {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .hero-breakdown { gap: 8px; align-items: center; }
+  .hero-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 11px;
+    border-radius: var(--radius-full);
+    background: var(--bg-elevated);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--text-secondary);
+    letter-spacing: 0;
+  }
+  .hero-chip[data-group="dlss"]     { background: var(--badge-green-bg);  color: var(--badge-green-fg);  }
+  .hero-chip[data-group="fsr"]      { background: var(--badge-red-bg);    color: var(--badge-red-fg);    }
+  .hero-chip[data-group="xess"]     { background: var(--badge-blue-bg);   color: var(--badge-blue-fg);   }
+  .hero-chip[data-group="advanced"] { background: var(--badge-purple-bg); color: var(--badge-purple-fg); }
+  .hero-chip-dot { display: none; }
+  .hero-chip-count {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    opacity: 0.9;
+  }
+  .hero-foot-time {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--text-muted);
+    font-size: var(--fs-2xs);
+    margin-left: 4px;
+    padding-left: 12px;
+    border-left: 1px solid var(--border);
+  }
+  .hero-foot-time .mono { font-variant-numeric: tabular-nums; letter-spacing: 0; }
+
+  .hero-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; flex-shrink: 0; }
+
+  .sort-select {
+    height: 32px;
+    padding: 0 12px;
+    border-radius: var(--radius-md);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    font-size: var(--fs-sm);
+    font-family: inherit;
+    cursor: pointer;
+    min-width: 160px;
+  }
+  .sort-select:hover { border-color: var(--border-hover); }
+  .sort-select:focus-visible { outline: none; border-color: var(--accent); box-shadow: var(--shadow-ring); }
+  .seg {
+    display: inline-flex;
+    height: 32px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 2px;
+    gap: 2px;
+  }
+  .seg-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0 11px;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+  }
+  .seg-btn:hover { color: var(--text-primary); background: var(--bg-elevated); }
+  .seg-btn.active { background: var(--accent-dim); color: var(--accent); }
+  .seg-btn:focus-visible { outline: none; box-shadow: var(--shadow-ring); }
+
   .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(248px, 1fr));
     gap: 16px;
     padding-bottom: 32px;
   }
+  .grid[data-density="compact"] {
+    grid-template-columns: repeat(auto-fill, minmax(184px, 1fr));
+    gap: 10px;
+  }
+  .grid[data-density="compact"] :global(.body) { padding: 9px 11px 11px; gap: 6px; }
+  .grid[data-density="compact"] :global(.game-name) { font-size: 12.5px; }
+  .grid[data-density="compact"] :global(.feature-chip) { padding: 2px 6px 2px 5px; font-size: 10px; }
+  .grid[data-density="compact"] :global(.launcher-text) { display: none; }
+  .grid[data-density="compact"] :global(.launcher-chip) { padding: 4px; }
   @media (max-width: 720px) {
     .grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
   }
   .grid-cell {
     opacity: 0;
     transform: translateY(8px);
-    animation: cellIn 0.36s var(--ease-out) forwards;
+    animation: cellIn var(--dur-slow) var(--ease-out) forwards;
     animation-delay: var(--stagger, 0ms);
   }
   @keyframes cellIn {
     to { opacity: 1; transform: translateY(0); }
+  }
+
+  .list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-bottom: 32px;
+  }
+  .list-cell {
+    opacity: 0;
+    animation: cellIn var(--dur-normal) var(--ease-out) forwards;
+    animation-delay: var(--stagger, 0ms);
   }
 
   .card-skel { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
@@ -447,20 +772,22 @@
   }
   .zone-summary {
     display: flex;
+    width: 100%;
     align-items: center;
     gap: 10px;
     padding: 10px 12px;
     border-radius: var(--radius-md);
-    cursor: pointer;
     color: var(--text-secondary);
-    list-style: none;
-    user-select: none;
-    transition: background 0.12s var(--ease), color 0.12s var(--ease);
+    background: transparent;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
   }
-  .zone-summary::-webkit-details-marker { display: none; }
   .zone-summary:hover { background: var(--bg-card-hover); color: var(--text-primary); }
-  .zone-chevron { color: var(--text-muted); transition: transform 0.2s var(--ease); flex-shrink: 0; }
-  .zone-no-dlls[open] .zone-chevron { transform: rotate(90deg); color: var(--accent); }
+  .zone-summary:focus-visible { outline: none; box-shadow: var(--shadow-ring); }
+  .zone-chevron { color: var(--text-muted); transition: transform var(--dur-fast) var(--ease); flex-shrink: 0; }
+  .zone-summary.is-open .zone-chevron { transform: rotate(90deg); color: var(--accent); }
   .zone-title { font-size: var(--fs-sm); font-weight: 600; letter-spacing: var(--letter-tight); }
   .zone-count {
     font-size: 10px;

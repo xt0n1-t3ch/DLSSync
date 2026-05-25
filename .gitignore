@@ -30,6 +30,8 @@ agents.md
 GEMINI.md
 gemini.md
 .claude/
+.claude-quality/
+.codegraph/
 .cursor/
 .codex/
 .opencode/

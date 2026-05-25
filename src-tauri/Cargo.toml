@@ -35,8 +35,10 @@ thiserror.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
+tokio-util.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
+tracing-appender.workspace = true
 parking_lot.workspace = true
 once_cell.workspace = true
 chrono.workspace = true
@@ -51,6 +53,7 @@ launcher-scan = { path = "../crates/launcher-scan" }
 dll-scanner = { path = "../crates/dll-scanner" }
 dll-catalog = { path = "../crates/dll-catalog" }
 backup-store = { path = "../crates/backup-store" }
+notifications-store = { path = "../crates/notifications-store" }
 
 [target.'cfg(windows)'.dependencies]
 winreg = { workspace = true }

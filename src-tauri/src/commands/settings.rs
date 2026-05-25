@@ -64,6 +64,40 @@ pub struct UiPreferences {
     pub sort_order: String,
     pub launcher_filter: String,
     pub status_filter: String,
+    #[serde(default = "default_library_view_mode")]
+    pub library_view_mode: String,
+    #[serde(default = "default_library_density")]
+    pub library_density: String,
+    #[serde(default = "default_library_sort")]
+    pub library_sort: String,
+    #[serde(default = "default_backups_group_by")]
+    pub backups_group_by: String,
+    #[serde(default = "default_settings_active_tab")]
+    pub settings_active_tab: String,
+    #[serde(default)]
+    pub command_palette_recent: Vec<String>,
+}
+
+pub const DEFAULT_LIBRARY_VIEW_MODE: &str = "grid";
+pub const DEFAULT_LIBRARY_DENSITY: &str = "comfy";
+pub const DEFAULT_LIBRARY_SORT: &str = "outdated_first";
+pub const DEFAULT_BACKUPS_GROUP_BY: &str = "game";
+pub const DEFAULT_SETTINGS_ACTIVE_TAB: &str = "general";
+
+fn default_library_view_mode() -> String {
+    DEFAULT_LIBRARY_VIEW_MODE.into()
+}
+fn default_library_density() -> String {
+    DEFAULT_LIBRARY_DENSITY.into()
+}
+fn default_library_sort() -> String {
+    DEFAULT_LIBRARY_SORT.into()
+}
+fn default_backups_group_by() -> String {
+    DEFAULT_BACKUPS_GROUP_BY.into()
+}
+fn default_settings_active_tab() -> String {
+    DEFAULT_SETTINGS_ACTIVE_TAB.into()
 }
 
 impl Default for UiPreferences {
@@ -75,6 +109,12 @@ impl Default for UiPreferences {
             sort_order: "outdated_first".into(),
             launcher_filter: "all".into(),
             status_filter: "all".into(),
+            library_view_mode: DEFAULT_LIBRARY_VIEW_MODE.into(),
+            library_density: DEFAULT_LIBRARY_DENSITY.into(),
+            library_sort: DEFAULT_LIBRARY_SORT.into(),
+            backups_group_by: DEFAULT_BACKUPS_GROUP_BY.into(),
+            settings_active_tab: DEFAULT_SETTINGS_ACTIVE_TAB.into(),
+            command_palette_recent: Vec::new(),
         }
     }
 }
@@ -120,10 +160,20 @@ pub struct AdvancedConfig {
     pub allow_unsigned_dlls: bool,
     #[serde(default = "default_true")]
     pub prefer_stable_channel: bool,
+    #[serde(default = "default_apply_concurrency")]
+    pub apply_concurrency: u8,
 }
 
 fn default_true() -> bool {
     true
+}
+
+pub const DEFAULT_APPLY_CONCURRENCY: u8 = 2;
+pub const MIN_APPLY_CONCURRENCY: u8 = 1;
+pub const MAX_APPLY_CONCURRENCY: u8 = 4;
+
+fn default_apply_concurrency() -> u8 {
+    DEFAULT_APPLY_CONCURRENCY
 }
 
 impl Default for AdvancedConfig {
@@ -133,6 +183,48 @@ impl Default for AdvancedConfig {
             verbose_logs: false,
             allow_unsigned_dlls: false,
             prefer_stable_channel: true,
+            apply_concurrency: DEFAULT_APPLY_CONCURRENCY,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NetworkConfig {
+    #[serde(default = "default_retry_attempts")]
+    pub retry_attempts: u32,
+    #[serde(default = "default_download_cache_ttl_secs")]
+    pub download_cache_ttl_secs: u64,
+    #[serde(default = "default_connect_timeout_secs")]
+    pub connect_timeout_secs: u64,
+    #[serde(default = "default_chunk_timeout_secs")]
+    pub chunk_timeout_secs: u64,
+}
+
+pub const DEFAULT_NETWORK_RETRY_ATTEMPTS: u32 = 3;
+pub const DEFAULT_DOWNLOAD_CACHE_TTL_SECS: u64 = 300;
+pub const DEFAULT_NETWORK_CONNECT_TIMEOUT_SECS: u64 = 10;
+pub const DEFAULT_NETWORK_CHUNK_TIMEOUT_SECS: u64 = 60;
+
+fn default_retry_attempts() -> u32 {
+    DEFAULT_NETWORK_RETRY_ATTEMPTS
+}
+fn default_download_cache_ttl_secs() -> u64 {
+    DEFAULT_DOWNLOAD_CACHE_TTL_SECS
+}
+fn default_connect_timeout_secs() -> u64 {
+    DEFAULT_NETWORK_CONNECT_TIMEOUT_SECS
+}
+fn default_chunk_timeout_secs() -> u64 {
+    DEFAULT_NETWORK_CHUNK_TIMEOUT_SECS
+}
+
+impl Default for NetworkConfig {
+    fn default() -> Self {
+        Self {
+            retry_attempts: DEFAULT_NETWORK_RETRY_ATTEMPTS,
+            download_cache_ttl_secs: DEFAULT_DOWNLOAD_CACHE_TTL_SECS,
+            connect_timeout_secs: DEFAULT_NETWORK_CONNECT_TIMEOUT_SECS,
+            chunk_timeout_secs: DEFAULT_NETWORK_CHUNK_TIMEOUT_SECS,
         }
     }
 }
@@ -159,6 +251,16 @@ pub struct AppSettings {
     pub game_preferences: std::collections::HashMap<String, GamePreference>,
     #[serde(default)]
     pub advanced: AdvancedConfig,
+    #[serde(default)]
+    pub network: NetworkConfig,
+}
+
+impl AppSettings {
+    pub fn effective_apply_concurrency(&self) -> u8 {
+        self.advanced
+            .apply_concurrency
+            .clamp(MIN_APPLY_CONCURRENCY, MAX_APPLY_CONCURRENCY)
+    }
 }
 
 fn settings_path_from(paths: &AppPaths) -> AppResult<PathBuf> {
@@ -280,4 +382,63 @@ pub async fn save_window_state(
     guard.window_state = window_state;
     persist(&state, &guard)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod ui_prefs_tests {
+    use super::*;
+
+    #[test]
+    fn default_ui_prefs_has_v2_fields() {
+        let prefs = UiPreferences::default();
+        assert_eq!(prefs.library_view_mode, DEFAULT_LIBRARY_VIEW_MODE);
+        assert_eq!(prefs.library_density, DEFAULT_LIBRARY_DENSITY);
+        assert_eq!(prefs.library_sort, DEFAULT_LIBRARY_SORT);
+        assert_eq!(prefs.backups_group_by, DEFAULT_BACKUPS_GROUP_BY);
+        assert_eq!(prefs.settings_active_tab, DEFAULT_SETTINGS_ACTIVE_TAB);
+        assert!(prefs.command_palette_recent.is_empty());
+    }
+
+    #[test]
+    fn legacy_settings_file_deserializes_with_v2_defaults() {
+        let legacy = r#"{
+            "theme": "dark",
+            "sidebar_collapsed": false,
+            "grid_density": "comfortable",
+            "sort_order": "outdated_first",
+            "launcher_filter": "all",
+            "status_filter": "all"
+        }"#;
+        let prefs: UiPreferences = serde_json::from_str(legacy).expect("legacy parse");
+        assert_eq!(prefs.library_view_mode, DEFAULT_LIBRARY_VIEW_MODE);
+        assert_eq!(prefs.library_density, DEFAULT_LIBRARY_DENSITY);
+        assert_eq!(prefs.library_sort, DEFAULT_LIBRARY_SORT);
+        assert_eq!(prefs.backups_group_by, DEFAULT_BACKUPS_GROUP_BY);
+        assert_eq!(prefs.settings_active_tab, DEFAULT_SETTINGS_ACTIVE_TAB);
+        assert!(prefs.command_palette_recent.is_empty());
+    }
+
+    #[test]
+    fn v2_round_trip_preserves_fields() {
+        let prefs = UiPreferences {
+            library_view_mode: "list".into(),
+            library_density: "compact".into(),
+            library_sort: "a_z".into(),
+            backups_group_by: "date".into(),
+            settings_active_tab: "advanced".into(),
+            command_palette_recent: vec!["action.apply_all_outdated".into()],
+            ..Default::default()
+        };
+        let json = serde_json::to_string(&prefs).expect("serialize");
+        let back: UiPreferences = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(back.library_view_mode, "list");
+        assert_eq!(back.library_density, "compact");
+        assert_eq!(back.library_sort, "a_z");
+        assert_eq!(back.backups_group_by, "date");
+        assert_eq!(back.settings_active_tab, "advanced");
+        assert_eq!(
+            back.command_palette_recent,
+            vec!["action.apply_all_outdated"]
+        );
+    }
 }

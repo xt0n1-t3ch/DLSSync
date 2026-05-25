@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { fly } from "svelte/transition";
+  import { fly, fade } from "svelte/transition";
+  import { cubicOut, backIn } from "svelte/easing";
+  import { EXTERNAL_URLS } from "../lib/ux";
   import {
     games,
     gameDlls,
@@ -10,18 +12,16 @@
     settings,
     persistSettings,
     showToast,
-    activeApplies,
     rescanGame,
-    type ApplyTracker,
   } from "../lib/stores";
   import { dllRelation, targetVersion } from "../lib/relation";
-  import { applyUpdate, addBlacklistEntry, removeBlacklistEntry, type DllRecord } from "../lib/api";
+  import { addBlacklistEntry, removeBlacklistEntry, type DllRecord } from "../lib/api";
+  import { dispatchApply, type ApplyTarget } from "../lib/applyController";
   import {
     LAUNCHER_ACCENTS,
     familyLabel,
     familyShort,
     familyCatalogKey,
-    familyVendor,
     launcherLabel,
     recordFeature,
     featureTitle,
@@ -296,62 +296,21 @@
       return;
     }
     const game_label = `${launcherLabel(game.launcher)} - ${game.name}`;
-    const trackers: Record<string, ApplyTracker> = {};
-    for (const it of items) {
-      const apply_id = crypto.randomUUID();
-      trackers[apply_id] = {
-        apply_id,
-        game_id: game.id,
-        game_label,
-        dll_path: it.record.path,
-        family: it.record.family,
-        target_version: it.target,
-        stage: "download",
-        failed_at_stage: null,
-        message: "Queued",
-        progress: null,
-        error: null,
-      };
-    }
-    activeApplies.set(trackers);
-    onApplyStart();
-    for (const apply_id of Object.keys(trackers)) {
-      const t = trackers[apply_id];
-      try {
-        await applyUpdate({
-          apply_id,
-          game_id: t.game_id,
-          game_label: t.game_label,
-          dll_path: t.dll_path,
-          vendor: familyVendor(t.family as DllRecord["family"]),
-          family: familyCatalogKey(t.family as DllRecord["family"]),
-          target_version: t.target_version,
-        });
-      } catch (err: unknown) {
-        const msg =
-          err && typeof err === "object" && "message" in err
-            ? String((err as { message: unknown }).message)
-            : String(err);
-        activeApplies.update((m) => {
-          const existing = m[apply_id] ?? t;
-          return {
-            ...m,
-            [apply_id]: {
-              ...existing,
-              stage: "failed",
-              failed_at_stage: existing.failed_at_stage ?? existing.stage,
-              error: msg,
-              message: msg,
-            },
-          };
-        });
-      }
-    }
+    const targets: ApplyTarget[] = items.map((it) => ({
+      game_id: game!.id,
+      game_label,
+      record: it.record,
+      target_version: it.target,
+    }));
+    await dispatchApply(targets, { showModal: onApplyStart });
     try {
       await rescanGame(game.id);
       selected = {};
     } catch (err: unknown) {
-      showToast("warning", `Rescan after apply failed: ${String(err)} — close and re-open the game to refresh`);
+      showToast(
+        "warning",
+        `Rescan after apply failed: ${String(err)} — close and re-open the game to refresh`,
+      );
     }
   }
 
@@ -402,7 +361,8 @@
 <svelte:window onkeydown={(e) => { if (game && e.key === "Escape") onClose(); }} />
 
 {#if game}
-  <aside class="drawer" transition:fly={{ x: 480, duration: 220 }}>
+  <div class="drawer-scrim" role="presentation" onclick={onClose} transition:fade={{ duration: 180 }}></div>
+  <aside class="drawer" in:fly={{ x: 480, duration: 220, easing: cubicOut }} out:fly={{ x: 480, duration: 280, easing: backIn }}>
     <header class="drawer-head" style:--launcher-accent={accent}>
       <div class="drawer-art">
         {#if game.image_url && !imgErrored}
@@ -422,11 +382,47 @@
       </div>
     </header>
 
+    <div
+      class="status-ribbon"
+      class:is-update={!loading && !scanError && outdatedCount > 0}
+      class:is-success={!loading && !scanError && records.length > 0 && outdatedCount === 0}
+      class:is-danger={!!scanError}
+      class:is-muted={loading || (!scanError && records.length === 0)}
+      aria-live="polite"
+    >
+      {#if loading || rescanning}
+        <span class="ribbon-dot is-pulse"></span>
+        <span>Scanning DLLs…</span>
+      {:else if scanError}
+        <span class="ribbon-dot"></span>
+        <span>Scan failed: <span class="mono">{scanError}</span></span>
+      {:else if records.length === 0}
+        <span class="ribbon-dot"></span>
+        <span>No supported DLLs detected</span>
+      {:else if outdatedCount === 0}
+        <span class="ribbon-dot"></span>
+        <span>All up to date · {records.length} file{records.length === 1 ? "" : "s"}</span>
+      {:else}
+        <span class="ribbon-dot is-pulse"></span>
+        <span>{outdatedCount} update{outdatedCount === 1 ? "" : "s"} ready{aheadCount > 0 ? ` · ${aheadCount} ahead of catalog` : ""}</span>
+      {/if}
+    </div>
+
     <div class="drawer-body">
       {#if anticheatHint}
         <div class="warning-banner" role="alert">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
           <span><strong>{anticheatHint}</strong> detected in this install — patching DLLs may trigger a kick or ban. Verify with the developer before applying.</span>
+          <button
+            class="learn-more"
+            title="Open the README anti-cheat FAQ on GitHub"
+            onclick={async () => {
+              try {
+                const { open } = await import("@tauri-apps/plugin-shell");
+                await open(EXTERNAL_URLS.anticheatFaq);
+              } catch (err) { showToast("warning", `Open link failed: ${String(err)}`); }
+            }}
+          >Learn more</button>
         </div>
       {/if}
 
@@ -749,7 +745,12 @@
       {#if aheadCount > 0}
         <span class="chip chip-info ahead-chip">{aheadCount} ahead of catalog</span>
       {/if}
-      <button class="btn btn-primary" disabled={selectedCount === 0} onclick={applySelected}>
+      <button
+        class="btn btn-primary halo is-update"
+        class:is-active={selectedCount > 0}
+        disabled={selectedCount === 0}
+        onclick={applySelected}
+      >
         Apply selected ({selectedCount})
       </button>
     </footer>
@@ -757,6 +758,18 @@
 {/if}
 
 <style>
+  .drawer-scrim { display: none; }
+  @media (max-width: 1300px) {
+    .drawer-scrim {
+      display: block;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
+      z-index: 150;
+    }
+  }
   .drawer {
     position: fixed;
     right: 0;
@@ -858,6 +871,47 @@
     margin-bottom: 16px;
   }
   .warning-banner svg { flex-shrink: 0; margin-top: 1px; }
+  .learn-more {
+    margin-left: auto;
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.08);
+    color: currentColor;
+    font-size: 10.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: var(--letter-wider);
+    border: 1px solid currentColor;
+    flex-shrink: 0;
+    transition: background var(--dur-fast) var(--ease);
+  }
+  .learn-more:hover { background: rgba(255, 255, 255, 0.16); }
+  .learn-more:focus-visible { outline: none; box-shadow: var(--shadow-ring); }
+
+  .status-ribbon {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: var(--fs-sm);
+    color: var(--text-secondary);
+    background: var(--bg-elevated);
+    font-variant-numeric: tabular-nums;
+  }
+  .status-ribbon.is-update { color: var(--update); background: var(--update-dim); border-bottom-color: var(--update-glow); }
+  .status-ribbon.is-success { color: var(--success); background: var(--success-dim); border-bottom-color: var(--success-glow); }
+  .status-ribbon.is-danger { color: var(--danger); background: var(--danger-dim); border-bottom-color: var(--danger-glow); }
+  .status-ribbon.is-muted { color: var(--text-muted); }
+  .ribbon-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 6px currentColor;
+    flex-shrink: 0;
+  }
+  .ribbon-dot.is-pulse { animation: pulse 2s var(--ease) infinite; }
 
   .loading-state, .empty-state {
     display: flex;

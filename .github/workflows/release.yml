@@ -213,33 +213,6 @@ jobs:
           echo "portable=$portable" >> $GITHUB_OUTPUT
           echo "exe_name=$(basename "$exe")" >> $GITHUB_OUTPUT
 
-      - name: Generate latest.json
-        env:
-          VERSION: ${{ needs.build-windows.outputs.version }}
-          TAG: v${{ needs.build-windows.outputs.version }}
-          EXE_NAME: ${{ steps.locate.outputs.exe_name }}
-          SIG_FILE: ${{ steps.locate.outputs.sig }}
-        run: |
-          signature=""
-          if [ -n "$SIG_FILE" ] && [ -f "$SIG_FILE" ]; then
-            signature=$(cat "$SIG_FILE")
-          fi
-          pub_date=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          cat > release/latest.json <<EOF
-          {
-            "version": "$VERSION",
-            "notes": "See release notes on GitHub.",
-            "pub_date": "$pub_date",
-            "platforms": {
-              "windows-x86_64": {
-                "signature": "$signature",
-                "url": "https://github.com/xt0n1-t3ch/DLSSync/releases/download/$TAG/$EXE_NAME"
-              }
-            }
-          }
-          EOF
-          cat release/latest.json
-
       - name: Install git-cliff
         uses: orhun/git-cliff-action@v4
         with:
@@ -270,6 +243,36 @@ jobs:
             cat release-body.md
             echo 'RELEASE_BODY_EOF'
           } >> "$GITHUB_OUTPUT"
+
+      - name: Generate latest.json
+        env:
+          VERSION: ${{ needs.build-windows.outputs.version }}
+          TAG: v${{ needs.build-windows.outputs.version }}
+          EXE_NAME: ${{ steps.locate.outputs.exe_name }}
+          SIG_FILE: ${{ steps.locate.outputs.sig }}
+        run: |
+          set -euo pipefail
+          signature=""
+          if [ -n "$SIG_FILE" ] && [ -f "$SIG_FILE" ]; then
+            signature=$(cat "$SIG_FILE")
+          fi
+          pub_date=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          url="https://github.com/xt0n1-t3ch/DLSSync/releases/download/$TAG/$EXE_NAME"
+          jq -n \
+            --arg version "$VERSION" \
+            --rawfile notes release-body.md \
+            --arg pub_date "$pub_date" \
+            --arg signature "$signature" \
+            --arg url "$url" \
+            '{
+              version: $version,
+              notes: $notes,
+              pub_date: $pub_date,
+              platforms: { "windows-x86_64": { signature: $signature, url: $url } }
+            }' > release/latest.json
+          echo "::group::latest.json"
+          cat release/latest.json
+          echo "::endgroup::"
 
       - name: Delete existing release (idempotent)
         env:

@@ -16,7 +16,8 @@
     openPath,
     getAppPaths,
   } from "../lib/api";
-  import type { AppSettings, UpdatePreferences, LauncherOverrides, AdvancedConfig, SgdbConfig, AppPathsDto } from "../lib/api";
+  import type { AppSettings, UpdatePreferences, LauncherOverrides, AdvancedConfig, NetworkConfig, SgdbConfig, AppPathsDto } from "../lib/api";
+  import { LAUNCHER_BRANDS, LAUNCHER_BRAND_ORDER, type LauncherBrandKey } from "../lib/launcherLogos";
 
   let { onToggleTheme, currentTheme }: { onToggleTheme: () => void; currentTheme: string } = $props();
   let dlssOverlayLive = $state(false);
@@ -27,7 +28,23 @@
 
   type TabId = "general" | "updates" | "detection" | "art" | "advanced";
 
-  let activeTab = $state<TabId>("general");
+  const TAB_IDS: readonly TabId[] = ["general", "updates", "detection", "art", "advanced"];
+  function tabFromPref(value: string | undefined | null): TabId {
+    return (TAB_IDS as readonly string[]).includes(value ?? "") ? (value as TabId) : "general";
+  }
+
+  let activeTab = $state<TabId>(tabFromPref($settings?.ui_prefs.settings_active_tab));
+
+  $effect(() => {
+    const persisted = tabFromPref($settings?.ui_prefs.settings_active_tab);
+    if (persisted !== activeTab) activeTab = persisted;
+  });
+
+  async function setActiveTab(id: TabId): Promise<void> {
+    activeTab = id;
+    if (!$settings || $settings.ui_prefs.settings_active_tab === id) return;
+    await persistSettings({ ...$settings, ui_prefs: { ...$settings.ui_prefs, settings_active_tab: id } });
+  }
 
   const TABS: { id: TabId; label: string; icon: string }[] = [
     { id: "general", label: "General", icon: "settings" },
@@ -103,6 +120,14 @@
     });
   }
 
+  function updateNetwork<K extends keyof NetworkConfig>(key: K, value: NetworkConfig[K]): void {
+    if (!$settings) return;
+    void persistSettings({
+      ...$settings,
+      network: { ...$settings.network, [key]: value },
+    });
+  }
+
   let customFolderInput = $state("");
 
   function updatePref<K extends keyof UpdatePreferences>(key: K, value: UpdatePreferences[K]): void {
@@ -162,6 +187,13 @@
         custom: $settings.launcher_overrides.custom.filter((p) => p !== path),
       },
     });
+  }
+
+  const LAUNCHER_KEYS = LAUNCHER_BRAND_ORDER;
+  type LauncherKey = LauncherBrandKey;
+
+  function launcherLabel(key: LauncherKey): string {
+    return LAUNCHER_BRANDS[key].label;
   }
 
   function updateSteamApi<K extends keyof AppSettings["steam_api"]>(
@@ -324,7 +356,7 @@
   <div class="settings-layout">
     <nav class="side-nav" aria-label="Settings sections">
       {#each TABS as t}
-        <button class="side-tab" class:active={activeTab === t.id} onclick={() => (activeTab = t.id)}>
+        <button class="side-tab" class:active={activeTab === t.id} onclick={() => void setActiveTab(t.id)}>
           <span class="side-tab-icon" aria-hidden="true">
             {#if t.icon === "settings"}
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -446,37 +478,66 @@
       </section>
 
     {:else if activeTab === "detection"}
+      {#snippet launcherLogo(key: LauncherKey)}
+        <span class="launcher-logo" style:background={LAUNCHER_BRANDS[key].bg} aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="#ffffff" xmlns="http://www.w3.org/2000/svg">
+            <path d={LAUNCHER_BRANDS[key].path} />
+          </svg>
+        </span>
+      {/snippet}
+
       <section in:fly={{ y: 4, duration: 200 }}>
         <header class="section-head">
           <h2 class="section-title-h">Custom folders</h2>
           <p class="section-help">Add directories where you keep games outside of standard launchers (e.g. <span class="mono">C:\Games</span>). Each subfolder will appear as a Manual entry in the Library.</p>
         </header>
         <div class="card">
-          <div class="add-row">
-            <input
-              type="text"
-              placeholder="C:\Games"
-              bind:value={customFolderInput}
-              onkeydown={(e) => { if (e.key === "Enter") void addCustomFolder(); }}
-            />
-            <button class="btn" onclick={pickCustomFolder}>Browse…</button>
-            <button class="btn btn-primary" onclick={addCustomFolder} disabled={!customFolderInput.trim()}>Add</button>
+          <div class="folder-input-row">
+            <div class="folder-input-wrap">
+              <svg class="folder-input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              <input
+                type="text"
+                placeholder="C:\Games"
+                bind:value={customFolderInput}
+                onkeydown={(e) => { if (e.key === "Enter") void addCustomFolder(); }}
+              />
+            </div>
+            <button class="aura-pill aura-pill-ghost" onclick={pickCustomFolder}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              Browse
+            </button>
+            <button class="aura-pill aura-pill-primary" onclick={addCustomFolder} disabled={!customFolderInput.trim()}>
+              Add folder
+            </button>
           </div>
           {#if $settings.launcher_overrides.custom.length === 0}
-            <p class="row-sub empty-row">No custom folders configured.</p>
+            <div class="empty-state">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity="0.4"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              <span>No custom folders yet</span>
+            </div>
           {:else}
             <ul class="path-list">
               {#each $settings.launcher_overrides.custom as p (p)}
                 <li class="path-row">
+                  <span class="path-icon aura-badge" data-tint="blue">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                  </span>
                   <span class="path-text mono">{p}</span>
-                  <button class="btn btn-sm btn-ghost" onclick={() => openPath(p).catch((err) => showToast("danger", `Open failed: ${String(err)}`))} title="Open folder"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></button>
-                  <button class="btn btn-sm btn-danger" onclick={() => removeCustomFolder(p)}>Remove</button>
+                  <button class="path-action" title="Open folder" onclick={() => openPath(p).catch((err) => showToast("danger", `Open failed: ${String(err)}`))}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                  </button>
+                  <button class="path-action path-action-danger" title="Remove" onclick={() => removeCustomFolder(p)}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+                  </button>
                 </li>
               {/each}
             </ul>
           {/if}
           <div class="row-actions">
-            <button class="btn btn-accent" onclick={() => scanGames()}>Rescan now</button>
+            <button class="aura-pill aura-pill-ghost" onclick={() => scanGames()}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              Rescan now
+            </button>
           </div>
         </div>
 
@@ -484,31 +545,38 @@
           <h2 class="section-title-h">Launcher overrides</h2>
           <p class="section-help">Default paths come from the Windows registry. Add a manual fallback only if a launcher is installed outside its standard location.</p>
         </header>
-        <div class="card">
-          {#each ["steam","epic","gog","ubisoft","ea_desktop","xbox","battlenet"] as launcher, i}
+        <div class="card launcher-card">
+          {#each LAUNCHER_KEYS as launcher, i}
             {@const arr = ($settings.launcher_overrides as unknown as Record<string, string[]>)[launcher] ?? []}
-            <div class="row launcher-row" class:row-divider={i > 0}>
-              <div class="launcher-name-col">
-                <div class="row-label">{launcher === "ea_desktop" ? "EA Desktop" : launcher === "battlenet" ? "Battle.net" : launcher.charAt(0).toUpperCase() + launcher.slice(1)}</div>
-                <div class="row-sub">{arr.length === 0 ? "Default (auto)" : `${arr.length} override${arr.length > 1 ? "s" : ""}`}</div>
+            <div class="launcher-row" class:row-divider={i > 0}>
+              <div class="launcher-head">
+                {@render launcherLogo(launcher)}
+                <div class="launcher-head-text">
+                  <div class="row-label">{launcherLabel(launcher)}</div>
+                  <div class="row-sub">{arr.length === 0 ? "Default (auto)" : `${arr.length} override${arr.length > 1 ? "s" : ""}`}</div>
+                </div>
               </div>
               <div class="launcher-input-col">
-                {#each arr as p, idx (p + idx)}
-                  <div class="add-row">
+                {#each arr as p, idx (idx)}
+                  <div class="path-input-row">
                     <input
                       type="text"
                       value={p}
+                      placeholder="C:\Program Files\..."
                       onchange={(e) => {
                         const next = [...arr];
                         next[idx] = (e.target as HTMLInputElement).value;
                         updateOverride(launcher as keyof LauncherOverrides, next);
                       }}
                     />
-                    <button class="btn btn-sm btn-danger" onclick={() => updateOverride(launcher as keyof LauncherOverrides, arr.filter((_, j) => j !== idx))}>Remove</button>
+                    <button class="path-remove" title="Remove path" onclick={() => updateOverride(launcher as keyof LauncherOverrides, arr.filter((_, j) => j !== idx))}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/></svg>
+                    </button>
                   </div>
                 {/each}
-                <button class="btn btn-sm btn-accent self-start" onclick={() => updateOverride(launcher as keyof LauncherOverrides, [...arr, ""])}>
-                  + Add path
+                <button class="add-path-pill" onclick={() => updateOverride(launcher as keyof LauncherOverrides, [...arr, ""])}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Add path
                 </button>
               </div>
             </div>
@@ -654,6 +722,88 @@
               <span class="toggle-slider"></span>
             </label>
           </div>
+          <div class="row row-divider">
+            <div class="row-text">
+              <div class="row-label">Parallel applies</div>
+              <div class="row-sub">How many vendor-archive groups to install in parallel. Higher = faster on fat connections, lower = gentler on flaky links. 1–4, default 2.</div>
+            </div>
+            <input
+              type="number"
+              class="inline-num"
+              min="1"
+              max="4"
+              step="1"
+              value={$settings.advanced.apply_concurrency}
+              onchange={(e) => updateAdvanced("apply_concurrency", Math.max(1, Math.min(4, Number((e.target as HTMLInputElement).value) || 2)))}
+            />
+          </div>
+        </div>
+
+        <div class="settings-card" style="margin-top: 18px;">
+          <header class="card-head">
+            <h3>Network</h3>
+            <p class="card-sub">Download client tunables — defaults are sane; tweak only if your link is unusual.</p>
+          </header>
+          <div class="row">
+            <div class="row-text">
+              <div class="row-label">Retry attempts per download</div>
+              <div class="row-sub">How many times a flaky archive download retries before failing. Exponential backoff between attempts. 1–6, default 3.</div>
+            </div>
+            <input
+              type="number"
+              class="inline-num"
+              min="1"
+              max="6"
+              step="1"
+              value={$settings.network.retry_attempts}
+              onchange={(e) => updateNetwork("retry_attempts", Math.max(1, Math.min(6, Number((e.target as HTMLInputElement).value) || 3)))}
+            />
+          </div>
+          <div class="row row-divider">
+            <div class="row-text">
+              <div class="row-label">Per-chunk timeout (seconds)</div>
+              <div class="row-sub">Maximum gap allowed between byte chunks before aborting and retrying. 10–600, default 60.</div>
+            </div>
+            <input
+              type="number"
+              class="inline-num"
+              min="10"
+              max="600"
+              step="10"
+              value={$settings.network.chunk_timeout_secs}
+              onchange={(e) => updateNetwork("chunk_timeout_secs", Math.max(10, Math.min(600, Number((e.target as HTMLInputElement).value) || 60)))}
+            />
+          </div>
+          <div class="row row-divider">
+            <div class="row-text">
+              <div class="row-label">Connect timeout (seconds)</div>
+              <div class="row-sub">Maximum TCP connection establishment time. 3–60, default 10.</div>
+            </div>
+            <input
+              type="number"
+              class="inline-num"
+              min="3"
+              max="60"
+              step="1"
+              value={$settings.network.connect_timeout_secs}
+              onchange={(e) => updateNetwork("connect_timeout_secs", Math.max(3, Math.min(60, Number((e.target as HTMLInputElement).value) || 10)))}
+            />
+          </div>
+          <div class="row row-divider">
+            <div class="row-text">
+              <div class="row-label">Download cache TTL (seconds)</div>
+              <div class="row-sub">How long a downloaded vendor archive stays in memory for sibling DLLs that share it. 60–3600, default 300.</div>
+            </div>
+            <input
+              type="number"
+              class="inline-num"
+              min="60"
+              max="3600"
+              step="60"
+              value={$settings.network.download_cache_ttl_secs}
+              onchange={(e) => updateNetwork("download_cache_ttl_secs", Math.max(60, Math.min(3600, Number((e.target as HTMLInputElement).value) || 300)))}
+            />
+          </div>
         </div>
       </section>
     {/if}
@@ -777,15 +927,28 @@
     padding: 14px 0;
   }
   .art-row { align-items: flex-start; display: grid; grid-template-columns: 1fr 280px; gap: 16px; }
-  .launcher-row { align-items: flex-start; }
-  .launcher-name-col { min-width: 130px; }
-  .launcher-input-col { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-  .self-start { align-self: flex-start; }
   .row-divider { border-top: 1px solid var(--border); }
+  .inline-num {
+    width: 80px;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg-input);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .inline-num:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-dim);
+  }
   .row-label { font-size: var(--fs-base); font-weight: 500; color: var(--text-primary); display: inline-flex; align-items: center; gap: 8px; }
   .row-sub { font-size: var(--fs-xs); color: var(--text-secondary); margin-top: 3px; line-height: 1.5; }
   .row-text { min-width: 0; flex: 1; }
-  .empty-row { padding-top: 14px; }
   .files-disclosure {
     display: inline-flex;
     align-items: center;
@@ -803,18 +966,155 @@
   .files-disclosure .chev { transition: transform 0.15s var(--ease); }
   .files-disclosure .chev.open { transform: rotate(180deg); }
   .files-meta { margin-top: 6px; padding: 7px 10px; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: var(--fs-2xs); color: var(--text-muted); }
-  .add-row { display: flex; gap: 8px; align-items: center; }
-  .add-row input { flex: 1; }
+
+  .folder-input-row { display: flex; gap: 10px; align-items: center; padding: 14px 0 4px; }
+  .folder-input-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 42px;
+    padding: 0 16px;
+    background: var(--bg-elevated);
+    border-radius: var(--radius-full);
+    border: 1px solid transparent;
+    transition: border-color 0.15s var(--ease), background 0.15s var(--ease), box-shadow 0.15s var(--ease);
+  }
+  .folder-input-wrap:focus-within {
+    border-color: var(--accent);
+    background: var(--bg-card);
+    box-shadow: 0 0 0 4px var(--accent-soft);
+  }
+  .folder-input-icon { color: var(--text-muted); flex-shrink: 0; }
+  .folder-input-wrap input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    padding: 0;
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    color: var(--text-primary);
+  }
+  .folder-input-wrap input:focus { outline: none; }
+  .folder-input-wrap input::placeholder { color: var(--text-placeholder); }
+
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 24px 0 18px;
+    color: var(--text-muted);
+    font-size: var(--fs-sm);
+  }
+
   .path-list { list-style: none; padding: 12px 0 4px; margin: 0; display: flex; flex-direction: column; gap: 8px; }
   .path-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 12px;
-    padding: 9px 12px;
+    padding: 10px 14px;
     background: var(--bg-elevated);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
+    transition: background 0.12s var(--ease);
   }
-  .path-text { font-size: var(--fs-xs); color: var(--text-secondary); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .path-row:hover { background: var(--bg-card-hover); }
+  .path-icon { width: 32px; height: 32px; border-radius: 10px; }
+  .path-text { font-size: var(--fs-xs); color: var(--text-primary); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .path-action {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-md);
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.12s var(--ease), color 0.12s var(--ease);
+  }
+  .path-action:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+  .path-action.path-action-danger:hover { background: var(--badge-red-bg); color: var(--badge-red-fg); }
   .row-actions { padding: 12px 0 14px; }
+
+  .launcher-card { padding: 6px 18px; }
+  .launcher-row {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 20px;
+    align-items: flex-start;
+    padding: 16px 0;
+  }
+  .launcher-head { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .launcher-logo {
+    width: 40px;
+    height: 40px;
+    border-radius: 11px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: var(--shadow-xs), inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  }
+  .launcher-logo svg { display: block; }
+  .launcher-head-text { min-width: 0; }
+  .launcher-input-col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .path-input-row { display: flex; align-items: stretch; gap: 6px; height: 36px; }
+  .path-input-row input {
+    flex: 1;
+    min-width: 0;
+    padding: 0 12px;
+    background: var(--bg-elevated);
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    color: var(--text-primary);
+    transition: border-color 0.12s var(--ease), background 0.12s var(--ease), box-shadow 0.12s var(--ease);
+  }
+  .path-input-row input:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: var(--bg-card);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .path-remove {
+    width: 36px;
+    flex-shrink: 0;
+    border-radius: var(--radius-md);
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.12s var(--ease), color 0.12s var(--ease);
+  }
+  .path-remove:hover { background: var(--badge-red-bg); color: var(--badge-red-fg); }
+  .add-path-pill {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 14px;
+    border-radius: var(--radius-full);
+    background: transparent;
+    border: 1px dashed var(--border-strong);
+    color: var(--text-muted);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.12s var(--ease), color 0.12s var(--ease), border-color 0.12s var(--ease);
+  }
+  .add-path-pill:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-color: var(--accent);
+    border-style: solid;
+  }
 </style>

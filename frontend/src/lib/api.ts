@@ -188,7 +188,25 @@ export interface UiPreferences {
   sort_order: string;
   launcher_filter: string;
   status_filter: string;
+  library_view_mode: LibraryViewMode;
+  library_density: LibraryDensity;
+  library_sort: LibrarySort;
+  backups_group_by: BackupsGroupBy;
+  settings_active_tab: SettingsTab;
+  command_palette_recent: string[];
 }
+
+export type LibraryViewMode = "grid" | "list";
+export type LibraryDensity = "compact" | "comfy";
+export type LibrarySort =
+  | "default"
+  | "outdated_first"
+  | "recently_played"
+  | "a_z"
+  | "z_a"
+  | "launcher";
+export type BackupsGroupBy = "game" | "date";
+export type SettingsTab = "general" | "updates" | "detection" | "art" | "advanced";
 
 export interface SteamApiConfig {
   api_key: string;
@@ -223,6 +241,14 @@ export interface AdvancedConfig {
   verbose_logs: boolean;
   allow_unsigned_dlls: boolean;
   prefer_stable_channel: boolean;
+  apply_concurrency: number;
+}
+
+export interface NetworkConfig {
+  retry_attempts: number;
+  download_cache_ttl_secs: number;
+  connect_timeout_secs: number;
+  chunk_timeout_secs: number;
 }
 
 export interface AppSettings {
@@ -236,6 +262,7 @@ export interface AppSettings {
   ignored: string[];
   game_preferences: Record<string, GamePreference>;
   advanced: AdvancedConfig;
+  network: NetworkConfig;
 }
 
 export interface ApplyRequest {
@@ -255,13 +282,84 @@ export interface ApplyResult {
   new_version: string;
 }
 
+export type ApplyStage =
+  | "download"
+  | "verify_sha"
+  | "verify_signature"
+  | "backup"
+  | "replace"
+  | "verify_post"
+  | "complete"
+  | "failed"
+  | "cancelled";
+
+export type ApplyErrorClass =
+  | "network"
+  | "signature"
+  | "lock"
+  | "permission"
+  | "hash"
+  | "missing"
+  | "backup"
+  | "cancelled"
+  | "other";
+
 export interface ApplyProgress {
   apply_id: string;
-  stage: "download" | "verify_sha" | "verify_signature" | "backup" | "replace" | "verify_post" | "complete" | "failed";
+  group_id: string;
+  stage: ApplyStage;
   message: string;
   progress: number | null;
   error: string | null;
+  error_class?: ApplyErrorClass | null;
+  attempt?: number | null;
 }
+
+export interface GroupDownloadProgress {
+  group_id: string;
+  url: string;
+  bytes_downloaded: number;
+  bytes_total: number | null;
+  bytes_per_sec: number;
+  attempt: number;
+}
+
+export interface InflightSnapshot {
+  in_flight: number;
+}
+
+export interface ApplyBatchRequest {
+  items: ApplyRequest[];
+}
+
+export interface ApplyOutcome {
+  apply_id: string;
+  success: boolean;
+  backup_id: string | null;
+  previous_version: string | null;
+  new_version: string | null;
+  error: string | null;
+}
+
+export interface ApplyBatchResult {
+  outcomes: ApplyOutcome[];
+}
+
+export const APPLY_STAGES: { id: ApplyStage; label: string }[] = [
+  { id: "download", label: "Download" },
+  { id: "verify_sha", label: "Verify SHA" },
+  { id: "verify_signature", label: "Verify signature" },
+  { id: "backup", label: "Backup current" },
+  { id: "replace", label: "Install new" },
+  { id: "verify_post", label: "Verify installed" },
+  { id: "complete", label: "Done" },
+];
+
+export const APPLY_PROGRESS_EVENT = "apply_progress";
+export const DOWNLOAD_PROGRESS_EVENT = "download_progress";
+export const APPLY_INFLIGHT_EVENT = "apply_inflight";
+export const TRAY_CHECK_UPDATE_EVENT = "tray://check-update";
+export const TRAY_SHOW_PROGRESS_EVENT = "tray://show-progress";
 
 export const DEFAULT_LAUNCHERS: LauncherKind[] = [
   "steam",
@@ -343,6 +441,18 @@ export async function applyUpdate(request: ApplyRequest): Promise<ApplyResult> {
   return invoke("apply_update", { request });
 }
 
+export async function applyUpdateBatch(request: ApplyBatchRequest): Promise<ApplyBatchResult> {
+  return invoke("apply_update_batch", { request });
+}
+
+export async function cancelApply(applyId: string): Promise<boolean> {
+  return invoke("cancel_apply", { applyId });
+}
+
+export async function cancelAllApplies(): Promise<number> {
+  return invoke("cancel_all_applies");
+}
+
 export async function setDlssDebugOverlay(enabled: boolean): Promise<void> {
   return invoke("set_dlss_debug_overlay", { enabled });
 }
@@ -365,6 +475,29 @@ export async function openPath(path: string): Promise<void> {
 
 export async function revealPath(path: string): Promise<void> {
   return invoke("reveal_path", { path });
+}
+
+export interface LogPaths {
+  logs_dir: string;
+  current_log: string | null;
+  file_count: number;
+}
+
+export interface IssueReport {
+  url: string;
+  body: string;
+}
+
+export async function getLogPaths(): Promise<LogPaths> {
+  return invoke("get_log_paths");
+}
+
+export async function readRecentLogs(maxLines?: number): Promise<string> {
+  return invoke("read_recent_logs", { maxLines });
+}
+
+export async function buildIssueReport(context?: string): Promise<IssueReport> {
+  return invoke("build_issue_report", { context });
 }
 
 export async function setCloseToTray(enable: boolean): Promise<void> {

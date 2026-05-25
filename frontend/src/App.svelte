@@ -5,12 +5,25 @@
   import TopBar from "./components/TopBar.svelte";
   import Toast from "./components/Toast.svelte";
   import UpdateBanner from "./components/UpdateBanner.svelte";
+  import CommandPalette from "./components/CommandPalette.svelte";
+  import ShortcutOverlay from "./components/ShortcutOverlay.svelte";
+  import ApplyProgressModal from "./components/ApplyProgressModal.svelte";
   import Library from "./views/Library.svelte";
   import Catalog from "./views/Catalog.svelte";
   import Backups from "./views/Backups.svelte";
   import Settings from "./views/Settings.svelte";
   import About from "./views/About.svelte";
-  import { currentView, drawerGameId, loadSettings, settings, persistSettings, bootstrapCatalog } from "./lib/stores";
+  import {
+    currentView,
+    drawerGameId,
+    loadSettings,
+    settings,
+    persistSettings,
+    bootstrapCatalog,
+    requestThemeToggle,
+    applyModalOpen,
+  } from "./lib/stores";
+  import { installApplyEventListeners } from "./lib/applyEvents";
 
   let theme = $state(localStorage.getItem("dlssync-theme") || "dark");
 
@@ -37,7 +50,23 @@
       }
     }
     document.documentElement.setAttribute("data-theme", theme);
+    void installApplyEventListeners();
     void bootstrapCatalog();
+  });
+
+  let lastThemeSignal = $state(0);
+  $effect(() => {
+    const n = $requestThemeToggle;
+    if (n !== lastThemeSignal) {
+      lastThemeSignal = n;
+      if (n > 0) toggleTheme();
+    }
+  });
+
+  $effect(() => {
+    if ($currentView !== "library" && $drawerGameId) {
+      drawerGameId.set(null);
+    }
   });
 </script>
 
@@ -64,6 +93,11 @@
 </div>
 <Toast />
 <UpdateBanner />
+<CommandPalette />
+<ShortcutOverlay />
+{#if $applyModalOpen}
+  <ApplyProgressModal onClose={() => applyModalOpen.set(false)} />
+{/if}
 
 <style>
   .main-wrapper {
@@ -79,10 +113,7 @@
   .main-wrapper[data-drawer-open="true"] {
     padding-right: var(--drawer-width);
   }
-  @media (max-width: 1100px) {
-    .main-wrapper, .main-wrapper.sidebar-collapsed { margin-left: var(--sidebar-width-collapsed); }
-  }
-  @media (max-width: 960px) {
+  @media (max-width: 1300px) {
     .main-wrapper[data-drawer-open="true"] { padding-right: 0; }
   }
   .main-content {

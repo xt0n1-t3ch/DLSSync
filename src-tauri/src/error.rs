@@ -21,6 +21,9 @@ pub enum AppError {
     #[error("backup error: {0}")]
     Backup(#[from] backup_store::BackupError),
 
+    #[error("notifications error: {0}")]
+    Notifications(#[from] notifications_store::NotificationsError),
+
     #[error("{0}")]
     Other(String),
 }
@@ -34,6 +37,7 @@ impl Serialize for AppError {
             AppError::Catalog(_) => "catalog",
             AppError::PeVersion(_) => "pe_version",
             AppError::Backup(_) => "backup",
+            AppError::Notifications(_) => "notifications",
             AppError::Other(_) => "other",
         };
         let mut s = serializer.serialize_struct("AppError", 2)?;

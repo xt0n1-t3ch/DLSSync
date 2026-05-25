@@ -13,3 +13,4 @@ pub const ART_HTTP_TIMEOUT_SECS: u64 = 8;
 
 pub const PORTABLE_MARKER_FILENAME: &str = "portable.txt";
 pub const GITHUB_LATEST_RELEASE_URL: &str = "https://github.com/xt0n1-t3ch/DLSSync/releases/latest";
+pub const GITHUB_NEW_ISSUE_URL: &str = "https://github.com/xt0n1-t3ch/DLSSync/issues/new";

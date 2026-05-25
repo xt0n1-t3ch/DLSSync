@@ -1,8 +1,9 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { fly } from "svelte/transition";
-  import { backups, loadBackups, games, showToast } from "../lib/stores";
-  import { restoreBackup, deleteBackup, openPath, type BackupEntry, type DetectedGame } from "../lib/api";
+  import { backups, loadBackups, games, showToast, settings, persistSettings } from "../lib/stores";
+  import { restoreBackup, deleteBackup, openPath, type BackupEntry, type DetectedGame, type BackupsGroupBy } from "../lib/api";
+  import { BACKUPS_GROUP_BYS, BACKUPS_GROUP_BY_DEFAULT } from "../lib/ux";
   import { confirm } from "@tauri-apps/plugin-dialog";
   import {
     featureTitle,
@@ -25,10 +26,15 @@
     entries: BackupEntry[];
     activeCount: number;
     restoredCount: number;
+    missingCount: number;
     latestAt: string;
     oldestAt: string;
     sizeBytes: number;
   };
+
+  function isMissing(b: BackupEntry): boolean {
+    return b.size_bytes == null;
+  }
 
   let query = $state("");
   let expanded = $state<Record<string, boolean>>({});
@@ -72,28 +78,47 @@
     return m;
   });
 
+  let groupBy: BackupsGroupBy = $derived(
+    ($settings?.ui_prefs.backups_group_by ?? BACKUPS_GROUP_BY_DEFAULT) as BackupsGroupBy,
+  );
+
+  async function setGroupBy(mode: BackupsGroupBy): Promise<void> {
+    if (!$settings || !BACKUPS_GROUP_BYS.includes(mode)) return;
+    await persistSettings({ ...$settings, ui_prefs: { ...$settings.ui_prefs, backups_group_by: mode } });
+  }
+
+  function dateLabel(iso: string): string {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString(undefined, { weekday: "short", year: "numeric", month: "short", day: "numeric" });
+  }
+
   let grouped = $derived.by<GroupedBackup[]>(() => {
     const m = new Map<string, GroupedBackup>();
     for (const b of $backups) {
-      let g = m.get(b.game_id);
+      const key = groupBy === "date" ? b.created_at.slice(0, 10) : b.game_id;
+      let g = m.get(key);
       if (!g) {
-        const det = gameById.get(b.game_id) ?? null;
+        const det = groupBy === "game" ? gameById.get(b.game_id) ?? null : null;
+        const name = groupBy === "date" ? dateLabel(b.created_at) : det?.name ?? b.game_id;
         g = {
-          game_id: b.game_id,
-          name: det?.name ?? b.game_id,
+          game_id: key,
+          name,
           game: det,
           entries: [],
           activeCount: 0,
           restoredCount: 0,
+          missingCount: 0,
           latestAt: b.created_at,
           oldestAt: b.created_at,
           sizeBytes: 0,
         };
-        m.set(b.game_id, g);
+        m.set(key, g);
       }
       g.entries.push(b);
+      if (isMissing(b)) g.missingCount += 1;
       if (b.restored_at) g.restoredCount += 1;
-      else g.activeCount += 1;
+      else if (!isMissing(b)) g.activeCount += 1;
       if (b.created_at > g.latestAt) g.latestAt = b.created_at;
       if (b.created_at < g.oldestAt) g.oldestAt = b.created_at;
       g.sizeBytes += b.size_bytes ?? 0;
@@ -121,8 +146,9 @@
       .filter((g) => g.entries.length > 0);
   });
 
-  let totalActive = $derived($backups.filter((b) => !b.restored_at).length);
+  let totalRestorable = $derived($backups.filter((b) => !b.restored_at && !isMissing(b)).length);
   let totalRestored = $derived($backups.filter((b) => b.restored_at).length);
+  let totalMissing = $derived($backups.filter((b) => isMissing(b)).length);
   let uniqueGames = $derived(new Set($backups.map((b) => b.game_id)).size);
   let totalBytes = $derived($backups.reduce((n, b) => n + (b.size_bytes ?? 0), 0));
   let oldestDate = $derived.by<string | null>(() => {
@@ -149,14 +175,14 @@
   }
 
   let selectedEntries = $derived.by<BackupEntry[]>(() => $backups.filter((b) => selectedIds.has(b.id)));
-  let selectedActiveCount = $derived(selectedEntries.filter((e) => !e.restored_at).length);
+  let selectedActiveCount = $derived(selectedEntries.filter((e) => !e.restored_at && !isMissing(e)).length);
   let selectedTotalBytes = $derived(selectedEntries.reduce((n, e) => n + (e.size_bytes ?? 0), 0));
 
   async function bulkRestore(): Promise<void> {
     if (bulkRunning) return;
-    const targets = selectedEntries.filter((e) => !e.restored_at);
+    const targets = selectedEntries.filter((e) => !e.restored_at && !isMissing(e));
     if (targets.length === 0) {
-      showToast("info", "Nothing to restore — selected entries are already restored");
+      showToast("info", "Nothing to restore — selected snapshots are already restored or missing from disk");
       return;
     }
     bulkRunning = "restore";
@@ -311,36 +337,67 @@
     <p class="section-sub">Backups are created automatically when you apply a DLL update. Open any game from the Library, pick DLLs, and click Apply selected.</p>
   </div>
 {:else}
-  <section class="backup-hero" in:fly={{ y: 6, duration: 220 }}>
+  <section class="backup-hero aura-card" in:fly={{ y: 6, duration: 220 }}>
     <div class="hero-stats">
-      <div class="hero-stat is-primary">
-        <span class="hero-num">{$backups.length.toLocaleString()}</span>
-        <span class="hero-lbl">Total backups</span>
+      <div class="bk-stat">
+        <span class="bk-stat-badge aura-badge" data-tint="blue" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5" rx="0.5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+        </span>
+        <div class="bk-stat-text">
+          <span class="bk-stat-num">{$backups.length.toLocaleString()}</span>
+          <span class="bk-stat-lbl">Total backups</span>
+        </div>
       </div>
-      <div class="hero-stat">
-        <span class="hero-num">{fmtBytes(totalBytes)}</span>
-        <span class="hero-lbl">Disk used</span>
+      <div class="bk-stat">
+        <span class="bk-stat-badge aura-badge" data-tint="purple" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="12" x2="2" y2="12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" y1="16" x2="6.01" y2="16"/><line x1="10" y1="16" x2="10.01" y2="16"/></svg>
+        </span>
+        <div class="bk-stat-text">
+          <span class="bk-stat-num">{fmtBytes(totalBytes)}</span>
+          <span class="bk-stat-lbl">Disk used</span>
+        </div>
       </div>
-      <div class="hero-stat">
-        <span class="hero-num">{uniqueGames}</span>
-        <span class="hero-lbl">Games covered</span>
+      <div class="bk-stat">
+        <span class="bk-stat-badge aura-badge" data-tint="orange" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9c-2.52 0-4.85.93-6.63 2.46"/><polyline points="3 4 3 9 8 9"/></svg>
+        </span>
+        <div class="bk-stat-text">
+          <span class="bk-stat-num is-update">{totalRestorable}</span>
+          <span class="bk-stat-lbl">Restorable</span>
+        </div>
       </div>
-      <div class="hero-stat">
-        <span class="hero-num is-update">{totalActive}</span>
-        <span class="hero-lbl">Restorable</span>
+      <div class="bk-stat">
+        <span class="bk-stat-badge aura-badge" data-tint="green" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        </span>
+        <div class="bk-stat-text">
+          <span class="bk-stat-num is-success">{totalRestored}</span>
+          <span class="bk-stat-lbl">Already restored</span>
+        </div>
       </div>
-      <div class="hero-stat">
-        <span class="hero-num is-success">{totalRestored}</span>
-        <span class="hero-lbl">Already restored</span>
-      </div>
-      <div class="hero-stat is-meta">
-        <span class="hero-num is-small mono">{newestDate ? fmtDateShort(newestDate) : "—"}</span>
-        <span class="hero-lbl">Newest snapshot</span>
-      </div>
-      <div class="hero-stat is-meta">
-        <span class="hero-num is-small mono">{oldestDate ? fmtDateShort(oldestDate) : "—"}</span>
-        <span class="hero-lbl">Oldest snapshot</span>
-      </div>
+    </div>
+    <div class="hero-meta-strip">
+      <span class="hero-meta-item">
+        <span class="hero-meta-label">Games covered</span>
+        <span class="hero-meta-value">{uniqueGames}</span>
+      </span>
+      <span class="hero-meta-sep"></span>
+      <span class="hero-meta-item">
+        <span class="hero-meta-label">Newest</span>
+        <span class="hero-meta-value mono">{newestDate ? fmtDateShort(newestDate) : "—"}</span>
+      </span>
+      <span class="hero-meta-sep"></span>
+      <span class="hero-meta-item">
+        <span class="hero-meta-label">Oldest</span>
+        <span class="hero-meta-value mono">{oldestDate ? fmtDateShort(oldestDate) : "—"}</span>
+      </span>
+      {#if totalMissing > 0}
+        <span class="hero-meta-sep"></span>
+        <span class="hero-meta-item hero-meta-warn" title="Snapshot files no longer present on disk — they were moved or deleted outside DLSSync. Delete the rows to tidy up.">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <span class="hero-meta-value">{totalMissing} missing</span>
+        </span>
+      {/if}
     </div>
   </section>
 
@@ -390,8 +447,12 @@
         </button>
       {/if}
     </div>
+    <div class="group-by-toggle" role="group" aria-label="Group backups by">
+      <button class="seg-btn" class:active={groupBy === "game"} onclick={() => void setGroupBy("game")} aria-pressed={groupBy === "game"}>Game</button>
+      <button class="seg-btn" class:active={groupBy === "date"} onclick={() => void setGroupBy("date")} aria-pressed={groupBy === "date"}>Date</button>
+    </div>
     <span class="toolbar-summary">
-      {filtered.reduce((a, g) => a + g.entries.length, 0)} of {$backups.length} backup{$backups.length === 1 ? "" : "s"}{filtered.length !== grouped.length ? ` · ${filtered.length} game${filtered.length === 1 ? "" : "s"}` : ""}
+      {filtered.reduce((a, g) => a + g.entries.length, 0)} of {$backups.length} backup{$backups.length === 1 ? "" : "s"}{filtered.length !== grouped.length ? ` · ${filtered.length} ${groupBy === "date" ? "day" : "game"}${filtered.length === 1 ? "" : "s"}` : ""}
     </span>
   </div>
 
@@ -439,6 +500,7 @@
                 <span class="stat-line"><strong>{g.entries.length}</strong> snapshot{g.entries.length === 1 ? "" : "s"}</span>
                 {#if g.activeCount > 0}<span class="dot"></span><span class="stat-line is-update">{g.activeCount} restorable</span>{/if}
                 {#if g.restoredCount > 0}<span class="dot"></span><span class="stat-line is-success">{g.restoredCount} restored</span>{/if}
+                {#if g.missingCount > 0}<span class="dot"></span><span class="stat-line is-missing">{g.missingCount} missing</span>{/if}
                 {#if g.sizeBytes > 0}<span class="dot"></span><span class="stat-line">{fmtBytes(g.sizeBytes)}</span>{/if}
                 <span class="dot"></span><span class="stat-line">latest {fmtDateShort(g.latestAt)}</span>
               </div>
@@ -469,7 +531,8 @@
             <ul class="entries">
               {#each g.entries as b (b.id)}
                 {@const fSlot = featureFromFamily(b.dll_family)}
-                <li class="entry" class:restored={b.restored_at} class:is-selected={selectedIds.has(b.id)}>
+                {@const missing = isMissing(b)}
+                <li class="entry" class:restored={b.restored_at} class:missing class:is-selected={selectedIds.has(b.id)}>
                   <label class="entry-check" title="Select for bulk restore/delete">
                     <input
                       type="checkbox"
@@ -484,10 +547,12 @@
                   <div class="entry-main">
                     <div class="entry-head">
                       <span class="entry-title">{featureTitle(fSlot)}</span>
-                      {#if b.restored_at}
-                        <span class="chip chip-success small-chip" title={`Restored ${fmtDate(b.restored_at)}`}>Restored</span>
+                      {#if missing}
+                        <span class="chip chip-danger small-chip" title="The snapshot file is no longer on disk — it was moved or deleted outside DLSSync. This snapshot can't be restored; delete the row to tidy the list.">Snapshot missing</span>
+                      {:else if b.restored_at}
+                        <span class="chip chip-success small-chip" title={`Restored ${fmtDate(b.restored_at)} — the snapshot is still on disk, so you can restore it again if you applied a newer DLL since.`}>Restored</span>
                       {:else}
-                        <span class="chip chip-update small-chip">Active backup</span>
+                        <span class="chip chip-update small-chip" title="The original DLL is snapshotted and ready to roll back at any time.">Active backup</span>
                       {/if}
                     </div>
                     <div class="entry-meta mono">
@@ -497,7 +562,7 @@
                       <span class="sep">·</span>
                       <span title={b.previous_sha256 ?? ""}>sha {shortSha(b.previous_sha256)}</span>
                       <span class="sep">·</span>
-                      <span>{fmtBytes(b.size_bytes)}</span>
+                      <span class:is-missing={missing}>{missing ? "gone" : fmtBytes(b.size_bytes)}</span>
                       <span class="sep">·</span>
                       <span title={b.created_at}>{fmtDate(b.created_at)}</span>
                     </div>
@@ -507,10 +572,14 @@
                     <button
                       class="btn btn-sm btn-ghost"
                       onclick={() => revealBackup(b)}
-                      title="Reveal snapshot file"
+                      title={missing ? "Open the snapshot folder (file no longer on disk)" : "Reveal snapshot file in Explorer"}
                       disabled={openingPath === b.id}
                     >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                      {#if openingPath === b.id}
+                        <span class="spin"></span>
+                      {:else}
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                      {/if}
                     </button>
                     <button
                       class="btn btn-sm btn-ghost btn-danger-ghost"
@@ -524,21 +593,41 @@
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
                       {/if}
                     </button>
-                    <button
-                      class="btn btn-sm btn-accent"
-                      disabled={!!b.restored_at || restoringId === b.id}
-                      onclick={() => doRestore(b)}
-                    >
-                      {#if restoringId === b.id}
-                        <span class="spin"></span>
-                        Restoring
-                      {:else if b.restored_at}
-                        Restored
-                      {:else}
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9c-2.52 0-4.85.93-6.63 2.46"/><polyline points="3 4 3 9 8 9"/></svg>
-                        Restore
-                      {/if}
-                    </button>
+                    {#if missing}
+                      <button class="btn btn-sm btn-ghost" disabled title="Can't restore — snapshot file is gone from disk">
+                        Unavailable
+                      </button>
+                    {:else if b.restored_at}
+                      <button
+                        class="btn btn-sm btn-ghost"
+                        disabled={restoringId === b.id}
+                        onclick={() => doRestore(b)}
+                        title="Restore this snapshot again — useful if you applied a newer DLL after the last restore"
+                      >
+                        {#if restoringId === b.id}
+                          <span class="spin"></span>
+                          Restoring
+                        {:else}
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9c-2.52 0-4.85.93-6.63 2.46"/><polyline points="3 4 3 9 8 9"/></svg>
+                          Restore again
+                        {/if}
+                      </button>
+                    {:else}
+                      <button
+                        class="btn btn-sm btn-accent"
+                        disabled={restoringId === b.id}
+                        onclick={() => doRestore(b)}
+                        title="Roll the original DLL back into the game folder"
+                      >
+                        {#if restoringId === b.id}
+                          <span class="spin"></span>
+                          Restoring
+                        {:else}
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9c-2.52 0-4.85.93-6.63 2.46"/><polyline points="3 4 3 9 8 9"/></svg>
+                          Restore
+                        {/if}
+                      </button>
+                    {/if}
                   </div>
                 </li>
               {/each}
@@ -575,49 +664,67 @@
   .empty-title { font-size: var(--fs-lg); font-weight: 600; color: var(--text-primary); }
   .empty .section-sub { max-width: 460px; }
 
-  .backup-hero {
-    margin-bottom: 16px;
-    padding: 16px 18px;
-    border-radius: var(--radius-lg);
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-  }
+  .backup-hero { margin-bottom: 16px; }
   .hero-stats {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 16px 20px;
   }
-  .hero-stat {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 10px 14px;
-    background: var(--bg-elevated);
-    border-radius: var(--radius-md);
-    border: 1px solid transparent;
-    transition: border-color var(--dur-fast) var(--ease);
-  }
-  .hero-stat:hover { border-color: var(--border-hover); }
-  .hero-stat.is-primary { border-color: var(--accent-ring); background: var(--accent-soft); }
-  .hero-stat.is-meta { background: transparent; border-color: var(--border); }
-  .hero-num {
+  .bk-stat { display: flex; align-items: center; gap: 13px; min-width: 0; }
+  .bk-stat-badge { width: 42px; height: 42px; border-radius: 13px; }
+  .bk-stat-badge svg { display: block; }
+  .bk-stat-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .bk-stat-num {
     font-size: var(--fs-2xl);
     font-weight: 700;
     color: var(--text-primary);
     letter-spacing: var(--letter-tighter);
     font-variant-numeric: tabular-nums;
-    line-height: 1.1;
+    line-height: 1.15;
   }
-  .hero-num.is-update { color: var(--update); }
-  .hero-num.is-success { color: var(--success); }
-  .hero-num.is-small { font-size: var(--fs-md); font-weight: 600; letter-spacing: 0; }
-  .hero-lbl {
+  .bk-stat-num.is-update { color: var(--update); }
+  .bk-stat-num.is-success { color: var(--success); }
+  .bk-stat-lbl {
     font-size: var(--fs-2xs);
     color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: var(--letter-wider);
     font-weight: 600;
   }
+  .hero-meta-strip {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .hero-meta-item { display: inline-flex; align-items: baseline; gap: 6px; }
+  .hero-meta-label {
+    font-size: var(--fs-2xs);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: var(--letter-wider);
+    font-weight: 600;
+  }
+  .hero-meta-value {
+    font-size: var(--fs-sm);
+    color: var(--text-primary);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .hero-meta-value.mono { font-family: var(--font-mono, monospace); font-size: 12px; }
+  .hero-meta-sep {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    opacity: 0.4;
+  }
+  .hero-meta-warn { gap: 5px; color: var(--danger); cursor: help; }
+  .hero-meta-warn svg { display: block; }
+  .hero-meta-warn .hero-meta-value { color: var(--danger); }
 
   .backup-toolbar {
     display: flex;
@@ -627,7 +734,31 @@
     margin-bottom: 14px;
     padding-bottom: 14px;
     border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
   }
+  .group-by-toggle {
+    display: inline-flex;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 2px;
+    gap: 2px;
+  }
+  .group-by-toggle .seg-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 12px;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    background: transparent;
+    border: none;
+    transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+  }
+  .group-by-toggle .seg-btn:hover { color: var(--text-primary); background: var(--bg-elevated); }
+  .group-by-toggle .seg-btn.active { background: var(--accent-dim); color: var(--accent); }
+  .group-by-toggle .seg-btn:focus-visible { outline: none; box-shadow: var(--shadow-ring); }
   .backup-search { position: relative; flex: 1; max-width: 520px; display: flex; align-items: center; }
   .backup-search input {
     width: 100%;
@@ -664,7 +795,7 @@
   .group:hover { border-color: var(--border-hover); }
   .group-head {
     display: grid;
-    grid-template-columns: 56px 1fr auto;
+    grid-template-columns: 96px 1fr auto;
     align-items: center;
     gap: 14px;
     width: 100%;
@@ -678,8 +809,8 @@
   }
   .group-head:hover { background: var(--bg-card-hover); }
   .group-thumb {
-    width: 56px;
-    height: 28px;
+    width: 96px;
+    aspect-ratio: 16 / 9;
     border-radius: var(--radius-sm);
     overflow: hidden;
     background: var(--bg-art-fallback);
@@ -687,6 +818,14 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    position: relative;
+  }
+  .group-thumb::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0) 60%, rgba(0,0,0,0.45) 100%);
+    pointer-events: none;
   }
   .group-thumb img { width: 100%; height: 100%; object-fit: cover; }
   .thumb-fallback {
@@ -703,6 +842,7 @@
   .group-stats strong { color: var(--text-secondary); font-weight: 600; }
   .stat-line.is-update { color: var(--update); }
   .stat-line.is-success { color: var(--success); }
+  .stat-line.is-missing { color: var(--danger); }
   .group-stats .dot {
     width: 3px;
     height: 3px;
@@ -817,6 +957,9 @@
     flex-shrink: 0;
   }
   .entry.restored .entry-glyph { background: var(--success-dim); color: var(--success); }
+  .entry.missing .entry-glyph { background: var(--danger-dim); color: var(--danger); opacity: 0.75; }
+  .entry.missing .entry-title { color: var(--text-secondary); }
+  .entry-meta .is-missing { color: var(--danger); font-weight: 600; }
   .entry-main { min-width: 0; }
   .entry-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
   .entry-title { font-size: var(--fs-sm); font-weight: 600; color: var(--text-primary); letter-spacing: var(--letter-tight); }

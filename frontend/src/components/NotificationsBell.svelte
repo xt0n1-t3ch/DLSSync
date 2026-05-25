@@ -1,0 +1,347 @@
+<script lang="ts">
+  import { onMount } from "svelte";
+  import {
+    notifications,
+    markRead,
+    markAllRead,
+    dismiss,
+    refreshNotifications,
+    type NotificationEntry,
+    type NotificationKind,
+  } from "../lib/notifications";
+  import { currentView } from "../lib/stores";
+  import { formatDurationSecs } from "../lib/formatHuman";
+
+  let { open, onClose }: { open: boolean; onClose: () => void } = $props();
+  let panelEl: HTMLDivElement | undefined = $state();
+
+  onMount(() => {
+    void refreshNotifications();
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === "Escape" && open) {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    const onClickOutside = (e: MouseEvent): void => {
+      if (!open) return;
+      const target = e.target as Node | null;
+      if (panelEl && target && !panelEl.contains(target)) {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onClickOutside);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onClickOutside);
+    };
+  });
+
+  let entries = $derived($notifications);
+
+  async function handleItemClick(entry: NotificationEntry): Promise<void> {
+    if (entry.read_at == null) {
+      try {
+        await markRead(entry.id);
+      } catch (err) {
+        console.warn("[dlssync] mark read failed:", err);
+      }
+    }
+    if (entry.kind === "app_update_available") {
+      window.dispatchEvent(new CustomEvent("dlssync:check-updates", { detail: { force: true } }));
+      onClose();
+    } else if (entry.kind === "catalog_update_available") {
+      currentView.set("catalog");
+      onClose();
+    }
+  }
+
+  async function handleDismiss(entry: NotificationEntry, ev: Event): Promise<void> {
+    ev.stopPropagation();
+    try {
+      await dismiss(entry.id);
+    } catch (err) {
+      console.warn("[dlssync] dismiss failed:", err);
+    }
+  }
+
+  async function handleMarkAll(): Promise<void> {
+    try {
+      await markAllRead();
+    } catch (err) {
+      console.warn("[dlssync] mark-all failed:", err);
+    }
+  }
+
+  function relativeTime(iso: string): string {
+    const then = new Date(iso).getTime();
+    const secs = Math.max(0, Math.floor((Date.now() - then) / 1000));
+    if (secs < 5) return "just now";
+    return `${formatDurationSecs(secs)} ago`;
+  }
+
+  function kindIcon(kind: NotificationKind): string {
+    switch (kind) {
+      case "apply_success": return "✓";
+      case "apply_failure": return "✕";
+      case "apply_cancelled": return "↺";
+      case "app_update_available": return "↑";
+      case "catalog_update_available": return "★";
+      case "scan_failed":
+      case "catalog_refresh_failed": return "!";
+      default: return "•";
+    }
+  }
+
+  function tintForKind(kind: NotificationKind): string {
+    switch (kind) {
+      case "apply_success": return "green";
+      case "apply_failure": return "red";
+      case "apply_cancelled": return "orange";
+      case "app_update_available": return "blue";
+      case "catalog_update_available": return "purple";
+      case "scan_failed":
+      case "catalog_refresh_failed": return "orange";
+      default: return "blue";
+    }
+  }
+
+  function kindLabel(kind: NotificationKind): string {
+    switch (kind) {
+      case "apply_success": return "Update succeeded";
+      case "apply_failure": return "Update failed";
+      case "apply_cancelled": return "Update cancelled";
+      case "app_update_available": return "App update available";
+      case "catalog_update_available": return "New catalog version";
+      case "scan_failed": return "Library scan failed";
+      case "catalog_refresh_failed": return "Catalog refresh failed";
+      default: return "Notification";
+    }
+  }
+</script>
+
+{#if open}
+  <div class="bell-panel" role="dialog" aria-label="Notifications" bind:this={panelEl}>
+    <header class="bell-panel-header">
+      <span class="bell-panel-title">Notifications</span>
+      <span class="bell-panel-count" aria-label="{entries.length} entries">{entries.length}</span>
+    </header>
+    <div class="bell-panel-list" role="list">
+      {#if entries.length === 0}
+        <div class="bell-panel-empty">All caught up.</div>
+      {:else}
+        {#each entries as entry (entry.id)}
+          <div
+            class="bell-item"
+            class:bell-item-unread={entry.read_at == null}
+            role="listitem"
+          >
+            {#if entry.read_at == null}
+              <span class="bell-unread-stripe" aria-hidden="true"></span>
+            {/if}
+            <button
+              type="button"
+              class="bell-item-main"
+              onclick={() => handleItemClick(entry)}
+              aria-label="{kindLabel(entry.kind)}: {entry.title}"
+            >
+              <span class="aura-badge bell-item-badge" data-tint={tintForKind(entry.kind)} aria-hidden="true">
+                {kindIcon(entry.kind)}
+              </span>
+              <span class="bell-item-text">
+                <span class="bell-item-title">{entry.title}</span>
+                {#if entry.body}
+                  <span class="bell-item-body">{entry.body}</span>
+                {/if}
+                <span class="bell-item-time">{relativeTime(entry.created_at)}</span>
+              </span>
+            </button>
+            <button
+              type="button"
+              class="bell-item-dismiss"
+              title="Dismiss"
+              aria-label="Dismiss notification"
+              onclick={(ev) => handleDismiss(entry, ev)}
+            >
+              ×
+            </button>
+          </div>
+        {/each}
+      {/if}
+    </div>
+    {#if entries.length > 0}
+      <footer class="bell-panel-footer">
+        <button type="button" class="bell-panel-action" onclick={handleMarkAll}>
+          Mark all read
+        </button>
+      </footer>
+    {/if}
+  </div>
+{/if}
+
+<style>
+  .bell-panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 380px;
+    max-height: 480px;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-2xl);
+    box-shadow: var(--shadow-lg);
+    z-index: 60;
+    overflow: hidden;
+  }
+  .bell-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  .bell-panel-title {
+    font-size: var(--fs-md);
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: var(--letter-tight);
+  }
+  .bell-panel-count {
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted);
+  }
+  .bell-panel-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .bell-panel-empty {
+    padding: 32px 14px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: var(--fs-sm);
+  }
+  .bell-item {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    gap: 2px;
+    border-radius: var(--radius-lg);
+    transition: background var(--dur-fast) var(--ease);
+  }
+  .bell-item:hover {
+    background: var(--bg-card-hover);
+  }
+  .bell-unread-stripe {
+    position: absolute;
+    left: 4px;
+    top: 12px;
+    bottom: 12px;
+    width: 3px;
+    border-radius: var(--radius-full);
+    background: var(--accent);
+    pointer-events: none;
+  }
+  .bell-item-main {
+    flex: 1;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 8px 12px 14px;
+    text-align: left;
+    color: var(--text-primary);
+    min-width: 0;
+    border-radius: var(--radius-lg);
+  }
+  .bell-item-main:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-ring);
+  }
+  .bell-item-badge {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .bell-item-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+  }
+  .bell-item-title {
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .bell-item-body {
+    font-size: 12px;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  .bell-item-time {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+    margin-top: 2px;
+  }
+  .bell-item-dismiss {
+    width: 28px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-placeholder);
+    font-size: 16px;
+    line-height: 1;
+    border-radius: var(--radius-sm);
+    transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+  }
+  .bell-item-dismiss:hover {
+    color: var(--text-primary);
+    background: var(--bg-elevated);
+  }
+  .bell-item-dismiss:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-ring);
+  }
+  .bell-panel-footer {
+    border-top: 1px solid var(--border);
+    padding: 10px 14px;
+    display: flex;
+    justify-content: flex-end;
+  }
+  .bell-panel-action {
+    font-size: 12px;
+    color: var(--text-secondary);
+    padding: 6px 12px;
+    border-radius: var(--radius-full);
+    transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+  }
+  .bell-panel-action:hover {
+    color: var(--text-primary);
+    background: var(--bg-card-hover);
+  }
+  .bell-panel-action:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-ring);
+  }
+</style>

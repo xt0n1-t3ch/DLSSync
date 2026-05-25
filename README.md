@@ -16,6 +16,10 @@
 </p>
 
 <p align="center">
+  <sub><b>New in v1.2:</b> fixes the Intel XeSS apply that was failing halfway through with random network errors, downloads each shared archive only once instead of four times, retries automatically on flaky GitHub release CDN responses, and a rebuilt failure view tells you exactly what broke with one-click <code>Retry failed</code>, <code>Allow unsigned &amp; retry</code>, and <code>Copy report</code>. Tray badge while applies are running. See <a href="CHANGELOG.md#120---2026-05-24">CHANGELOG</a>.</sub>
+</p>
+
+<p align="center">
   <a href="https://github.com/xt0n1-t3ch/DLSSync/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/xt0n1-t3ch/DLSSync?style=flat&color=0a0a0a&logo=github&logoColor=white"></a>
   <a href="https://github.com/xt0n1-t3ch/DLSSync/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/xt0n1-t3ch/DLSSync/ci.yml?style=flat&color=0a0a0a&label=ci&logo=githubactions&logoColor=white"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache%202.0-0a0a0a?style=flat"></a>
@@ -156,7 +160,7 @@ The application has no driver, no kernel-mode hook, no in-process injection. It 
 
 <p align="center">
   <a href="https://github.com/xt0n1-t3ch/DLSSync/releases/latest">
-    <img src="./.github/assets/download-button.svg" alt="Download DLSSync v1.0.0 for Windows 10 / 11" width="520"/>
+    <img src="./.github/assets/download-button.svg" alt="Download DLSSync v1.2.0 for Windows 10 / 11" width="520"/>
   </a>
 </p>
 
@@ -214,9 +218,10 @@ cargo check --workspace
 <h2 id="roadmap"><img src="./.github/assets/icons/map.svg" width="26" align="center" alt=""/> &nbsp;Roadmap</h2>
 
 - [x] v1.0: Windows portable, NSIS installer, auto-update banner, tray, EcoQoS Efficiency Mode, all 7 launchers, hash and Authenticode gates, Apache 2.0.
-- [ ] v1.1: SignPath OSS Authenticode signing. Removes the SmartScreen warning on first run.
-- [ ] v1.2: Per-DLL changelog viewer with diff against the currently installed build.
-- [ ] v1.3: Custom catalog sources for community-maintained DLL trees.
+- [x] v1.2: Apply pipeline hardening — shared per-URL download cache, streaming downloads with retry ladder, per-apply cancellation, failure-centric apply modal, tray inflight badge.
+- [ ] v1.3: SignPath OSS Authenticode signing. Removes the SmartScreen warning on first run.
+- [ ] v1.4: Per-DLL changelog viewer with diff against the currently installed build.
+- [ ] v1.5: Custom catalog sources for community-maintained DLL trees.
 
 ---
 

@@ -9,6 +9,7 @@ pub struct AppPaths {
     pub logs_dir: PathBuf,
     pub settings_dir: PathBuf,
     pub backups_db: PathBuf,
+    pub notifications_db: PathBuf,
     pub catalog_cache: PathBuf,
     pub settings_file: PathBuf,
 }
@@ -39,6 +40,7 @@ impl AppPaths {
         let settings_dir = root.join("Settings");
         Self {
             backups_db: backups_dir.join("backups.db"),
+            notifications_db: cache_dir.join("notifications.db"),
             catalog_cache: cache_dir.join("catalog.json"),
             settings_file: settings_dir.join("settings.json"),
             root,
@@ -139,6 +141,15 @@ fn root_subdir() -> &'static str {
     }
 }
 
+pub fn default_root() -> Option<PathBuf> {
+    let home = if cfg!(target_os = "windows") {
+        std::env::var_os("USERPROFILE")
+    } else {
+        std::env::var_os("HOME")
+    }?;
+    Some(PathBuf::from(home).join(root_subdir()))
+}
+
 fn move_tree(src: &Path, dst: &Path) -> std::io::Result<usize> {
     std::fs::create_dir_all(dst)?;
     let mut count = 0;
@@ -207,6 +218,13 @@ mod tests {
                 .join("DLSSync")
                 .join("Cache")
                 .join("catalog.json")
+        );
+        assert_eq!(
+            p.notifications_db,
+            dir.path()
+                .join("DLSSync")
+                .join("Cache")
+                .join("notifications.db")
         );
     }
 

@@ -382,16 +382,14 @@ fn empty_art() -> GameArt {
 }
 
 #[tauri::command]
-pub async fn fetch_steam_art(name: String) -> AppResult<GameArt> {
+pub async fn fetch_steam_art(state: State<'_, AppState>, name: String) -> AppResult<GameArt> {
     let trimmed = name.trim();
     if trimmed.is_empty() {
         return Ok(empty_art());
     }
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(ART_HTTP_TIMEOUT_SECS))
-        .user_agent(SGDB_USER_AGENT)
-        .build()
-        .map_err(|e| AppError::Other(format!("steam client: {e}")))?;
+    let _ = ART_HTTP_TIMEOUT_SECS;
+    let _ = SGDB_USER_AGENT;
+    let client = state.http_art.clone();
 
     let url = format!(
         "{}?term={}&l=english&cc=us",
@@ -433,16 +431,16 @@ pub async fn fetch_steam_art(name: String) -> AppResult<GameArt> {
 }
 
 #[tauri::command]
-pub async fn enrich_game_art(name: String, api_key: String) -> AppResult<GameArt> {
+pub async fn enrich_game_art(
+    state: State<'_, AppState>,
+    name: String,
+    api_key: String,
+) -> AppResult<GameArt> {
     if api_key.trim().is_empty() || name.trim().is_empty() {
         return Ok(empty_art());
     }
     let trimmed = name.trim();
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(ART_HTTP_TIMEOUT_SECS))
-        .user_agent(SGDB_USER_AGENT)
-        .build()
-        .map_err(|e| AppError::Other(format!("sgdb client: {e}")))?;
+    let client = state.http_art.clone();
 
     let search_url = format!(
         "{SGDB_API_BASE}/search/autocomplete/{}",

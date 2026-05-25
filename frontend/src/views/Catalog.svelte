@@ -157,8 +157,36 @@
     }
     return { features, releases, vendors };
   });
+
+  let maxReleaseCount = $derived.by(() => {
+    let m = 0;
+    for (const v of view) m = Math.max(m, v.totalReleases);
+    return m;
+  });
+  function bentoWeight(totalReleases: number): "lg" | "md" | "sm" {
+    if (maxReleaseCount === 0) return "sm";
+    const ratio = totalReleases / maxReleaseCount;
+    if (ratio >= 0.8) return "lg";
+    if (ratio >= 0.3) return "md";
+    return "sm";
+  }
+
+  let freshnessAgo = $derived.by(() => {
+    if (!$manifestUpdatedAt) return null;
+    const parsed = new Date(`${$manifestUpdatedAt.replace(" ", "T")}:00Z`).getTime();
+    if (Number.isNaN(parsed)) return null;
+    const diffMs = Date.now() - parsed;
+    const minutes = Math.floor(diffMs / 60000);
+    if (minutes < 1) return "just now";
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  });
 </script>
 
+<div class="catalog-page">
 <header class="view-header">
   <div>
     <h1 class="view-title">Catalog</h1>
@@ -221,7 +249,7 @@
   <div class="catalog-grid">
     {#each filteredView as v, i (v.vendor)}
       {@const portal = vendorPortal(v.vendor)}
-      <section class="vendor-card" in:fly={{ y: 12, duration: 320, delay: 80 + i * 50 }}>
+      <section class="vendor-card" data-weight={bentoWeight(v.totalReleases)} in:fly={{ y: 12, duration: 320, delay: 80 + i * 50 }}>
         <div class="vendor-stripe" style:background={v.accent}></div>
         <header class="vendor-head">
           <div class="vendor-dot" style:background={v.accent} style:box-shadow="0 0 14px {v.accent}80"></div>
@@ -268,14 +296,29 @@
   </div>
 
   <footer class="catalog-foot">
-    <p>
-      <span class="status-dot is-{$catalogStatus.kind}"></span>
-      Status: <strong>{$catalogStatus.label}</strong>
-      &nbsp;·&nbsp;
-      Click any technology above to inspect every tracked version, copy a CDN URL or open a direct download. Per-game updates still live in the Library drawer.
-    </p>
+    <div class="foot-status">
+      <span class="status-dot is-{$catalogStatus.kind}" aria-hidden="true"></span>
+      <span class="foot-status-text">Catalog {$catalogStatus.label}</span>
+      {#if freshnessAgo}
+        <span class="foot-sep" aria-hidden="true"></span>
+        <span class="foot-meta">updated {freshnessAgo}</span>
+      {/if}
+    </div>
+    <div class="foot-actions">
+      <span class="foot-meta">auto-refresh every 6 h</span>
+      <button class="foot-refresh" onclick={refresh} disabled={refreshing} title="Pull the manifest from upstream now">
+        {#if refreshing}
+          <span class="spin"></span>
+          Refreshing
+        {:else}
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          Refresh now
+        {/if}
+      </button>
+    </div>
   </footer>
 {/if}
+</div>
 
 {#if flyoutTarget}
   <CatalogVersionsFlyout
@@ -290,6 +333,11 @@
 {/if}
 
 <style>
+  .catalog-page {
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100vh - var(--topbar-height) - 52px);
+  }
   .view-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; gap: 12px; flex-wrap: wrap; }
   .view-header > div:first-child { flex: 1 1 240px; min-width: 0; }
   .empty { padding: 40px 0; text-align: center; }
@@ -329,7 +377,18 @@
   .search-clear:hover { color: var(--text-primary); background: var(--bg-elevated); }
   .toolbar-summary { font-size: var(--fs-xs); color: var(--text-muted); font-variant-numeric: tabular-nums; }
 
-  .catalog-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 16px; }
+  .catalog-grid {
+    columns: 360px 3;
+    column-gap: 16px;
+  }
+  .catalog-grid > .vendor-card {
+    break-inside: avoid;
+    -webkit-column-break-inside: avoid;
+    page-break-inside: avoid;
+    margin: 0 0 16px;
+    display: block;
+    width: 100%;
+  }
   .vendor-portal {
     width: 24px;
     height: 24px;
@@ -390,19 +449,67 @@
   .feature-row-btn:hover .feature-arrow { opacity: 1; transform: translateX(2px); }
 
   .catalog-foot {
-    margin-top: 22px;
-    padding: 12px 16px;
-    background: var(--bg-input);
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px 16px;
+    flex-wrap: wrap;
+    padding: 11px 16px;
+    background: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    font-size: 11.5px;
+    border-radius: var(--radius-full);
+    font-size: var(--fs-xs);
     color: var(--text-muted);
   }
-  .status-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
-  .status-dot.is-accent { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
-  .status-dot.is-success { background: var(--success); box-shadow: 0 0 6px var(--success); }
-  .status-dot.is-warning { background: var(--warning); box-shadow: 0 0 6px var(--warning); }
-  .status-dot.is-danger { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+  .foot-status { display: inline-flex; align-items: center; gap: 9px; min-width: 0; }
+  .foot-status-text {
+    font-weight: 600;
+    color: var(--text-secondary);
+    letter-spacing: var(--letter-tight);
+    text-transform: capitalize;
+  }
+  .foot-meta { font-variant-numeric: tabular-nums; color: var(--text-muted); }
+  .foot-sep { width: 3px; height: 3px; border-radius: 50%; background: var(--text-muted); opacity: 0.4; flex-shrink: 0; }
+  .foot-actions { display: inline-flex; align-items: center; gap: 14px; }
+  .foot-refresh {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 14px;
+    border-radius: var(--radius-full);
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+  }
+  .foot-refresh:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent); }
+  .foot-refresh:focus-visible { outline: none; box-shadow: var(--shadow-ring); }
+  .foot-refresh:disabled { opacity: 0.6; cursor: progress; }
+
+  .status-dot { position: relative; display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .status-dot.is-accent { background: var(--accent); }
+  .status-dot.is-success { background: var(--success); }
+  .status-dot.is-warning { background: var(--warning); }
+  .status-dot.is-danger { background: var(--danger); }
+  @media (prefers-reduced-motion: no-preference) {
+    .status-dot::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: inherit;
+      animation: status-pulse 2.4s var(--ease-out) infinite;
+    }
+  }
+  @keyframes status-pulse {
+    0% { transform: scale(1); opacity: 0.6; }
+    70% { transform: scale(2.6); opacity: 0; }
+    100% { transform: scale(2.6); opacity: 0; }
+  }
 
   .spin { width: 12px; height: 12px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }

@@ -1,26 +1,50 @@
-use tracing_subscriber::EnvFilter;
-
 mod commands;
 mod constants;
 mod efficiency;
 mod error;
+mod logging;
 mod paths;
 mod state;
 mod system_info;
 mod tray;
 
+const STALE_STAGING_AGE_SECS: u64 = 24 * 60 * 60;
+
+fn sweep_stale_staging_dirs(root: &std::path::Path) {
+    let Ok(entries) = std::fs::read_dir(root) else {
+        return;
+    };
+    let mut removed = 0usize;
+    let now = std::time::SystemTime::now();
+    for entry in entries.flatten() {
+        let Ok(meta) = entry.metadata() else { continue };
+        if !meta.is_dir() {
+            continue;
+        }
+        let name = entry.file_name();
+        let name_str = name.to_string_lossy();
+        if !(name_str.starts_with(".tmp") || name_str.starts_with("staging-")) {
+            continue;
+        }
+        if let Ok(modified) = meta.modified() {
+            if let Ok(age) = now.duration_since(modified) {
+                if age.as_secs() >= STALE_STAGING_AGE_SECS
+                    && std::fs::remove_dir_all(entry.path()).is_ok()
+                {
+                    removed += 1;
+                }
+            }
+        }
+    }
+    if removed > 0 {
+        tracing::info!(removed, "swept stale staging dirs");
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "dlssync=info,launcher_scan=info,dll_catalog=info".into()),
-        )
-        .with_target(true)
-        .with_thread_ids(false)
-        .compact()
-        .try_init()
-        .ok();
+    let _log_guard = logging::init();
+    tracing::info!(version = env!("CARGO_PKG_VERSION"), "DLSSync starting");
 
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
@@ -86,6 +110,7 @@ pub fn run() {
                 app_paths.backups_dir.clone(),
             ) {
                 Ok(store) => {
+                    sweep_stale_staging_dirs(&store.root_dir);
                     *state.backups.write() = Some(store);
                     tracing::info!(
                         db = %app_paths.backups_db.display(),
@@ -98,6 +123,24 @@ pub fn run() {
                         db = %app_paths.backups_db.display(),
                         error = %e,
                         "backup store open failed",
+                    );
+                }
+            }
+
+            match notifications_store::NotificationsStore::open(app_paths.notifications_db.clone())
+            {
+                Ok(store) => {
+                    *state.notifications.write() = Some(store);
+                    tracing::info!(
+                        db = %app_paths.notifications_db.display(),
+                        "notifications store opened",
+                    );
+                }
+                Err(e) => {
+                    tracing::error!(
+                        db = %app_paths.notifications_db.display(),
+                        error = %e,
+                        "notifications store open failed",
                     );
                 }
             }
@@ -153,9 +196,21 @@ pub fn run() {
             commands::catalog::catalog_latest_shas,
             commands::catalog::list_releases,
             commands::apply::apply_update,
+            commands::apply::apply_update_batch,
+            commands::apply::cancel_apply,
+            commands::apply::cancel_all_applies,
             commands::backup::list_backups,
             commands::backup::restore_backup,
             commands::backup::delete_backup,
+            commands::diagnostics::get_log_paths,
+            commands::diagnostics::read_recent_logs,
+            commands::diagnostics::build_issue_report,
+            commands::notifications::list_notifications,
+            commands::notifications::mark_notification_read,
+            commands::notifications::mark_all_notifications_read,
+            commands::notifications::dismiss_notification,
+            commands::notifications::push_notification,
+            commands::notifications::notifications_unread_count,
             commands::settings::get_settings,
             commands::settings::save_settings,
             commands::settings::add_blacklist_entry,

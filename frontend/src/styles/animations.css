@@ -2,7 +2,44 @@
 @keyframes slideIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+@keyframes stagger-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes drawer-in { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes drawer-out { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(24px); } }
+@keyframes pop-in { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+@keyframes halo-ring { 0% { box-shadow: 0 0 0 0 var(--accent-glow); } 70% { box-shadow: 0 0 0 12px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
 
-.fade-in { animation: fadeIn 0.35s var(--ease-out); }
-.slide-in { animation: slideIn 0.35s var(--ease-out); }
+.fade-in { animation: fadeIn var(--dur-slow) var(--ease-out); }
+.slide-in { animation: slideIn var(--dur-slow) var(--ease-out); }
 .pulse { animation: pulse 2s var(--ease) infinite; }
+.pop-in { animation: pop-in var(--dur-normal) var(--ease-out); }
+
+.drawer-enter { animation: drawer-in var(--dur-normal) var(--ease-out); }
+.drawer-leave { animation: drawer-out var(--dur-normal) var(--ease-elastic); }
+
+.stagger > * { animation: stagger-rise var(--dur-normal) var(--ease-out) both; }
+.stagger > *:nth-child(1)  { animation-delay: calc(var(--dur-stagger) * 1); }
+.stagger > *:nth-child(2)  { animation-delay: calc(var(--dur-stagger) * 2); }
+.stagger > *:nth-child(3)  { animation-delay: calc(var(--dur-stagger) * 3); }
+.stagger > *:nth-child(4)  { animation-delay: calc(var(--dur-stagger) * 4); }
+.stagger > *:nth-child(5)  { animation-delay: calc(var(--dur-stagger) * 5); }
+.stagger > *:nth-child(6)  { animation-delay: calc(var(--dur-stagger) * 6); }
+.stagger > *:nth-child(7)  { animation-delay: calc(var(--dur-stagger) * 7); }
+.stagger > *:nth-child(8)  { animation-delay: calc(var(--dur-stagger) * 8); }
+.stagger > *:nth-child(9)  { animation-delay: calc(var(--dur-stagger) * 9); }
+.stagger > *:nth-child(10) { animation-delay: calc(var(--dur-stagger) * 10); }
+.stagger > *:nth-child(11) { animation-delay: calc(var(--dur-stagger) * 11); }
+.stagger > *:nth-child(12) { animation-delay: calc(var(--dur-stagger) * 12); }
+.stagger > *:nth-child(n+13) { animation-delay: calc(var(--dur-stagger) * 13); }
+
+.halo-ring { animation: halo-ring var(--dur-slow) var(--ease-out); }
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-in,
+  .slide-in,
+  .drawer-enter,
+  .drawer-leave,
+  .pop-in,
+  .stagger > *,
+  .halo-ring { animation: fadeIn var(--dur-instant) linear !important; }
+  .pulse { animation: none !important; opacity: 1 !important; }
+}

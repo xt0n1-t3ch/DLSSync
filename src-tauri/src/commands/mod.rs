@@ -2,6 +2,8 @@ pub mod advanced;
 pub mod apply;
 pub mod backup;
 pub mod catalog;
+pub mod diagnostics;
+pub mod notifications;
 pub mod runtime;
 pub mod scan;
 pub mod settings;

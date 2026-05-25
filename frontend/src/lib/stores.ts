@@ -1,4 +1,4 @@
-import { writable, derived, type Writable, type Readable } from "svelte/store";
+import { writable, derived, get, type Writable, type Readable } from "svelte/store";
 import {
   scanLibraries,
   refreshCatalog,
@@ -16,8 +16,72 @@ import {
   type DllRecord,
   type GameArt,
 } from "./api";
-import { vendorLabel, familyLabel, type UpdateStatus } from "./labels";
+import { vendorLabel, familyLabel, familyShort, type UpdateStatus } from "./labels";
 import { buildShasByVendor, gameStatusFromRecords, type CatalogShasByVendor, type RelationContext } from "./relation";
+import {
+  notifications,
+  pushNotification,
+  makeNotificationEntry,
+  type NotificationKind,
+} from "./notifications";
+
+const CATALOG_UPDATE_NOTIFICATION_CAP = 5;
+
+export function diffCatalogLatest(
+  before: Record<string, string>,
+  after: Record<string, string>,
+): Array<{ family: string; oldVersion: string; newVersion: string }> {
+  const out: Array<{ family: string; oldVersion: string; newVersion: string }> = [];
+  for (const [family, newVersion] of Object.entries(after)) {
+    const oldVersion = before[family];
+    if (oldVersion && oldVersion !== newVersion) {
+      out.push({ family, oldVersion, newVersion });
+    }
+  }
+  return out;
+}
+
+function alreadyEmitted(kind: NotificationKind, signature: string): boolean {
+  return get(notifications).some(
+    (n) => n.kind === kind && (n.title.includes(signature) || (n.body ?? "").includes(signature)),
+  );
+}
+
+function emitFailureNotification(kind: NotificationKind, title: string, body: string): void {
+  if (alreadyEmitted(kind, body)) return;
+  const entry = makeNotificationEntry(kind, title, body);
+  pushNotification(entry).catch((err) => console.warn(`[dlssync] push ${kind} notification failed:`, err));
+}
+
+function emitCatalogUpdateNotifications(
+  diffs: Array<{ family: string; oldVersion: string; newVersion: string }>,
+): void {
+  const fresh = diffs.filter((d) => !alreadyEmitted("catalog_update_available", `${d.family} ${d.newVersion}`));
+  if (fresh.length === 0) return;
+  const head = fresh.slice(0, CATALOG_UPDATE_NOTIFICATION_CAP);
+  const overflow = fresh.length - head.length;
+  for (const d of head) {
+    const label = familyShort(d.family);
+    const entry = makeNotificationEntry(
+      "catalog_update_available",
+      `${label} ${d.newVersion} available`,
+      `Was ${d.oldVersion}`,
+    );
+    pushNotification(entry).catch((err) =>
+      console.warn("[dlssync] push catalog-update notification failed:", err),
+    );
+  }
+  if (overflow > 0) {
+    const entry = makeNotificationEntry(
+      "catalog_update_available",
+      `+${overflow} more catalog update${overflow === 1 ? "" : "s"}`,
+      `${head.length + overflow} families changed in this refresh`,
+    );
+    pushNotification(entry).catch((err) =>
+      console.warn("[dlssync] push catalog-update summary failed:", err),
+    );
+  }
+}
 
 export const currentView: Writable<string> = writable("library");
 
@@ -80,6 +144,7 @@ export const drawerGameId: Writable<string | null> = writable(null);
 
 export interface ApplyTracker {
   apply_id: string;
+  group_id: string;
   game_id: string;
   game_label?: string;
   dll_path: string;
@@ -90,8 +155,30 @@ export interface ApplyTracker {
   message: string;
   progress: number | null;
   error: string | null;
+  error_class: string | null;
+  attempt: number | null;
+  bytes_downloaded: number;
+  bytes_total: number | null;
+  bytes_per_sec: number;
+  started_at: number;
+  ended_at: number | null;
 }
 export const activeApplies: Writable<Record<string, ApplyTracker>> = writable({});
+
+export const applyModalOpen: Writable<boolean> = writable(false);
+
+export interface GroupDownloadState {
+  group_id: string;
+  url: string;
+  bytes_downloaded: number;
+  bytes_total: number | null;
+  bytes_per_sec: number;
+  attempt: number;
+  last_update: number;
+}
+export const downloadProgressByGroup: Writable<Record<string, GroupDownloadState>> = writable({});
+
+export const inflightCount: Writable<number> = writable(0);
 
 export type GameStatusMap = Record<string, UpdateStatus>;
 
@@ -169,6 +256,43 @@ export const libraryZones: Readable<LibraryZones> = derived(
   },
 );
 
+export const outdatedGameCount: Readable<number> = derived(
+  [games, gameStatuses, hiddenIds],
+  ([$games, $statuses, $hidden]) =>
+    $games.reduce((n, g) => (!$hidden.has(g.id) && $statuses[g.id] === "outdated" ? n + 1 : n), 0),
+);
+
+export const restorableBackupCount: Readable<number> = derived(
+  backups,
+  ($entries) => $entries.reduce((n, b) => (b.restored_at == null ? n + 1 : n), 0),
+);
+
+export interface SidebarCounts {
+  library: number;
+  backups: number;
+}
+export const sidebarCounts: Readable<SidebarCounts> = derived(
+  [outdatedGameCount, restorableBackupCount],
+  ([$outdated, $restorable]) => ({ library: $outdated, backups: $restorable }),
+);
+
+export const commandPaletteOpen: Writable<boolean> = writable(false);
+export const shortcutOverlayOpen: Writable<boolean> = writable(false);
+export const notificationsUnreadCount: Readable<number> = derived(
+  notifications,
+  ($n) => $n.filter((e) => e.read_at == null && e.dismissed_at == null).length,
+);
+
+export const requestThemeToggle: Writable<number> = writable(0);
+export const requestApplyAllOutdated: Writable<number> = writable(0);
+export const requestUpdateCheck: Writable<number> = writable(0);
+export const requestRestoreMostRecent: Writable<number> = writable(0);
+
+export function triggerThemeToggle(): void { requestThemeToggle.update((n) => n + 1); }
+export function triggerApplyAllOutdated(): void { requestApplyAllOutdated.update((n) => n + 1); }
+export function triggerUpdateCheck(): void { requestUpdateCheck.update((n) => n + 1); }
+export function triggerRestoreMostRecent(): void { requestRestoreMostRecent.update((n) => n + 1); }
+
 
 export async function scanGames(): Promise<void> {
   scanInProgress.set(true);
@@ -179,7 +303,9 @@ export async function scanGames(): Promise<void> {
     void loadAllDlls(result);
     void enrichManualArt(result);
   } catch (err: unknown) {
-    showToast("danger", `Scan failed: ${formatError(err)}`);
+    const message = formatError(err);
+    showToast("danger", `Scan failed: ${message}`);
+    emitFailureNotification("scan_failed", "Library scan failed", message);
   } finally {
     scanInProgress.set(false);
   }
@@ -307,15 +433,21 @@ export async function bootstrapCatalog(): Promise<void> {
 
 export async function loadCatalog(): Promise<void> {
   catalogStatus.set({ kind: "warning", label: "loading" });
+  const before = { ...get(catalogLatestByKey) };
   try {
     await refreshCatalog();
     const summary = await catalogSummary();
     applySummary(summary);
     await loadCatalogShas();
     catalogStatus.set({ kind: "success", label: "ready" });
+    const after = get(catalogLatestByKey);
+    const diffs = diffCatalogLatest(before, after);
+    if (diffs.length > 0) emitCatalogUpdateNotifications(diffs);
   } catch (err: unknown) {
     catalogStatus.set({ kind: "danger", label: "error" });
-    showToast("danger", `Catalog refresh failed: ${formatError(err)}`);
+    const message = formatError(err);
+    showToast("danger", `Catalog refresh failed: ${message}`);
+    emitFailureNotification("catalog_refresh_failed", "Catalog refresh failed", message);
   }
 }
 

@@ -84,13 +84,22 @@
 
   let accent = $derived(LAUNCHER_ACCENTS[game.launcher] ?? "#22d3ee");
   let brandMark = $derived(launcherIcon(game.launcher));
+
+  let haloVariant = $derived(
+    status === "outdated" ? "is-update" :
+    status === "scan_failed" ? "is-danger" :
+    "is-neutral"
+  );
+  let haloActive = $derived(status === "outdated" || status === "scan_failed");
 </script>
 
 <div
-  class="game-card"
+  class="game-card halo {haloVariant}"
+  class:is-active={haloActive}
   class:status-outdated={status === "outdated"}
   class:status-up_to_date={status === "up_to_date"}
   class:status-no_dlls={status === "no_dlls"}
+  class:status-scan_failed={status === "scan_failed"}
   class:is-hidden={hidden}
   role="button"
   tabindex="0"
@@ -107,8 +116,11 @@
         onerror={() => (imgErrored = true)}
       />
     {:else}
-      <div class="art-fallback">
+      <div class="art-fallback" class:is-empty-dotted={status === "no_dlls"}>
         <span class="art-fallback-text">{game.name.slice(0, 1).toUpperCase()}</span>
+        {#if status === "no_dlls"}
+          <span class="art-empty-hint">Custom folder · DLLs may live elsewhere</span>
+        {/if}
       </div>
     {/if}
     <div class="art-overlay"></div>
@@ -119,22 +131,14 @@
         </svg>
         <span class="launcher-text">{launcherLabel(game.launcher)}</span>
       </span>
-      {#if status === "outdated"}
-        <span class="status-pill is-update">
-          <span class="dot"></span>{outdatedCount > 0 ? `${outdatedCount} update${outdatedCount > 1 ? "s" : ""}` : "Update available"}
-        </span>
-      {:else if status === "up_to_date"}
-        <span class="status-pill is-success">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-          Up to date
-        </span>
-      {:else if status === "scan_failed"}
-        <span class="status-pill is-danger" title="Scan failed — open and click Rescan">
+      {#if status === "scan_failed"}
+        <span class="status-pill is-danger" title="Scan failed — open and click Rescan" aria-label="Scan failed">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          Scan failed
         </span>
-      {:else if status === "no_dlls"}
-        <span class="status-pill is-muted">No DLLs</span>
+      {:else if outdatedCount > 0}
+        <span class="status-count" aria-label={`${outdatedCount} update${outdatedCount === 1 ? "" : "s"} available`}>
+          {outdatedCount}
+        </span>
       {/if}
     </div>
     {#if hidden}
@@ -316,43 +320,52 @@
   .status-pill {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 4px 9px;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
     border-radius: var(--radius-full);
-    font-size: 10.5px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
   }
-  .status-pill.is-update {
-    background: rgba(34, 211, 238, 0.16);
-    color: var(--update);
-    border: 1px solid rgba(34, 211, 238, 0.40);
-    box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.10) inset;
-  }
-  .status-pill.is-success {
-    background: rgba(11, 14, 22, 0.55);
-    color: var(--text-secondary);
-    border: 1px solid rgba(255, 255, 255, 0.10);
-  }
-  .status-pill.is-success :global(svg) { color: var(--success); }
-  .status-pill.is-muted {
-    background: rgba(11, 14, 22, 0.6);
-    color: var(--text-muted);
-    border: 1px solid var(--border);
-  }
   .status-pill.is-danger {
-    background: rgba(239, 68, 68, 0.16);
+    background: rgba(239, 68, 68, 0.20);
     color: var(--danger);
-    border: 1px solid rgba(239, 68, 68, 0.40);
+    border: 1px solid rgba(239, 68, 68, 0.45);
   }
-  .status-pill .dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: currentColor;
-    box-shadow: 0 0 8px currentColor;
+  .status-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 7px;
+    border-radius: var(--radius-full);
+    background: var(--accent);
+    color: var(--accent-fg);
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  }
+  .art-empty-hint {
+    position: absolute;
+    bottom: 14px;
+    left: 14px;
+    right: 14px;
+    font-size: 10px;
+    color: var(--text-muted);
+    text-align: center;
+    letter-spacing: 0.01em;
+  }
+  .art-fallback.is-empty-dotted {
+    border: 1.5px dashed var(--border-strong);
+    border-radius: var(--radius-md);
+    margin: 14px;
+    width: calc(100% - 28px);
+    height: calc(100% - 28px);
+    position: absolute;
+    inset: 14px;
   }
   .art-hover-actions {
     position: absolute;
@@ -367,7 +380,8 @@
     transition: opacity 0.2s var(--ease-out), transform 0.2s var(--ease-out);
     z-index: 2;
   }
-  .game-card:hover .art-hover-actions { opacity: 1; transform: translateY(0); }
+  .game-card:hover .art-hover-actions,
+  .game-card:focus-within .art-hover-actions { opacity: 1; transform: translateY(0); }
   .hover-btn {
     display: inline-flex;
     align-items: center;

@@ -1,9 +1,16 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { searchQuery, currentView } from "../lib/stores";
+  import {
+    searchQuery,
+    currentView,
+    commandPaletteOpen,
+    notificationsUnreadCount,
+  } from "../lib/stores";
   import { viewTitle } from "../lib/labels";
+  import NotificationsBell from "./NotificationsBell.svelte";
 
   let { onToggleTheme, theme }: { onToggleTheme: () => void; theme: string } = $props();
+  let notificationsOpen = $state(false);
 
   let searchInput: HTMLInputElement | undefined = $state();
 
@@ -40,8 +47,14 @@
     await getCurrentWindow().close();
   }
 
+  function openPalette(): void {
+    commandPaletteOpen.set(true);
+  }
+
   let showSearch = $derived($currentView === "library");
   let pageTitle = $derived(showSearch ? "" : viewTitle($currentView));
+  let unread = $derived($notificationsUnreadCount);
+  let modKeyLabel = $derived(typeof navigator !== "undefined" && navigator.platform.toLowerCase().includes("mac") ? "⌘" : "Ctrl");
 </script>
 
 <header class="topbar" data-tauri-drag-region>
@@ -65,6 +78,32 @@
   </div>
 
   <div class="topbar-right">
+    <button class="topbar-btn palette-btn" title={`Command palette (${modKeyLabel}K)`} onclick={openPalette} aria-label="Open command palette">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+    </button>
+
+    <div class="bell-wrap">
+      <button
+        class="topbar-btn bell-btn"
+        title="Notifications"
+        onclick={() => (notificationsOpen = !notificationsOpen)}
+        aria-haspopup="dialog"
+        aria-expanded={notificationsOpen}
+        aria-label={unread > 0 ? `${unread} unread notifications` : "Notifications"}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/>
+          <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
+        </svg>
+        {#if unread > 0}
+          <span class="bell-badge" aria-hidden="true">{unread > 9 ? "9+" : unread}</span>
+        {/if}
+      </button>
+      <NotificationsBell open={notificationsOpen} onClose={() => (notificationsOpen = false)} />
+    </div>
+
     <button class="topbar-btn" title="Toggle theme" onclick={onToggleTheme} aria-label="Toggle theme">
       {#if theme === "dark"}
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
@@ -74,13 +113,13 @@
     </button>
 
     <div class="window-controls">
-      <button class="win-btn" title="Minimize" onclick={minimize}>
+      <button class="win-btn win-quiet" title="Minimize" onclick={minimize} aria-label="Minimize window">
         <svg width="12" height="12" viewBox="0 0 12 12"><line x1="2" y1="6" x2="10" y2="6" stroke="currentColor" stroke-width="1.5"/></svg>
       </button>
-      <button class="win-btn" title="Maximize" onclick={toggleMaximize}>
+      <button class="win-btn win-quiet" title="Maximize" onclick={toggleMaximize} aria-label="Maximize window">
         <svg width="12" height="12" viewBox="0 0 12 12"><rect x="2" y="2" width="8" height="8" stroke="currentColor" stroke-width="1.5" fill="none" rx="1"/></svg>
       </button>
-      <button class="win-btn win-close" title="Close" onclick={close}>
+      <button class="win-btn win-close" title="Close" onclick={close} aria-label="Close window">
         <svg width="12" height="12" viewBox="0 0 12 12"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.5"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.5"/></svg>
       </button>
     </div>
@@ -95,6 +134,8 @@
     justify-content: space-between;
     padding: 0 12px 0 20px;
     background: var(--bg-topbar);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
     border-bottom: 1px solid var(--border);
     gap: 16px;
     user-select: none;
@@ -103,8 +144,11 @@
     top: 0;
     z-index: 50;
   }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .topbar { background: var(--bg-app); }
+  }
   .topbar-left { flex: 1; min-width: 0; display: flex; align-items: center; }
-  .page-title { font-size: 14px; font-weight: 600; color: var(--text-primary); letter-spacing: var(--letter-tight); -webkit-app-region: no-drag; }
+  .page-title { font-size: var(--fs-lg); font-weight: 600; color: var(--text-primary); letter-spacing: var(--letter-tighter); -webkit-app-region: no-drag; }
   .search-wrap {
     position: relative;
     width: 100%;
@@ -115,28 +159,53 @@
   }
   .search-icon {
     position: absolute;
-    left: 12px;
+    left: 14px;
     color: var(--text-muted);
     pointer-events: none;
   }
   .search-wrap input {
     width: 100%;
-    padding: 8px 38px 8px 34px;
+    height: 36px;
+    padding: 0 38px 0 36px;
     border-radius: var(--radius-full);
-    background: var(--bg-input);
-    border: 1px solid var(--border);
+    background: var(--bg-elevated);
+    border: 1px solid transparent;
     font-size: var(--fs-sm);
     color: var(--text-primary);
   }
-  .search-wrap input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
-  .search-wrap .kbd { position: absolute; right: 10px; pointer-events: none; }
+  .search-wrap input:hover { background: var(--bg-card-hover); }
+  .search-wrap input:focus { background: var(--bg-card); border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+  .search-wrap .kbd { position: absolute; right: 12px; pointer-events: none; }
 
   .topbar-right { display: flex; align-items: center; gap: 6px; -webkit-app-region: no-drag; }
-  .topbar-btn { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-md); color: var(--text-muted); transition: color 0.15s var(--ease), background 0.15s var(--ease); }
+
+  .bell-wrap { position: relative; display: inline-flex; }
+  .topbar-btn { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-md); color: var(--text-muted); transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease); position: relative; }
   .topbar-btn:hover { color: var(--text-primary); background: var(--bg-elevated); }
+  .topbar-btn:focus-visible { color: var(--text-primary); outline: none; box-shadow: var(--shadow-ring); }
+
+  .bell-badge {
+    position: absolute;
+    top: 1px;
+    right: 1px;
+    min-width: 14px;
+    height: 14px;
+    padding: 0 3px;
+    border-radius: var(--radius-full);
+    background: var(--update);
+    color: var(--update-fg);
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 14px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
+  }
 
   .window-controls { display: flex; gap: 2px; margin-left: 6px; padding-left: 6px; border-left: 1px solid var(--border); }
-  .win-btn { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-md); color: var(--text-muted); transition: all 0.15s var(--ease); }
-  .win-btn:hover { color: var(--text-primary); background: var(--bg-elevated); }
+  .win-btn { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-md); color: var(--text-muted); transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease); }
+  .win-quiet { color: var(--text-placeholder); }
+  .win-quiet:hover { color: var(--text-secondary); background: var(--bg-elevated); }
+  .win-close { color: var(--text-muted); }
   .win-close:hover { color: #fff; background: var(--danger); }
 </style>

@@ -1,7 +1,13 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
+  import { get } from "svelte/store";
   import { fly, slide } from "svelte/transition";
   import { showToast } from "../lib/stores";
+  import {
+    notifications,
+    pushNotification,
+    makeNotificationEntry,
+  } from "../lib/notifications";
   import Download from "@lucide/svelte/icons/download";
   import X from "@lucide/svelte/icons/x";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
@@ -67,23 +73,47 @@
   });
 
   function devFakeUpdate(): UpdateInfo | null {
-    if (!import.meta.env.DEV) return null;
     const params = new URLSearchParams(window.location.search);
     const fake = params.get("fakeUpdate");
     if (!fake) return null;
     return {
       version: fake.replace(/^v/, ""),
       notes:
-        "## Highlights\n\n" +
-        "- Hash-verified DLLs (SHA-256 + Authenticode publisher gate)\n" +
-        "- One-click rollback from a local SQLite snapshot store\n" +
-        "- Ed25519-signed updater payload\n" +
-        "- Tray, autostart, and Windows EcoQoS Efficiency Mode\n\n" +
-        "## Vendor coverage\n\n" +
-        "NVIDIA · AMD · Intel · Microsoft (DirectStorage)\n\n" +
-        "## Footprint\n\n" +
-        "Installer 4.5 MB · cold start under 500 ms · idle RAM under 100 MB.",
+        "### Fixed\n\n" +
+        "- Updating Intel XeSS no longer fails halfway through with random network errors. The app now downloads the shared archive only once instead of four times.\n" +
+        "- Slow connections no longer time out mid-download. The timeout is per chunk, not per request.\n" +
+        "- Transient GitHub CDN flakes (TCP reset, 503, 429) now retry automatically with backoff.\n\n" +
+        "### Apply progress modal — rebuilt\n\n" +
+        "- Failure-centric layout with filter chips and per-stage timeline.\n" +
+        "- One-click `Retry all failed` and `Allow unsigned & retry` actions.\n" +
+        "- `Copy report` dumps a full text report for bug reports.\n\n" +
+        "### Added\n\n" +
+        "- Tray badge with in-flight apply count.\n" +
+        "- Configurable apply concurrency in Settings → Advanced.\n" +
+        "- Network section with retry, timeout, and cache TTL knobs.",
     };
+  }
+
+  function firstChangelogHeading(notes: string | null): string | null {
+    if (!notes) return null;
+    for (const raw of notes.split("\n")) {
+      const line = raw.trim();
+      if (line.startsWith("#")) return line.replace(/^#+\s*/, "");
+    }
+    return null;
+  }
+
+  function emitAppUpdateNotification(next: UpdateInfo): void {
+    const existing = get(notifications).find(
+      (n) => n.kind === "app_update_available" && (n.title.includes(next.version) || n.body?.includes(next.version)),
+    );
+    if (existing) return;
+    const entry = makeNotificationEntry(
+      "app_update_available",
+      `DLSSync v${next.version} available`,
+      firstChangelogHeading(next.notes),
+    );
+    pushNotification(entry).catch((err) => console.warn("[dlssync] push app-update notification failed:", err));
   }
 
   async function checkForUpdates(): Promise<void> {
@@ -93,6 +123,7 @@
       if (dismissedVersion === fake.version) return;
       available = fake;
       stage = "available";
+      emitAppUpdateNotification(fake);
       return;
     }
     try {
@@ -108,6 +139,7 @@
       if (dismissedVersion === next.version) return;
       available = next;
       stage = "available";
+      emitAppUpdateNotification(next);
     } catch {
       // updater endpoint unreachable or no release published yet — silent retry on next poll
     }
@@ -210,13 +242,18 @@
   function renderNotes(notes: string): { heading: string | null; items: string[] }[] {
     const sections: { heading: string | null; items: string[] }[] = [];
     let current: { heading: string | null; items: string[] } = { heading: null, items: [] };
+    const linkRef = /^\[[^\]]+\]:\s/;
     for (const raw of notes.split(/\r?\n/)) {
       const line = raw.trim();
       if (!line) continue;
-      if (line.startsWith("## ")) {
+      if (linkRef.test(line)) continue;
+      const headingMatch = line.match(/^#{1,6}\s+(.+)$/);
+      if (headingMatch) {
         if (current.heading !== null || current.items.length > 0) sections.push(current);
-        current = { heading: line.slice(3).trim(), items: [] };
-      } else if (line.startsWith("- ") || line.startsWith("* ")) {
+        current = { heading: headingMatch[1].trim(), items: [] };
+        continue;
+      }
+      if (line.startsWith("- ") || line.startsWith("* ")) {
         current.items.push(line.slice(2).trim());
       } else {
         current.items.push(line);

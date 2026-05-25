@@ -27,7 +27,7 @@ pub struct FamilySummary {
 
 #[tauri::command]
 pub async fn refresh_catalog(state: State<'_, AppState>) -> AppResult<()> {
-    let http = state.http.clone();
+    let http = state.http_catalog.clone();
     let cache_path = state.catalog_cache_path.read().clone();
     let catalog = match cache_path {
         Some(p) => Catalog::fetch_with_cache(&http, &p).await?,

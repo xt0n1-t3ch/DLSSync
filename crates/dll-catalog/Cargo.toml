@@ -14,8 +14,15 @@ md-5.workspace = true
 chrono.workspace = true
 tracing.workspace = true
 tokio = { workspace = true }
+tokio-util.workspace = true
+futures-util.workspace = true
+bytes.workspace = true
 zip.workspace = true
 tempfile.workspace = true
+parking_lot.workspace = true
+once_cell.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+wiremock = "0.6"
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "fs", "sync", "time", "test-util"] }

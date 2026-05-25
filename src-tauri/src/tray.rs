@@ -4,10 +4,18 @@ use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 
+pub const TRAY_ID: &str = "main";
+
 pub const MENU_SHOW: &str = "tray.show";
 pub const MENU_HIDE: &str = "tray.hide";
+pub const MENU_PROGRESS: &str = "tray.progress";
 pub const MENU_CHECK_UPDATE: &str = "tray.check_update";
 pub const MENU_QUIT: &str = "tray.quit";
+
+pub const TRAY_EVENT_CHECK_UPDATE: &str = "tray://check-update";
+pub const TRAY_EVENT_SHOW_PROGRESS: &str = "tray://show-progress";
+
+pub const TRAY_TOOLTIP_IDLE: &str = "DLSSync";
 
 #[derive(Default)]
 pub struct TrayPrefs {
@@ -31,6 +39,7 @@ impl TrayPrefs {
 pub fn install<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     let show = MenuItem::with_id(app, MENU_SHOW, "Show DLSSync", true, None::<&str>)?;
     let hide = MenuItem::with_id(app, MENU_HIDE, "Hide to tray", true, None::<&str>)?;
+    let progress = MenuItem::with_id(app, MENU_PROGRESS, "Show progress", true, None::<&str>)?;
     let check = MenuItem::with_id(
         app,
         MENU_CHECK_UPDATE,
@@ -39,10 +48,10 @@ pub fn install<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
         None::<&str>,
     )?;
     let quit = MenuItem::with_id(app, MENU_QUIT, "Quit", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&show, &hide, &check, &quit])?;
+    let menu = Menu::with_items(app, &[&show, &hide, &progress, &check, &quit])?;
 
-    let _tray = TrayIconBuilder::with_id("main")
-        .tooltip("DLSSync")
+    let _tray = TrayIconBuilder::with_id(TRAY_ID)
+        .tooltip(TRAY_TOOLTIP_IDLE)
         .icon(
             app.default_window_icon()
                 .cloned()
@@ -59,9 +68,13 @@ pub fn install<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
                     let _ = w.hide();
                 }
             }
+            MENU_PROGRESS => {
+                show_main_window(app);
+                let _ = app.emit(TRAY_EVENT_SHOW_PROGRESS, ());
+            }
             MENU_CHECK_UPDATE => {
                 show_main_window(app);
-                let _ = app.emit("tray://check-update", ());
+                let _ = app.emit(TRAY_EVENT_CHECK_UPDATE, ());
             }
             MENU_QUIT => {
                 app.exit(0);
@@ -81,6 +94,18 @@ pub fn install<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
         .build(app)?;
 
     Ok(())
+}
+
+pub fn update_inflight<R: Runtime>(app: &AppHandle<R>, in_flight: usize) {
+    let Some(tray) = app.tray_by_id(TRAY_ID) else {
+        return;
+    };
+    let tooltip = if in_flight == 0 {
+        TRAY_TOOLTIP_IDLE.to_string()
+    } else {
+        format!("DLSSync — {in_flight} in flight",)
+    };
+    let _ = tray.set_tooltip(Some(tooltip));
 }
 
 fn show_main_window<R: Runtime>(app: &AppHandle<R>) {

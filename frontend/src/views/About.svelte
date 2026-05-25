@@ -16,10 +16,13 @@
     revealPath,
     getAppPaths,
     getSystemInfo,
+    buildIssueReport,
     type AppPathsDto,
     type SystemInfo,
   } from "../lib/api";
   import { vendorLabel, vendorAccent } from "../lib/labels";
+  import { EXTERNAL_URLS } from "../lib/ux";
+  import changelogRaw from "../../../CHANGELOG.md?raw";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import Bug from "@lucide/svelte/icons/bug";
   import ShieldCheck from "@lucide/svelte/icons/shield-check";
@@ -40,6 +43,36 @@
   let systemInfoFailed = $state(false);
   let updateChecking = $state(false);
   let updateMessage = $state<{ kind: "info" | "success" | "warning" | "danger"; text: string } | null>(null);
+
+  type ReleaseHighlights = { version: string; bullets: string[] };
+  const releaseHighlights = parseLatestRelease(changelogRaw);
+
+  function parseLatestRelease(raw: string): ReleaseHighlights | null {
+    const headRe = /^##\s*\[([^\]]+)\]/m;
+    const head = raw.match(headRe);
+    if (!head) return null;
+    const start = (head.index ?? 0) + head[0].length;
+    const restRe = /\n##\s*\[/g;
+    restRe.lastIndex = start;
+    const next = restRe.exec(raw);
+    const end = next ? next.index : raw.length;
+    const body = raw.slice(start, end);
+    const bulletRe = /^\s*[-*]\s+(.+)$/gm;
+    const bullets: string[] = [];
+    for (const m of body.matchAll(bulletRe)) {
+      const text = m[1].trim().replace(/`([^`]+)`/g, "$1").replace(/\*\*([^*]+)\*\*/g, "$1");
+      if (text.length > 0) bullets.push(text);
+      if (bullets.length >= 6) break;
+    }
+    return { version: head[1], bullets };
+  }
+
+  async function openReleases(): Promise<void> {
+    try {
+      const { open } = await import("@tauri-apps/plugin-shell");
+      await open(EXTERNAL_URLS.releases);
+    } catch (err) { showToast("warning", `Open link failed: ${String(err)}`); }
+  }
 
   const familyTween = new Tween(0, { duration: 600, easing: cubicOut });
   const releaseTween = new Tween(0, { duration: 800, easing: cubicOut });
@@ -170,6 +203,21 @@
     try { await openPath(appPaths.root); }
     catch (err) { showToast("danger", `Open failed: ${String(err)}`); }
   }
+
+  let reporting = $state(false);
+  async function reportBug(): Promise<void> {
+    if (reporting) return;
+    reporting = true;
+    try {
+      const report = await buildIssueReport();
+      await openExternal(report.url);
+    } catch (err: unknown) {
+      await openExternal(ISSUES_URL);
+      showToast("warning", `Opened a blank issue — diagnostics unavailable: ${String(err)}`);
+    } finally {
+      reporting = false;
+    }
+  }
 </script>
 
 <header class="view-header">
@@ -182,9 +230,14 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.79 23.4c.6.11.82-.26.82-.58v-2c-3.34.73-4.04-1.61-4.04-1.61-.55-1.4-1.34-1.77-1.34-1.77-1.1-.75.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.84 2.81 1.31 3.5 1 .1-.78.42-1.31.76-1.61-2.66-.3-5.46-1.33-5.46-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.12-3.17 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.65.25 2.87.12 3.17.77.84 1.24 1.91 1.24 3.22 0 4.61-2.8 5.62-5.47 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12 12 0 0 0 12 .3Z"/></svg>
       GitHub
     </button>
-    <button class="btn btn-ghost" onclick={() => openExternal(ISSUES_URL)}>
-      <Bug size={14} />
-      Report bug
+    <button class="btn btn-ghost" onclick={reportBug} disabled={reporting} title="Open a pre-filled GitHub issue with app version, OS, and recent logs attached">
+      {#if reporting}
+        <span class="spin"></span>
+        Preparing
+      {:else}
+        <Bug size={14} />
+        Report a problem
+      {/if}
     </button>
     <button class="btn btn-primary" onclick={checkForUpdates} disabled={updateChecking}>
       {#if updateChecking}
@@ -227,6 +280,21 @@
     </span>
   </div>
 </section>
+
+{#if releaseHighlights && releaseHighlights.bullets.length > 0}
+  <section class="whats-new" in:fly={{ y: 6, duration: 240, delay: 40 }}>
+    <header class="wn-head">
+      <span class="wn-eyebrow">What's new</span>
+      <span class="wn-version mono">v{releaseHighlights.version}</span>
+      <button class="wn-link" onclick={openReleases} title="Open GitHub releases">View full changelog →</button>
+    </header>
+    <ul class="wn-list">
+      {#each releaseHighlights.bullets as bullet (bullet)}
+        <li>{bullet}</li>
+      {/each}
+    </ul>
+  </section>
+{/if}
 
 {#if updateMessage}
   <div
@@ -494,6 +562,71 @@
     color: var(--text-primary);
     line-height: 1.1;
   }
+  .whats-new {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px 20px;
+    margin-bottom: 22px;
+  }
+  .wn-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .wn-eyebrow {
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: var(--letter-wider);
+  }
+  .wn-version {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .wn-link {
+    margin-left: auto;
+    background: transparent;
+    border: none;
+    color: var(--accent);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    transition: background var(--dur-fast) var(--ease);
+  }
+  .wn-link:hover { background: var(--accent-dim); }
+  .wn-link:focus-visible { outline: none; box-shadow: var(--shadow-ring); }
+  .wn-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .wn-list li {
+    font-size: var(--fs-sm);
+    color: var(--text-secondary);
+    padding-left: 18px;
+    position: relative;
+    line-height: var(--lh-snug);
+  }
+  .wn-list li::before {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 8px;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
   .brand-version {
     font-size: var(--fs-sm);
     font-weight: 600;
