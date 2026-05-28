@@ -49,10 +49,18 @@ pub enum GpuVendor {
 #[derive(Debug, Clone, Serialize)]
 pub struct GpuInfo {
     pub vendor: GpuVendor,
+    pub pci_vendor_id: u16,
+    pub pci_device_id: u16,
     pub model: String,
     pub driver_version: String,
     pub vram_bytes: u64,
     pub recommended_runtimes: Vec<String>,
+}
+
+/// Windows PCI hardware-id fragment as it appears in a `PNPDeviceID` or an Intel
+/// `DetectionValues` entry (e.g. `VEN_10DE&DEV_2705`). Uppercase, 4-hex padded.
+pub fn hardware_id(vendor_id: u16, device_id: u16) -> String {
+    format!("VEN_{vendor_id:04X}&DEV_{device_id:04X}")
 }
 
 pub fn collect() -> SystemInfo {
@@ -184,8 +192,17 @@ fn ddr_label(smbios: u32, legacy: u32) -> String {
 
 fn collect_gpus() -> Vec<GpuInfo> {
     let mut out = collect_gpus_dxgi();
+    dedupe_adapters(&mut out);
     enrich_drivers(&mut out);
     out
+}
+
+/// Drop adapters that resolve to the same physical GPU. DXGI can surface a card
+/// more than once; identical twin cards also collapse to one driver entry. Keyed
+/// by `(vendor, device, model)` so two distinct GPUs are never merged.
+fn dedupe_adapters(gpus: &mut Vec<GpuInfo>) {
+    let mut seen = std::collections::BTreeSet::new();
+    gpus.retain(|g| seen.insert((g.pci_vendor_id, g.pci_device_id, g.model.clone())));
 }
 
 #[cfg(windows)]
@@ -225,6 +242,8 @@ fn collect_gpus_dxgi() -> Vec<GpuInfo> {
             let vendor = vendor_from_id(desc.VendorId);
             out.push(GpuInfo {
                 vendor,
+                pci_vendor_id: desc.VendorId as u16,
+                pci_device_id: desc.DeviceId as u16,
                 model,
                 driver_version: "Unknown".into(),
                 vram_bytes: desc.DedicatedVideoMemory as u64,
@@ -265,32 +284,51 @@ pub fn recommended_for(vendor: GpuVendor) -> Vec<String> {
 }
 
 #[cfg(windows)]
+type WmiRow = std::collections::HashMap<String, wmi::Variant>;
+
+#[cfg(windows)]
 fn enrich_drivers(gpus: &mut [GpuInfo]) {
-    let rows = match wmi_query("SELECT Name, DriverVersion, AdapterRAM FROM Win32_VideoController")
+    let rows = match wmi_query("SELECT Name, DriverVersion, PNPDeviceID FROM Win32_VideoController")
     {
         Ok(r) => r,
         Err(_) => return,
     };
     for gpu in gpus.iter_mut() {
-        let needle = gpu.model.to_ascii_lowercase();
-        for row in &rows {
-            let row_name = row
-                .get("Name")
-                .and_then(variant_as_string)
-                .unwrap_or_default();
-            if row_name.is_empty() {
-                continue;
-            }
-            if row_name.to_ascii_lowercase().contains(&needle)
-                || needle.contains(&row_name.to_ascii_lowercase())
-            {
-                if let Some(dv) = row.get("DriverVersion").and_then(variant_as_string) {
-                    gpu.driver_version = dv;
-                }
-                break;
-            }
+        if let Some(version) = row_for_gpu(gpu, &rows)
+            .and_then(|row| row.get("DriverVersion").and_then(variant_as_string))
+        {
+            gpu.driver_version = version;
         }
     }
+}
+
+/// Pick the `Win32_VideoController` row for this adapter. Prefers an exact PCI
+/// hardware-id match against `PNPDeviceID` — the only correct key when two GPUs
+/// of the same vendor (or an iGPU + dGPU) are present — and falls back to fuzzy
+/// model-name containment only when no row carries a matching id.
+#[cfg(windows)]
+fn row_for_gpu<'a>(gpu: &GpuInfo, rows: &'a [WmiRow]) -> Option<&'a WmiRow> {
+    if gpu.pci_device_id != 0 {
+        let want = hardware_id(gpu.pci_vendor_id, gpu.pci_device_id);
+        let by_id = rows.iter().find(|row| {
+            row.get("PNPDeviceID")
+                .and_then(variant_as_string)
+                .map(|pnp| pnp.to_ascii_uppercase().contains(&want))
+                .unwrap_or(false)
+        });
+        if by_id.is_some() {
+            return by_id;
+        }
+    }
+    let needle = gpu.model.to_ascii_lowercase();
+    rows.iter().find(|row| {
+        let name = row
+            .get("Name")
+            .and_then(variant_as_string)
+            .unwrap_or_default()
+            .to_ascii_lowercase();
+        !name.is_empty() && (name.contains(&needle) || needle.contains(&name))
+    })
 }
 
 #[cfg(not(windows))]
@@ -348,6 +386,49 @@ mod tests {
     fn ddr_label_unknown_for_unmapped_code() {
         assert_eq!(ddr_label(99, 0), "Unknown");
         assert_eq!(ddr_label(0, 0), "Unknown");
+    }
+
+    fn gpu(vendor: GpuVendor, vid: u16, did: u16, model: &str) -> GpuInfo {
+        GpuInfo {
+            vendor,
+            pci_vendor_id: vid,
+            pci_device_id: did,
+            model: model.into(),
+            driver_version: "Unknown".into(),
+            vram_bytes: 0,
+            recommended_runtimes: vec![],
+        }
+    }
+
+    #[test]
+    fn dedupe_adapters_collapses_identical_gpus_but_keeps_distinct_ones() {
+        let mut gpus = vec![
+            gpu(
+                GpuVendor::Nvidia,
+                0x10DE,
+                0x2705,
+                "NVIDIA GeForce RTX 4070 Ti SUPER",
+            ),
+            gpu(
+                GpuVendor::Nvidia,
+                0x10DE,
+                0x2705,
+                "NVIDIA GeForce RTX 4070 Ti SUPER",
+            ),
+            gpu(GpuVendor::Intel, 0x8086, 0x9A49, "Intel Iris Xe Graphics"),
+        ];
+        dedupe_adapters(&mut gpus);
+        assert_eq!(gpus.len(), 2);
+        assert!(gpus.iter().any(|g| g.vendor == GpuVendor::Intel));
+        assert_eq!(gpus.iter().filter(|g| g.pci_device_id == 0x2705).count(), 1);
+    }
+
+    #[test]
+    fn hardware_id_is_uppercase_4_hex_padded() {
+        assert_eq!(hardware_id(0x10DE, 0x2705), "VEN_10DE&DEV_2705");
+        assert_eq!(hardware_id(0x8086, 0x9A49), "VEN_8086&DEV_9A49");
+        assert_eq!(hardware_id(0x8086, 0x46A6), "VEN_8086&DEV_46A6");
+        assert_eq!(hardware_id(0x1002, 0x0B), "VEN_1002&DEV_000B");
     }
 
     #[test]

@@ -1,30 +1,27 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { listen } from "@tauri-apps/api/event";
+  import { openUrl, type DriverStatusReport, type GpuVendor } from "../lib/api";
   import {
-    openUrl,
-    installDriver,
-    DRIVER_INSTALL_EVENT,
-    type DriverStatusReport,
-    type DriverInstallProgress,
-    type InstallStage,
-    type GpuVendor,
-  } from "../lib/api";
-  import { driverStatusLabel, driverStatusTone, sortDriverReports } from "../lib/drivers";
+    driverStatusLabel,
+    driverStatusTone,
+    sortDriverReports,
+    canInstall,
+    isOpenPageOnly,
+    driverPageUrl,
+    vendorHelpUrl,
+  } from "../lib/drivers";
   import {
     driverReports,
     driverCheckInProgress,
     driverCheckError,
     loadDriverUpdates,
+    startDriverInstall,
+    driverInstall,
     showToast,
   } from "../lib/stores";
   import DlssOverridePanel from "../components/DlssOverridePanel.svelte";
   import DriverHistoryFlyout from "../components/DriverHistoryFlyout.svelte";
 
-  let installingVendor = $state<string | null>(null);
-  let installStage = $state<InstallStage | null>(null);
-  let installMessage = $state("");
-  let installFraction = $state<number | null>(null);
   let expandedModel = $state<string | null>(null);
   let historyTarget = $state<{ vendor: GpuVendor; model: string; accent: string } | null>(null);
 
@@ -43,6 +40,7 @@
   };
 
   let reports = $derived(sortDriverReports($driverReports));
+  let installBusy = $derived($driverInstall.vendor !== null);
   let nvidiaPacked = $derived(
     $driverReports.find((r) => r.device.vendor === "nvidia")?.installed.packed ?? 0,
   );
@@ -63,21 +61,12 @@
     return mb >= 1024 ? `${(mb / 1024).toFixed(2)} GB` : `${mb.toFixed(0)} MB`;
   }
 
-  function notesUrl(report: DriverStatusReport): string | null {
-    return report.latest?.release_notes_url ?? report.latest?.changelog?.notes_page_url ?? null;
-  }
-
-  function canDownload(report: DriverStatusReport): boolean {
-    return report.status === "update_available" && !!report.latest?.download_url;
-  }
-
   function hasChangelog(report: DriverStatusReport): boolean {
     const log = report.latest?.changelog;
     return !!log && (log.highlights.length > 0 || log.fixed.length > 0);
   }
 
-  async function openNotes(report: DriverStatusReport): Promise<void> {
-    const url = notesUrl(report);
+  async function open(url: string | null): Promise<void> {
     if (!url) return;
     try {
       await openUrl(url);
@@ -92,40 +81,7 @@
 
   onMount(() => {
     void loadDriverUpdates();
-    const unlisten = listen<DriverInstallProgress>(DRIVER_INSTALL_EVENT, (event) => {
-      installStage = event.payload.stage;
-      installMessage = event.payload.message;
-      installFraction = event.payload.progress;
-    });
-    return () => {
-      void unlisten.then((off) => off());
-    };
   });
-
-  async function install(report: DriverStatusReport): Promise<void> {
-    if (!report.latest?.download_url || installingVendor) return;
-    installingVendor = report.device.vendor;
-    installStage = "downloading";
-    installMessage = "Starting…";
-    installFraction = null;
-    try {
-      const outcome = await installDriver(report.device.vendor, report.latest.download_url);
-      if (outcome.stage === "completed") {
-        showToast("success", outcome.message);
-        await loadDriverUpdates();
-      } else if (outcome.stage === "cancelled") {
-        showToast("warning", outcome.message);
-      } else {
-        showToast("danger", outcome.message);
-      }
-    } catch (err) {
-      showToast("danger", `Install failed: ${err}`);
-    } finally {
-      installingVendor = null;
-      installStage = null;
-      installFraction = null;
-    }
-  }
 </script>
 
 <section class="drivers-view">
@@ -154,7 +110,10 @@
     {#each reports as report (report.device.model)}
       {@const tone = driverStatusTone(report.status)}
       {@const expanded = expandedModel === report.device.model}
-      {@const showNotes = !!notesUrl(report)}
+      {@const pageUrl = driverPageUrl(report)}
+      {@const showNotes = !!pageUrl}
+      {@const installing = $driverInstall.vendor === report.device.vendor}
+      {@const needsHelp = report.status === "unknown" || report.status === "unsupported"}
       <li class="driver-card">
         <div class="card-row">
           <div class="card-main">
@@ -174,28 +133,38 @@
             </div>
           </div>
           <div class="card-side">
-            {#if installingVendor === report.device.vendor}
-              <div class="install-live">
-                <span class="install-stage">{installStage}</span>
-                <div class="install-bar"><div class="install-fill" style:width={`${Math.round((installFraction ?? 0) * 100)}%`}></div></div>
-                <span class="install-msg">{installMessage}</span>
+            {#if installing}
+              <div class="install-live" role="status" aria-live="polite">
+                <span class="install-stage">{$driverInstall.stage}</span>
+                <div class="install-bar"><div class="install-fill" style:width={`${Math.round(($driverInstall.fraction ?? 0) * 100)}%`}></div></div>
+                <span class="install-msg">{$driverInstall.message}</span>
               </div>
             {:else}
-              {#if canDownload(report)}
+              {#if canInstall(report)}
                 {@const size = sizeLabel(report.latest?.size_bytes ?? 0)}
-                <button class="driver-update" onclick={() => install(report)} disabled={!!installingVendor}>
+                <button class="driver-update" onclick={() => startDriverInstall(report)} disabled={installBusy}>
                   <span class="driver-update-label">Update to v{report.latest?.version.display}</span>
                   {#if size}<span class="driver-update-size mono">{size}</span>{/if}
                 </button>
+              {:else if isOpenPageOnly(report)}
+                <button class="driver-update open-page" onclick={() => open(pageUrl)} disabled={installBusy}>
+                  <span class="driver-update-label">Open download page</span>
+                  <span class="ext-arrow" aria-hidden="true">↗</span>
+                </button>
               {:else}
-                <span class="driver-state" data-tone={tone}>{driverStatusLabel(report.status)}</span>
+                <div class="state-block">
+                  <span class="driver-state" data-tone={tone}>{driverStatusLabel(report.status)}</span>
+                  {#if needsHelp}
+                    <button class="help-link" onclick={() => open(vendorHelpUrl(report.device.vendor))}>Find my driver ↗</button>
+                  {/if}
+                </div>
               {/if}
               <div class="driver-secondary">
                 {#if showNotes}
                   <button
                     class="driver-icon"
-                    onclick={() => openNotes(report)}
-                    title={report.status === "update_available" && !report.latest?.download_url ? "Open the driver download page" : "Open the official release notes"}
+                    onclick={() => open(pageUrl)}
+                    title="Open the official release notes"
                     aria-label="Release notes"
                   >
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
@@ -237,7 +206,7 @@
                 <p class="cl-empty">No inline notes published for this release.</p>
               {/if}
               {#if showNotes}
-                <button class="link-btn inline" onclick={() => openNotes(report)}>Full release notes ↗</button>
+                <button class="link-btn inline" onclick={() => open(pageUrl)}>Full release notes ↗</button>
               {/if}
             </div>
           {/if}
@@ -448,4 +417,21 @@
   .install-bar { width: 180px; height: 6px; border-radius: var(--radius-full); background: var(--bg-elevated); overflow: hidden; }
   .install-fill { height: 100%; background: var(--accent); transition: width 0.2s var(--ease); }
   .install-msg { font-size: 10px; color: var(--text-muted); max-width: 220px; text-align: right; }
+
+  .driver-update.open-page { background: var(--bg-elevated); color: var(--text-primary); border: 1px solid var(--border-strong); box-shadow: none; }
+  .driver-update.open-page:hover:not(:disabled) { background: var(--bg-card); border-color: var(--accent); }
+  .ext-arrow { font-size: 12px; opacity: 0.7; }
+  .state-block { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+  .help-link { background: none; border: none; padding: 0; font-size: 11px; font-weight: 600; color: var(--accent); cursor: pointer; }
+  .help-link:hover { text-decoration: underline; }
+
+  .driver-update:focus-visible,
+  .driver-icon:focus-visible,
+  .help-link:focus-visible,
+  .changelog-toggle:focus-visible,
+  .check-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .install-fill { transition: none; }
+  }
 </style>

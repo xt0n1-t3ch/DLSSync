@@ -22,14 +22,12 @@ pub mod intel {
     pub const PUBLISHER_SUBJECT: &str = "Intel Corporation";
     pub const SOFTWARE_CONFIGURATIONS_FILE: &str = "software-configurations.json";
     pub const SELECTABLE_GRAPHICS_FILE: &str = "selectable-graphics.json";
-    pub const CLIENT_GRAPHICS_GROUP_ID: &str = "785597";
-    pub const GRAPHICS_VERSION_PREFIX: &str = "32.0.101.";
+    pub const PCI_VENDOR_ID: u16 = super::pci::INTEL;
 }
 
 pub mod amd {
     pub const VERSION_TABLE_URL: &str = "https://gpuopen.com/version-table/";
     pub const VERSION_TABLE_XML: &str =
         "https://raw.githubusercontent.com/GPUOpen-Drivers/amd-vulkan-versions/master/amdversions.xml";
-    pub const DRIVER_DOWNLOAD_PREFIX: &str = "https://drivers.amd.com/drivers/";
     pub const PUBLISHER_SUBJECT: &str = "Advanced Micro Devices, Inc.";
 }

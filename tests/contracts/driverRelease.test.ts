@@ -26,11 +26,26 @@ const amdRelease = {
   channel: "stable",
   is_beta: false,
   display_version: "26.5.2",
-  download_url: "https://drivers.amd.com/drivers/whql-amd-software-adrenalin-edition-26.5.2-win11-c.exe",
+  download_url: "",
   size_bytes: 0,
   signature_subject: "Advanced Micro Devices, Inc.",
   released_at: null,
   release_notes_url: "https://www.amd.com/en/resources/support-articles/release-notes/RN-RAD-WIN-26-5-2.html",
+  changelog: null,
+};
+
+const intelIntegratedRelease = {
+  vendor: "intel",
+  version: { packed: 31000101002141, display: "31.0.101.2141", raw: "31.0.101.2141" },
+  channel: "stable",
+  is_beta: false,
+  display_version: null,
+  download_url: "https://downloadmirror.intel.com/z/win64_2141.exe",
+  size_bytes: 400000000,
+  signature_subject: "Intel Corporation",
+  released_at: "2026-04-06T00:00:00Z",
+  release_notes_url:
+    "https://www.intel.com/content/www/us/en/download/776137/intel-7th-10th-gen-processor-graphics-windows.html",
   changelog: null,
 };
 
@@ -70,7 +85,14 @@ describe("driver-release contract", () => {
     ["nvidia", nvidiaRelease],
     ["amd", amdRelease],
     ["intel", intelRelease],
+    ["intel-integrated", intelIntegratedRelease],
   ])("validates a %s release fixture against the schema", (_vendor, fixture) => {
     assertConforms(fixture, schema as never);
+  });
+
+  it("permits an empty download_url (AMD open-page model) while keeping a notes page", () => {
+    expect(amdRelease.download_url).toBe("");
+    expect(amdRelease.release_notes_url).toContain("amd.com");
+    assertConforms(amdRelease, schema as never);
   });
 });

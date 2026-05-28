@@ -25,6 +25,7 @@
     applyModalOpen,
   } from "./lib/stores";
   import { installApplyEventListeners } from "./lib/applyEvents";
+  import { installDriverInstallListener } from "./lib/driverInstallEvents";
 
   let theme = $state(localStorage.getItem("dlssync-theme") || "dark");
 
@@ -52,6 +53,7 @@
     }
     document.documentElement.setAttribute("data-theme", theme);
     void installApplyEventListeners();
+    void installDriverInstallListener();
     void bootstrapCatalog();
   });
 

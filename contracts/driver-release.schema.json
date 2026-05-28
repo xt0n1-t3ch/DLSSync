@@ -32,7 +32,10 @@
     "channel": { "enum": ["stable", "beta"] },
     "is_beta": { "type": "boolean" },
     "display_version": { "type": ["string", "null"] },
-    "download_url": { "type": "string", "minLength": 1 },
+    "download_url": {
+      "type": "string",
+      "description": "Direct installer URL when the vendor exposes one (NVIDIA, Intel). Empty for vendors with no safe direct link (AMD: EULA-gated, unstable filename) — the UI then routes to release_notes_url as an 'Open download page' action."
+    },
     "size_bytes": { "type": "integer", "minimum": 0 },
     "signature_subject": { "type": "string" },
     "released_at": { "type": ["string", "null"] },

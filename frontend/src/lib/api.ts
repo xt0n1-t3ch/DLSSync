@@ -126,6 +126,8 @@ export interface RamInfo {
 
 export interface GpuInfo {
   vendor: GpuVendor;
+  pci_vendor_id: number;
+  pci_device_id: number;
   model: string;
   driver_version: string;
   vram_bytes: number;

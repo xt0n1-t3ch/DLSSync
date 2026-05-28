@@ -367,6 +367,22 @@ mod tests {
     }
 
     #[test]
+    fn match_pfid_resolves_notebook_laptop_gpu_suffix_distinct_from_desktop() {
+        let data = serde_json::json!({
+            "desktop": { "GeForce RTX 4090": "1010" },
+            "notebook": { "GeForce RTX 4090 Laptop GPU": "1011" }
+        });
+        assert_eq!(
+            match_pfid(&data, "NVIDIA GeForce RTX 4090 Laptop GPU"),
+            Some("1011".to_string())
+        );
+        assert_eq!(
+            match_pfid(&data, "NVIDIA GeForce RTX 4090"),
+            Some("1010".to_string())
+        );
+    }
+
+    #[test]
     fn build_lookup_url_encodes_lookup_parameters() {
         let url = build_lookup_url("933", 135, true, true);
         assert!(url.contains("pfid=933"));

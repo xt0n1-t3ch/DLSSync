@@ -12,6 +12,7 @@ import {
   fetchSteamArt,
   checkDriverUpdates,
   listDriverHistory,
+  installDriver,
   type DetectedGame,
   type BackupEntry,
   type AppSettings,
@@ -19,6 +20,9 @@ import {
   type GameArt,
   type DriverStatusReport,
   type DriverReleaseDto,
+  type DriverInstallProgress,
+  type InstallStage,
+  type GpuVendor,
 } from "./api";
 import { sortDriverReports } from "./drivers";
 import { vendorLabel, familyLabel, familyShort, type UpdateStatus } from "./labels";
@@ -490,6 +494,62 @@ export async function loadDriverUpdates(): Promise<void> {
     showToast("danger", `Driver check failed: ${message}`);
   } finally {
     driverCheckInProgress.set(false);
+  }
+}
+
+/** Shared, app-level install progress for the GPU-driver updater. Lives in the
+ *  store (not in the Drivers view) so it survives unmounting when the user
+ *  switches tabs mid-download — the app-level listener in `driverInstallEvents`
+ *  keeps writing here regardless of which view is mounted. */
+export interface DriverInstallState {
+  vendor: GpuVendor | null;
+  stage: InstallStage | null;
+  message: string;
+  fraction: number | null;
+}
+
+const DRIVER_INSTALL_IDLE: DriverInstallState = {
+  vendor: null,
+  stage: null,
+  message: "",
+  fraction: null,
+};
+
+export const driverInstall: Writable<DriverInstallState> = writable({ ...DRIVER_INSTALL_IDLE });
+
+/** Fold a backend progress event into the shared state. Ignored when no install
+ *  is active so a late event cannot resurrect a cleared card. */
+export function applyDriverInstallProgress(p: DriverInstallProgress): void {
+  driverInstall.update((s) =>
+    s.vendor === null ? s : { ...s, stage: p.stage, message: p.message, fraction: p.progress },
+  );
+}
+
+/** Drive a driver install end-to-end. One install at a time; progress is
+ *  reflected in the shared `driverInstall` store and cleared on completion. */
+export async function startDriverInstall(report: DriverStatusReport): Promise<void> {
+  const url = report.latest?.download_url;
+  if (!url || get(driverInstall).vendor) return;
+  driverInstall.set({
+    vendor: report.device.vendor,
+    stage: "downloading",
+    message: "Starting…",
+    fraction: null,
+  });
+  try {
+    const outcome = await installDriver(report.device.vendor, url);
+    if (outcome.stage === "completed") {
+      showToast("success", outcome.message);
+      await loadDriverUpdates();
+    } else if (outcome.stage === "cancelled") {
+      showToast("warning", outcome.message);
+    } else {
+      showToast("danger", outcome.message);
+    }
+  } catch (err: unknown) {
+    showToast("danger", `Install failed: ${formatError(err)}`);
+  } finally {
+    driverInstall.set({ ...DRIVER_INSTALL_IDLE });
   }
 }
 

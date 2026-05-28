@@ -25,6 +25,9 @@ const EXIT_OK: i32 = 0;
 const EXIT_REBOOT_REQUIRED: i32 = 3010;
 const EXIT_USER_CANCELLED: i32 = 1602;
 const EXIT_UAC_DECLINED: i32 = 1223;
+/// Intel Graphics installer: "No driver was found that can be installed on the
+/// current device" — the package's INF lists no id matching this GPU.
+const EXIT_INTEL_NO_COMPATIBLE_DEVICE: i32 = 8;
 
 impl InstallStage {
     pub fn is_terminal(self) -> bool {
@@ -76,6 +79,23 @@ pub fn classify_exit(code: i32) -> InstallStage {
         EXIT_OK | EXIT_REBOOT_REQUIRED => InstallStage::Completed,
         EXIT_USER_CANCELLED | EXIT_UAC_DECLINED => InstallStage::Cancelled,
         _ => InstallStage::Failed,
+    }
+}
+
+/// Human-facing message for a vendor installer exit code. Vendor is matched
+/// case-insensitively ("intel"/"nvidia"/"amd"); unknown codes fall back to a
+/// generic line that still surfaces the raw code for support.
+pub fn describe_exit(code: i32, vendor: &str) -> String {
+    match code {
+        EXIT_OK => "Driver installed successfully.".to_string(),
+        EXIT_REBOOT_REQUIRED => "Driver installed — restart your PC to finish.".to_string(),
+        EXIT_USER_CANCELLED | EXIT_UAC_DECLINED => "Installation cancelled.".to_string(),
+        EXIT_INTEL_NO_COMPATIBLE_DEVICE if vendor.eq_ignore_ascii_case("intel") => {
+            "This Intel driver does not list your GPU (exit code 8). It is likely OEM-locked or needs a \
+             different driver branch — get it from your laptop manufacturer or Windows Update."
+                .to_string()
+        }
+        other => format!("Installer exited with code {other}."),
     }
 }
 
@@ -148,6 +168,26 @@ mod tests {
         assert_eq!(classify_exit(1223), InstallStage::Cancelled);
         assert_eq!(classify_exit(1), InstallStage::Failed);
         assert_eq!(classify_exit(-1), InstallStage::Failed);
+    }
+
+    #[test]
+    fn describe_exit_explains_intel_code_8_only_for_intel() {
+        let intel = describe_exit(8, "intel");
+        assert!(intel.contains("exit code 8"));
+        assert!(
+            intel.to_lowercase().contains("oem-locked")
+                || intel.to_lowercase().contains("windows update")
+        );
+        assert_eq!(describe_exit(8, "nvidia"), "Installer exited with code 8.");
+    }
+
+    #[test]
+    fn describe_exit_covers_success_reboot_and_cancel() {
+        assert_eq!(describe_exit(0, "nvidia"), "Driver installed successfully.");
+        assert!(describe_exit(3010, "amd").contains("restart"));
+        assert_eq!(describe_exit(1602, "intel"), "Installation cancelled.");
+        assert_eq!(describe_exit(1223, "amd"), "Installation cancelled.");
+        assert_eq!(describe_exit(5, "amd"), "Installer exited with code 5.");
     }
 
     #[test]

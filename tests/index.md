@@ -29,6 +29,7 @@ Vitest config: [frontend/vitest.config.ts](../frontend/vitest.config.ts). Tauri 
 | [dlssPresets.test.ts](unit/dlssPresets.test.ts) | `lib/dlss` | SR preset / FG-mode / FG-count option tables, preset labels, per-option description + source URL, driver-version gating (≥572.16 DLSS 4, ≥595.97 Dynamic MFG), active-override detection |
 | [anticheat.test.ts](unit/anticheat.test.ts) | `lib/anticheat` | detection flag (type-guard), joined names, dataset status note, ban-risk warning copy names the anti-cheats |
 | [catalogReleases.test.ts](unit/catalogReleases.test.ts) | `lib/catalogReleases` | `mergeFamilyReleases` across feature families: dedupe by version+sha, newest-first sort, distinct same-version files kept, empty input |
+| [driversActions.test.ts](unit/driversActions.test.ts) | `lib/drivers` | per-vendor action routing: `canInstall` (direct download only), `isOpenPageOnly` (AMD: update + no download + has page), mutual exclusivity, `driverPageUrl` notes→PDF→null fallback, `vendorHelpUrl` per-vendor finder + Windows fallback |
 
 ## Frontend — integration (`tests/integration/`)
 
@@ -38,6 +39,7 @@ Vitest config: [frontend/vitest.config.ts](../frontend/vitest.config.ts). Tauri 
 | [libraryStatus.test.ts](integration/libraryStatus.test.ts) | `relation` + Library Sort policy | mixed-library status derivation; outdated-first ordering contract (status rank → alpha) |
 | [toastStore.test.ts](integration/toastStore.test.ts) | Toast popup data layer | append/kind/message, FIFO stacking, TTL auto-dismiss (fake timers), targeted dismiss, no-op unknown id |
 | [driverStatus.test.ts](integration/driverStatus.test.ts) | `lib/drivers` | status label/tone maps, update detection + count, sort order (update→unknown→up_to_date→unsupported) + alpha tie-break + no-mutate |
+| [driverInstall.test.ts](integration/driverInstall.test.ts) | `stores.driverInstall` (UI e2e state machine) | shared install store: stray events ignored when idle; **progress survives a view change mid-download (bug-#1 regression guard)**; one-install-at-a-time; cancelled→warning / failed (Intel exit 8)→danger toast + state cleared; AMD empty-URL report never invokes install (open-page path) |
 
 ## Frontend — component render (`tests/components/`)
 
@@ -65,7 +67,7 @@ Validates the Tauri command boundary (Rust serde struct ↔ TS DTO) against the 
 
 | File | Contract | Coverage |
 |:---|:---|:---|
-| [driverRelease.test.ts](contracts/driverRelease.test.ts) | `contracts/driver-release.schema.json` | required-field set guard + NVIDIA/AMD/Intel release fixtures conform (version, changelog, display_version, release-notes URL) |
+| [driverRelease.test.ts](contracts/driverRelease.test.ts) | `contracts/driver-release.schema.json` | required-field set guard + NVIDIA/AMD/Intel(Arc)/Intel(integrated 31.x) fixtures conform; AMD empty `download_url` permitted (open-page model) with a notes page present |
 | [anticheatReport.test.ts](contracts/anticheatReport.test.ts) | `contracts/anticheat-report.schema.json` | required-field set guard + detected/clean fixtures conform; rejects an unknown detection source |
 
 ## Backend — Rust (`cargo test --workspace`)
@@ -81,7 +83,7 @@ Inline `#[cfg(test)]` per crate and per command module. All green:
 | settings / ui_prefs | `src-tauri/src/commands/settings.rs` | v2 round-trip, field defaults |
 | shell reveal | `src-tauri/src/commands/shell.rs` | `select_arg` quotes only the path, not the `/select` flag (spaced Steam paths) |
 | diagnostics | `src-tauri/src/commands/diagnostics.rs` | percent-encode (unreserved/UTF-8), body truncation, log tail, newest-first log discovery |
-| system_info | `src-tauri/src/system_info.rs` | DDR label decode, vendor-id map, per-vendor runtime recommendations |
+| system_info | `src-tauri/src/system_info.rs` | DDR label decode, vendor-id map, per-vendor runtime recommendations, `hardware_id` (uppercase 4-hex `VEN_&DEV_`), `dedupe_adapters` (collapses twin/duplicate GPUs, keeps distinct) |
 | driver-catalog | `crates/driver-catalog/src/{version,sources/*}.rs` | per-vendor version normalization (edge-case-five) + `four_part_labeled`, registry source selection, NVIDIA pfid match + Ajax parse + release-notes/date parse, Intel DSA `software-configurations.json` newest-client parse, AMD `amdversions.xml` arch-branch parse (`amd_arch` RDNA/Polaris classify) |
 | anticheat-detect | `crates/anticheat-detect/src/lib.rs` | filename fingerprint match (case-insensitive, EAC/BattlEye/Vanguard/GameGuard/XIGNCODE3/EA AC/PunkBuster/HoYoverse), `scan_dir` present/absent/empty/missing-path/depth-limit |
 | dll-catalog anti-cheat | `crates/dll-catalog/src/lib.rs` | `normalize_name` (strip punctuation/case), `AntiCheatIndex::lookup` appid precedence → normalized-name fallback, `embedded()` snapshot resolves Elden Ring, `merge` overlay precedence |
