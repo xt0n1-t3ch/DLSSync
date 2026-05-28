@@ -47,6 +47,8 @@
   &nbsp;·&nbsp;
   <a href="#faq">FAQ</a>
   &nbsp;·&nbsp;
+  <a href="#sponsor">Sponsor</a>
+  &nbsp;·&nbsp;
   <a href="#license">License</a>
 </p>
 
@@ -152,7 +154,7 @@ The app gates every DLL replacement behind two independent signature checks.
 | DLL replacement | SHA-256 plus Authenticode publisher subject match against the catalog | A DLL not signed by NVIDIA, AMD, Intel or Microsoft |
 | Rollback | Local SQLite snapshot of every replaced file before the write | Nothing. Restore is offline and instant |
 
-The application has no driver, no kernel-mode hook, no in-process injection. It reads and writes DLL files inside the game's own install directory. The outbound network surface is the GitHub Releases endpoint, the public jsDelivr DLL catalog and Steam's public cover-art CDN. Every call is unauthenticated and visible from `Settings > Detection`.
+The DLL-sync path has no driver, no kernel-mode hook, no in-process injection — it reads and writes DLL files inside the game's own install directory. Two opt-in features reach beyond that path and are documented separately: the GPU driver updater downloads and launches the vendor's own signed installer (which self-elevates through UAC; DLSSync never elevates itself — see [docs/drivers.md](docs/drivers.md)), and the DLSS preset / frame-generation overrides write a reversible NVIDIA driver application profile through NVAPI, the same mechanism the NVIDIA app uses, not injection (see [docs/dlss-overrides.md](docs/dlss-overrides.md)). Every network call is unauthenticated and visible from `Settings > Detection`.
 
 ---
 
@@ -219,9 +221,10 @@ cargo check --workspace
 
 - [x] v1.0: Windows portable, NSIS installer, auto-update banner, tray, EcoQoS Efficiency Mode, all 7 launchers, hash and Authenticode gates, Apache 2.0.
 - [x] v1.2: Apply pipeline hardening — shared per-URL download cache, streaming downloads with retry ladder, per-apply cancellation, failure-centric apply modal, tray inflight badge.
-- [ ] v1.3: SignPath OSS Authenticode signing. Removes the SmartScreen warning on first run.
-- [ ] v1.4: Per-DLL changelog viewer with diff against the currently installed build.
-- [ ] v1.5: Custom catalog sources for community-maintained DLL trees.
+- [x] v1.3: GPU driver updater for NVIDIA, Intel and AMD, plus DLSS preset and frame-generation overrides through the NVIDIA driver profile.
+- [ ] v1.4: SignPath OSS Authenticode signing. Removes the SmartScreen warning on first run.
+- [ ] v1.5: Per-DLL changelog viewer with diff against the currently installed build.
+- [ ] v1.6: Custom catalog sources for community-maintained DLL trees.
 
 ---
 
@@ -241,7 +244,9 @@ DLSSync writes the new DLL into the game's own folder. It does not symlink, hook
 
 <br/>
 
-The app writes a DLL into the game's own install directory. That is the same operation a manual file swap performs. Anti-cheat systems that detect modified game files (EAC, BattlEye, Vanguard, Denuvo Anti-Tamper) treat a swapped DLL as a tampered file. Check the policy of your specific title before applying an update.
+The app writes a DLL into the game's own install directory. That is the same operation a manual file swap performs. Anti-cheat systems that detect modified game files (Easy Anti-Cheat, BattlEye, Riot Vanguard, Denuvo Anti-Tamper) treat a swapped DLL — and, in online titles, a forced DLSS driver-profile override — as a tampered file, which can lead to a kick or ban. There are confirmed reports of bans after both.
+
+DLSSync detects anti-cheat per game (a local scan of the install folder for known anti-cheat binaries, plus a community dataset bundled into the manifest, matched by Steam app id or name) and shows a warning before any DLL swap or DLSS override. It never blocks the action — it surfaces the risk so the choice is yours. Check the policy of your specific title before applying.
 
 </details>
 
@@ -255,6 +260,7 @@ The only outbound traffic is:
 - `api.github.com` for the release update check, capped at one request every 6 hours.
 - `cdn.jsdelivr.net` for the DLL catalog manifest.
 - `cdn.cloudflare.steamstatic.com` and `cdn2.steamgriddb.com` for game cover art, only if the art is not already cached locally.
+- For the GPU driver updater, only when you open the Drivers tab or install a driver: `gfwsl.geforce.com` and `raw.githubusercontent.com/ZenitH-AT/nvidia-data` (NVIDIA), `dsadata.intel.com` (Intel), and the AMD driver host (AMD).
 
 Every request is unauthenticated. No hardware identifier, install list or other identifying information is sent.
 
@@ -324,6 +330,18 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md). Branch off `main`, keep commits focuse
 </p>
 
 If DLSSync saved you a manual DLL swap, a star on the repository helps other gamers find it.
+
+---
+
+<h2 id="sponsor">Sponsor</h2>
+
+DLSSync is built and maintained on free time. Zero telemetry, no paid tier, no upsell. If the app saves you time or you want it to keep tracking new releases, a sponsorship covers the manifest CI, the auto-update signing, and the hours that keep the catalog fresh.
+
+<p>
+  <a href="https://ko-fi.com/xt0n1"><img alt="Ko-fi" src="https://img.shields.io/badge/Ko--fi-ff5e5b?style=flat&logo=kofi&logoColor=white"></a>
+  <a href="https://github.com/sponsors/xt0n1-t3ch"><img alt="GitHub Sponsors" src="https://img.shields.io/badge/GitHub%20Sponsors-db61a2?style=flat&logo=githubsponsors&logoColor=white"></a>
+  <a href="https://www.paypal.me/xt0n1"><img alt="PayPal" src="https://img.shields.io/badge/PayPal-003087?style=flat&logo=paypal&logoColor=white"></a>
+</p>
 
 ---
 

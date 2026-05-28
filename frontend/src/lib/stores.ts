@@ -10,12 +10,17 @@ import {
   detectDlls,
   enrichGameArt,
   fetchSteamArt,
+  checkDriverUpdates,
+  listDriverHistory,
   type DetectedGame,
   type BackupEntry,
   type AppSettings,
   type DllRecord,
   type GameArt,
+  type DriverStatusReport,
+  type DriverReleaseDto,
 } from "./api";
+import { sortDriverReports } from "./drivers";
 import { vendorLabel, familyLabel, familyShort, type UpdateStatus } from "./labels";
 import { buildShasByVendor, gameStatusFromRecords, type CatalogShasByVendor, type RelationContext } from "./relation";
 import {
@@ -466,6 +471,45 @@ export async function loadBackups(): Promise<void> {
     backups.set(result);
   } catch (err: unknown) {
     showToast("warning", `Could not load backups: ${formatError(err)}`);
+  }
+}
+
+export const driverReports: Writable<DriverStatusReport[]> = writable([]);
+export const driverCheckInProgress: Writable<boolean> = writable(false);
+export const driverCheckError: Writable<string | null> = writable(null);
+
+export async function loadDriverUpdates(): Promise<void> {
+  driverCheckInProgress.set(true);
+  driverCheckError.set(null);
+  try {
+    const reports = await checkDriverUpdates();
+    driverReports.set(sortDriverReports(reports));
+  } catch (err: unknown) {
+    const message = formatError(err);
+    driverCheckError.set(message);
+    showToast("danger", `Driver check failed: ${message}`);
+  } finally {
+    driverCheckInProgress.set(false);
+  }
+}
+
+/** Cache of historical driver lists per GPU model, lazy-loaded on first
+ *  flyout open and reused across opens within the session. */
+export const driverHistory: Writable<Record<string, DriverReleaseDto[]>> = writable({});
+export const driverHistoryLoading: Writable<Record<string, boolean>> = writable({});
+
+export async function loadDriverHistory(
+  model: string,
+  vendor: "nvidia" | "amd" | "intel",
+): Promise<void> {
+  driverHistoryLoading.update((m) => ({ ...m, [model]: true }));
+  try {
+    const releases = await listDriverHistory(model, vendor);
+    driverHistory.update((m) => ({ ...m, [model]: releases }));
+  } catch (err: unknown) {
+    showToast("warning", `Could not load driver history: ${formatError(err)}`);
+  } finally {
+    driverHistoryLoading.update((m) => ({ ...m, [model]: false }));
   }
 }
 

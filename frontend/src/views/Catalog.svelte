@@ -1,7 +1,17 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { fade, fly } from "svelte/transition";
-  import { catalogVendors, loadCatalog, manifestUpdatedAt, catalogStatus, type CatalogFamily } from "../lib/stores";
+  import {
+    catalogVendors,
+    loadCatalog,
+    manifestUpdatedAt,
+    catalogStatus,
+    driverReports,
+    driverCheckInProgress,
+    loadDriverUpdates,
+    type CatalogFamily,
+  } from "../lib/stores";
+  import { driverStatusLabel, driverStatusTone } from "../lib/drivers";
   import {
     featureFromFamily,
     featureTitle,
@@ -22,10 +32,14 @@
     catalogKey: string;
     featureSlot: FeatureSlot;
     accent: string;
+    families: string[];
     advancedFamilies?: CatalogFamily[];
   } | null>(null);
 
-  onMount(() => { void loadCatalog(); });
+  onMount(() => {
+    void loadCatalog();
+    void loadDriverUpdates();
+  });
 
   function compareSemver(a: string, b: string): number {
     const pa = a.split(".").map((n) => parseInt(n, 10) || 0);
@@ -45,7 +59,7 @@
     try { await loadCatalog(); } finally { refreshing = false; }
   }
 
-  type Row = { id: string; iconId: string; title: string; latest: string; releaseCount: number; isAdvanced: boolean; featureSlot: FeatureSlot; catalogKey: string; advancedFamilies?: CatalogFamily[] };
+  type Row = { id: string; iconId: string; title: string; latest: string; releaseCount: number; isAdvanced: boolean; featureSlot: FeatureSlot; catalogKey: string; families: string[]; advancedFamilies?: CatalogFamily[] };
   type VendorView = { vendor: string; label: string; accent: string; rows: Row[]; advancedCount: number; totalReleases: number };
 
   let view = $derived.by<VendorView[]>(() => {
@@ -67,6 +81,7 @@
           const existing = byFeature.get(slot);
           if (existing) {
             existing.releaseCount += f.releaseCount;
+            existing.families.push(f.family);
             if (compareSemver(f.latest, existing.latest) > 0) existing.latest = f.latest;
           } else {
             byFeature.set(slot, {
@@ -78,6 +93,7 @@
               isAdvanced: false,
               featureSlot: slot,
               catalogKey: f.family,
+              families: [f.family],
             });
           }
         }
@@ -96,6 +112,7 @@
           isAdvanced: true,
           featureSlot: "advanced",
           catalogKey: "advanced",
+          families: [],
           advancedFamilies: advFamiliesList.slice().sort((a, b) => b.releaseCount - a.releaseCount),
         });
       }
@@ -111,6 +128,7 @@
       catalogKey: row.catalogKey,
       featureSlot: row.featureSlot,
       accent: vendorAccent(vendorKey),
+      families: row.families,
       advancedFamilies: row.isAdvanced ? row.advancedFamilies : undefined,
     };
   }
@@ -222,6 +240,31 @@
   </div>
 </section>
 
+<section class="driver-catalog" in:fade={{ duration: 200 }}>
+  <div class="driver-cat-head">
+    <h2 class="driver-cat-title">GPU Drivers</h2>
+    <span class="driver-cat-sub">Latest published driver per detected GPU, resolved live from the vendor.</span>
+  </div>
+  {#if $driverReports.length === 0}
+    <p class="driver-cat-empty">{$driverCheckInProgress ? "Checking the vendor for the latest drivers…" : "No GPUs detected."}</p>
+  {:else}
+    <ul class="driver-cat-list">
+      {#each $driverReports as report (report.device.model)}
+        {@const tone = driverStatusTone(report.status)}
+        <li class="driver-cat-row">
+          <span class="driver-cat-vendor" data-vendor={report.device.vendor}>{report.device.vendor.toUpperCase()}</span>
+          <span class="driver-cat-model">{report.device.model}</span>
+          <span class="driver-cat-ver mono">
+            {report.installed.display}
+            {#if report.latest}<span class="driver-cat-arrow">→</span><span class="driver-cat-next">{report.latest.version.display}</span>{/if}
+          </span>
+          <span class="driver-cat-badge" data-tone={tone}>{driverStatusLabel(report.status)}</span>
+        </li>
+      {/each}
+    </ul>
+  {/if}
+</section>
+
 {#if view.length === 0}
   <div class="empty">
     <p class="section-sub">
@@ -229,6 +272,10 @@
     </p>
   </div>
 {:else}
+  <div class="section-head">
+    <h2 class="section-title">Upscaling Libraries &amp; Technologies</h2>
+    <span class="section-sub">Every DLSS, FSR and XeSS DLL family DLSSync tracks. Click one to browse every version, copy a CDN URL, or download direct.</span>
+  </div>
   <div class="catalog-toolbar">
     <div class="runtime-search">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="search-icon"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -327,6 +374,7 @@
     catalogKey={flyoutTarget.catalogKey}
     featureSlot={flyoutTarget.featureSlot}
     accent={flyoutTarget.accent}
+    families={flyoutTarget.families}
     advancedFamilies={flyoutTarget.advancedFamilies}
     onClose={() => (flyoutTarget = null)}
   />
@@ -336,11 +384,44 @@
   .catalog-page {
     display: flex;
     flex-direction: column;
-    min-height: calc(100vh - var(--topbar-height) - 52px);
   }
   .view-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; gap: 12px; flex-wrap: wrap; }
   .view-header > div:first-child { flex: 1 1 240px; min-width: 0; }
   .empty { padding: 40px 0; text-align: center; }
+
+  .driver-catalog {
+    margin-bottom: 18px;
+    padding: 16px 18px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+  }
+  .driver-cat-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+  .driver-cat-title { font-size: 15px; font-weight: 700; color: var(--text-primary); letter-spacing: var(--letter-tight); }
+  .driver-cat-sub { font-size: var(--fs-xs); color: var(--text-muted); }
+  .driver-cat-empty { font-size: var(--fs-sm); color: var(--text-muted); padding: 8px 0; }
+  .driver-cat-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+  .driver-cat-row {
+    display: grid;
+    grid-template-columns: 64px 1fr auto auto;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: var(--bg-elevated);
+    border-radius: var(--radius-md);
+  }
+  .driver-cat-vendor { font-size: 10px; font-weight: 700; letter-spacing: 0.04em; color: var(--text-secondary); }
+  .driver-cat-vendor[data-vendor="nvidia"] { color: #76b900; }
+  .driver-cat-vendor[data-vendor="amd"] { color: #ed1c24; }
+  .driver-cat-vendor[data-vendor="intel"] { color: #2f9be6; }
+  .driver-cat-model { font-size: var(--fs-sm); font-weight: 600; color: var(--text-primary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .driver-cat-ver { font-size: var(--fs-xs); color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .driver-cat-arrow { margin: 0 5px; color: var(--text-muted); }
+  .driver-cat-next { color: var(--accent); font-weight: 600; }
+  .driver-cat-badge { font-size: 10.5px; font-weight: 600; padding: 3px 9px; border-radius: var(--radius-full); background: var(--bg-card); color: var(--text-muted); white-space: nowrap; }
+  .driver-cat-badge[data-tone="success"] { background: var(--success-dim, rgba(70,180,110,0.14)); color: var(--success, #46b46e); }
+  .driver-cat-badge[data-tone="accent"] { background: var(--update-dim, var(--accent-dim)); color: var(--update, var(--accent)); }
+  .driver-cat-badge[data-tone="warning"] { background: var(--warning-dim, rgba(220,160,50,0.14)); color: var(--warning, #d6a032); }
 
 
   .catalog-toolbar {
@@ -377,17 +458,29 @@
   .search-clear:hover { color: var(--text-primary); background: var(--bg-elevated); }
   .toolbar-summary { font-size: var(--fs-xs); color: var(--text-muted); font-variant-numeric: tabular-nums; }
 
-  .catalog-grid {
-    columns: 360px 3;
-    column-gap: 16px;
+  .section-head {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-bottom: 14px;
+    padding-top: 4px;
   }
-  .catalog-grid > .vendor-card {
-    break-inside: avoid;
-    -webkit-column-break-inside: avoid;
-    page-break-inside: avoid;
-    margin: 0 0 16px;
-    display: block;
-    width: 100%;
+  .section-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: var(--letter-tight);
+  }
+  .section-sub {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    max-width: 70ch;
+  }
+  .catalog-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 16px;
+    align-items: start;
   }
   .vendor-portal {
     width: 24px;
@@ -449,7 +542,7 @@
   .feature-row-btn:hover .feature-arrow { opacity: 1; transform: translateX(2px); }
 
   .catalog-foot {
-    margin-top: auto;
+    margin-top: 20px;
     display: flex;
     align-items: center;
     justify-content: space-between;

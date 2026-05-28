@@ -19,6 +19,7 @@ export default defineConfig({
       "../tests/unit/**/*.test.ts",
       "../tests/integration/**/*.test.ts",
       "../tests/components/**/*.test.ts",
+      "../tests/contracts/**/*.test.ts",
     ],
   },
 });

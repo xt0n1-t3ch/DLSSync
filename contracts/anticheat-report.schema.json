@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "dlssync/anticheat-report",
+  "title": "AntiCheatReport",
+  "description": "Per-game protection detection result combining local evidence (anti-cheat binaries on disk + packer/protector fingerprints in the game executable) with the named dataset. Drives the false-positive ban / launch-fail warning shown before any DLL-swap or DLSS override apply.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["detected", "status", "source_url"],
+  "properties": {
+    "detected": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["anticheat", "kind", "source"],
+        "properties": {
+          "anticheat": {
+            "type": "string",
+            "description": "Canonical protection name (e.g. 'Easy Anti-Cheat', 'BattlEye', 'Denuvo Anti-Tamper', 'VMProtect', 'Steam CEG DRM')."
+          },
+          "kind": {
+            "enum": ["anti_cheat", "anti_tamper", "drm"],
+            "description": "Risk category: 'anti_cheat' = account-ban risk; 'anti_tamper' = launch-fail risk on signature mismatch (Denuvo/VMProtect/Themida/Arxan); 'drm' = store/launcher integrity, informational."
+          },
+          "source": {
+            "enum": ["binary", "pe", "dataset"],
+            "description": "Evidence origin: 'binary' = anti-cheat binary filename found on disk; 'pe' = protector fingerprint in the parsed game executable; 'dataset' = matched the named dataset by Steam appid or normalized name."
+          }
+        }
+      }
+    },
+    "status": {
+      "type": ["string", "null"],
+      "description": "Dataset Linux/Wine compatibility status when known (Running/Broken/Denied/Planned/Supported); null when only a local scan matched."
+    },
+    "source_url": {
+      "type": ["string", "null"],
+      "description": "Learn-more link for the warning (per-game PCGamingWiki page when the Steam app id is known, else the PCGW glossary entry for the strongest detected kind)."
+    }
+  }
+}

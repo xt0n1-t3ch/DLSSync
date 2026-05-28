@@ -164,9 +164,11 @@ function subsequenceScore(needle: string, haystack: string): number | null {
 }
 
 export const EXTERNAL_URLS = {
-  anticheatFaq: "https://github.com/xt0n1-t3ch/DLSSync#readme",
+  anticheatFaq: "https://www.pcgamingwiki.com/wiki/Glossary:Anti-cheat",
   homepage: "https://github.com/xt0n1-t3ch/DLSSync",
   releases: "https://github.com/xt0n1-t3ch/DLSSync/releases",
+  sponsor: "https://github.com/sponsors/xt0n1-t3ch",
+  kofi: "https://ko-fi.com/xt0n1",
 } as const;
 
 export const VENDOR_TOKEN_BY_FAMILY: Record<string, string> = {

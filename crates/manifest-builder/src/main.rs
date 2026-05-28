@@ -3,7 +3,7 @@
 use anyhow::{anyhow, Context, Result};
 use chrono::{DateTime, Utc};
 use clap::Parser;
-use dll_catalog::{Catalog, FamilyEntry, Release};
+use dll_catalog::{normalize_name, AntiCheatEntry, AntiCheatIndex, Catalog, FamilyEntry, Release};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
@@ -26,14 +26,13 @@ struct Cli {
     #[arg(
         long,
         value_delimiter = ',',
-        default_value = "dlss_swapper,streamline,xess,fsr,reflex,directstorage"
+        default_value = "dlss_swapper,streamline,reflex,directstorage,anticheat"
     )]
     sources: Vec<String>,
+    /// Emit only the distilled anti-cheat snapshot (for the binary's embedded dataset) to this path.
+    #[arg(long)]
+    emit_anticheat_snapshot: Option<PathBuf>,
 }
-
-// ----------------------------------------------------------------------
-// DLSS Swapper community manifest
-// ----------------------------------------------------------------------
 
 #[derive(Debug, Deserialize)]
 struct SwapperManifest {
@@ -43,6 +42,18 @@ struct SwapperManifest {
     dlss_d: Vec<SwapperEntry>,
     #[serde(default)]
     dlss_g: Vec<SwapperEntry>,
+    #[serde(default)]
+    fsr_31_dx12: Vec<SwapperEntry>,
+    #[serde(default)]
+    fsr_31_vk: Vec<SwapperEntry>,
+    #[serde(default)]
+    xess: Vec<SwapperEntry>,
+    #[serde(default)]
+    xess_dx11: Vec<SwapperEntry>,
+    #[serde(default)]
+    xess_fg: Vec<SwapperEntry>,
+    #[serde(default)]
+    xell: Vec<SwapperEntry>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -67,10 +78,6 @@ struct SwapperEntry {
     additional_label: Option<String>,
 }
 
-// ----------------------------------------------------------------------
-// GitHub Releases REST schema
-// ----------------------------------------------------------------------
-
 #[derive(Debug, Deserialize)]
 struct GhRelease {
     tag_name: String,
@@ -93,10 +100,6 @@ struct GhAsset {
     #[serde(default)]
     size: u64,
 }
-
-// ----------------------------------------------------------------------
-// Mapping rules — which filenames in each upstream zip become which family.
-// ----------------------------------------------------------------------
 
 struct FilenameRule {
     /// canonical lowercase DLL filename present in the zip
@@ -202,6 +205,21 @@ async fn main() -> Result<()> {
     let mut vendors: BTreeMap<String, BTreeMap<String, FamilyEntry>> = BTreeMap::new();
     let client = build_client()?;
 
+    if let Some(path) = cli.emit_anticheat_snapshot.as_ref() {
+        let index = ingest_anticheat(&client).await?;
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(path, serde_json::to_vec(&index)?)?;
+        tracing::info!(
+            path = %path.display(),
+            by_appid = index.by_appid.len(),
+            by_name = index.by_name.len(),
+            "wrote anti-cheat snapshot"
+        );
+        return Ok(());
+    }
+
     if cli.sources.iter().any(|s| s == "dlss_swapper") && !cli.dry_run {
         if let Err(e) = ingest_dlss_swapper(&client, &mut vendors).await {
             tracing::error!("dlss_swapper ingest failed: {e:#}");
@@ -214,7 +232,6 @@ async fn main() -> Result<()> {
             "NVIDIA-RTX/Streamline",
             STREAMLINE_RULES,
             |asset| asset.name.ends_with(".zip") && asset.name.starts_with("streamline-sdk"),
-            // canonical zip layout: bin/x64/<dll> or bin/x86/<dll>
         )
         .await
         {
@@ -253,11 +270,24 @@ async fn main() -> Result<()> {
         }
     }
 
+    let anticheat = if cli.sources.iter().any(|s| s == "anticheat") && !cli.dry_run {
+        match ingest_anticheat(&client).await {
+            Ok(index) => Some(index),
+            Err(e) => {
+                tracing::error!("anticheat ingest failed: {e:#}");
+                None
+            }
+        }
+    } else {
+        None
+    };
+
     let catalog = Catalog {
         schema_version: 2,
         generated_at: Utc::now(),
         vendors,
         incompatible_games: vec![],
+        anticheat,
     };
 
     if cli.dry_run {
@@ -277,6 +307,256 @@ async fn main() -> Result<()> {
         .sum();
     tracing::info!(path = %cli.out.display(), releases = total, "wrote manifest");
     Ok(())
+}
+
+const ANTICHEAT_DATASET: &str =
+    "https://raw.githubusercontent.com/AreWeAntiCheatYet/AreWeAntiCheatYet/master/games.json";
+const PCGW_API: &str = "https://www.pcgamingwiki.com/w/api.php";
+const CARGO_PAGE: usize = 500;
+
+/// Tokens that are not real protection names — filtered out of PCGamingWiki list
+/// fields (Middleware.Anticheat, Availability.Uses_DRM).
+const NOISE_TOKENS: &[&str] = &["none", "false", "true", "unknown", "n/a", "yes", "no"];
+
+/// Anti-tamper / heavy-DRM markers worth flagging from the broad Uses_DRM list
+/// (which also carries store launchers we ignore here).
+const ANTI_TAMPER_MARKERS: &[&str] = &[
+    "denuvo",
+    "arxan",
+    "vmprotect",
+    "themida",
+    "securom",
+    "safedisc",
+    "starforce",
+];
+
+/// AreWeAntiCheatYet game record — used only for the Linux/Wine `status` overlay
+/// (matched by normalized name); PCGamingWiki supplies the protection lists.
+#[derive(Debug, Deserialize)]
+struct AwacGame {
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    status: Option<String>,
+}
+
+/// PCGamingWiki Steam_AppID columns hold a comma list (base game + DLC). The
+/// base game's id is the first entry.
+fn first_appid(raw: &str) -> Option<u32> {
+    raw.split(',').next().and_then(|t| t.trim().parse().ok())
+}
+
+/// Split a PCGW list field, trim, dedupe (case-insensitive), drop noise tokens.
+fn clean_tokens(raw: &str) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for tok in raw.split(',') {
+        let t = tok.trim();
+        if t.is_empty() || NOISE_TOKENS.contains(&t.to_ascii_lowercase().as_str()) {
+            continue;
+        }
+        if !out.iter().any(|x| x.eq_ignore_ascii_case(t)) {
+            out.push(t.to_string());
+        }
+    }
+    out
+}
+
+#[derive(Debug, Deserialize)]
+struct CargoResp {
+    #[serde(default)]
+    cargoquery: Vec<CargoRow>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CargoRow {
+    title: serde_json::Value,
+}
+
+/// Run a Cargo query across all result pages, returning the flattened `title`
+/// objects. `params` excludes `limit`/`offset` (added per page).
+async fn cargo_query_all(
+    client: &reqwest::Client,
+    params: &[(&str, &str)],
+) -> Result<Vec<serde_json::Value>> {
+    let mut rows = Vec::new();
+    let mut offset = 0usize;
+    loop {
+        let offset_str = offset.to_string();
+        let limit_str = CARGO_PAGE.to_string();
+        let mut q: Vec<(&str, &str)> = vec![
+            ("action", "cargoquery"),
+            ("format", "json"),
+            ("limit", &limit_str),
+            ("offset", &offset_str),
+        ];
+        q.extend_from_slice(params);
+        let resp: CargoResp = client
+            .get(PCGW_API)
+            .query(&q)
+            .send()
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        let n = resp.cargoquery.len();
+        rows.extend(resp.cargoquery.into_iter().map(|r| r.title));
+        if n < CARGO_PAGE {
+            break;
+        }
+        offset += CARGO_PAGE;
+    }
+    Ok(rows)
+}
+
+/// One game's distilled protections, keyed by normalized name during the merge.
+#[derive(Default)]
+struct GameProtections {
+    appid: Option<u32>,
+    page: String,
+    anticheats: Vec<String>,
+    anti_tamper: Vec<String>,
+    status: Option<String>,
+}
+
+fn merge_list(into: &mut Vec<String>, more: Vec<String>) {
+    for m in more {
+        if !into.iter().any(|x| x.eq_ignore_ascii_case(&m)) {
+            into.push(m);
+        }
+    }
+}
+
+/// Build the anti-cheat / anti-tamper index from PCGamingWiki (broad coverage of
+/// all games, keyed by Steam appid + normalized name), with an AreWeAntiCheatYet
+/// overlay for Linux/Wine status. PCGW Middleware.Anticheat → `anticheats`;
+/// Availability.Uses_DRM Denuvo/Arxan/etc → `anti_tamper`.
+async fn ingest_anticheat(client: &reqwest::Client) -> Result<AntiCheatIndex> {
+    use std::collections::BTreeMap;
+    let mut games: BTreeMap<String, GameProtections> = BTreeMap::new();
+
+    let upsert =
+        |games: &mut BTreeMap<String, GameProtections>, page: &str, appid: Option<u32>| -> bool {
+            let key = normalize_name(page);
+            if key.is_empty() {
+                return false;
+            }
+            let e = games.entry(key).or_default();
+            if e.page.is_empty() {
+                e.page = page.to_string();
+            }
+            if e.appid.is_none() {
+                e.appid = appid;
+            }
+            true
+        };
+
+    let ac_rows = cargo_query_all(
+        client,
+        &[
+            ("tables", "Middleware,Infobox_game"),
+            (
+                "fields",
+                "Infobox_game._pageName=Page,Middleware.Anticheat=AC,Infobox_game.Steam_AppID=AppID",
+            ),
+            ("join_on", "Middleware._pageID=Infobox_game._pageID"),
+            ("where", "Middleware.Anticheat HOLDS LIKE \"%\""),
+        ],
+    )
+    .await
+    .context("PCGW anticheat query")?;
+    for t in &ac_rows {
+        let page = t.get("Page").and_then(|v| v.as_str()).unwrap_or("");
+        let ac = clean_tokens(t.get("AC").and_then(|v| v.as_str()).unwrap_or(""));
+        let appid = t
+            .get("AppID")
+            .and_then(|v| v.as_str())
+            .and_then(first_appid);
+        if ac.is_empty() || !upsert(&mut games, page, appid) {
+            continue;
+        }
+        let key = normalize_name(page);
+        merge_list(&mut games.get_mut(&key).unwrap().anticheats, ac);
+    }
+
+    let drm_rows = cargo_query_all(
+        client,
+        &[
+            ("tables", "Availability,Infobox_game"),
+            (
+                "fields",
+                "Infobox_game._pageName=Page,Availability.Uses_DRM=DRM,Infobox_game.Steam_AppID=AppID",
+            ),
+            ("join_on", "Availability._pageID=Infobox_game._pageID"),
+            (
+                "where",
+                "Availability.Uses_DRM HOLDS LIKE \"%Denuvo%\" OR Availability.Uses_DRM HOLDS LIKE \"%Arxan%\"",
+            ),
+        ],
+    )
+    .await
+    .context("PCGW anti-tamper query")?;
+    for t in &drm_rows {
+        let page = t.get("Page").and_then(|v| v.as_str()).unwrap_or("");
+        let appid = t
+            .get("AppID")
+            .and_then(|v| v.as_str())
+            .and_then(first_appid);
+        let tamper: Vec<String> = clean_tokens(t.get("DRM").and_then(|v| v.as_str()).unwrap_or(""))
+            .into_iter()
+            .filter(|d| {
+                let low = d.to_ascii_lowercase();
+                ANTI_TAMPER_MARKERS.iter().any(|m| low.contains(m))
+            })
+            .collect();
+        if tamper.is_empty() || !upsert(&mut games, page, appid) {
+            continue;
+        }
+        let key = normalize_name(page);
+        merge_list(&mut games.get_mut(&key).unwrap().anti_tamper, tamper);
+    }
+
+    if let Ok(body) = client
+        .get(ANTICHEAT_DATASET)
+        .send()
+        .await
+        .and_then(|r| r.error_for_status())
+    {
+        if let Ok(text) = body.text().await {
+            if let Ok(awac) = serde_json::from_str::<Vec<AwacGame>>(&text) {
+                for g in awac {
+                    let Some(status) = g.status else { continue };
+                    let key = normalize_name(&g.name);
+                    if let Some(e) = games.get_mut(&key) {
+                        e.status.get_or_insert(status);
+                    }
+                }
+            }
+        }
+    }
+
+    let mut index = AntiCheatIndex::default();
+    for (key, g) in games {
+        if g.anticheats.is_empty() && g.anti_tamper.is_empty() {
+            continue;
+        }
+        let entry = AntiCheatEntry {
+            anticheats: g.anticheats,
+            anti_tamper: g.anti_tamper,
+            status: g.status,
+        };
+        index.by_name.insert(key, entry.clone());
+        if let Some(appid) = g.appid {
+            index.by_appid.insert(appid, entry);
+        }
+    }
+    tracing::info!(
+        anticheat_rows = ac_rows.len(),
+        tamper_rows = drm_rows.len(),
+        by_appid = index.by_appid.len(),
+        by_name = index.by_name.len(),
+        "distilled PCGamingWiki protection index"
+    );
+    Ok(index)
 }
 
 fn build_client() -> Result<reqwest::Client> {
@@ -299,10 +579,6 @@ fn build_client() -> Result<reqwest::Client> {
         .default_headers(headers)
         .build()?)
 }
-
-// ----------------------------------------------------------------------
-// DLSS Swapper ingest
-// ----------------------------------------------------------------------
 
 async fn ingest_dlss_swapper(
     client: &reqwest::Client,
@@ -339,7 +615,45 @@ async fn ingest_dlss_swapper(
         "nvngx_dlssg.dll",
         &manifest.dlss_g,
     );
+    merge_swapper(
+        vendors,
+        "amd",
+        "fsr_upscaler",
+        "amd_fidelityfx_dx12.dll",
+        &manifest.fsr_31_dx12,
+    );
+    merge_swapper(
+        vendors,
+        "amd",
+        "fsr_upscaler_vk",
+        "amd_fidelityfx_vk.dll",
+        &manifest.fsr_31_vk,
+    );
+    merge_swapper(vendors, "intel", "xess_sr", "libxess.dll", &manifest.xess);
+    merge_swapper(
+        vendors,
+        "intel",
+        "xess_sr_dx11",
+        "libxess_dx11.dll",
+        &manifest.xess_dx11,
+    );
+    merge_swapper(
+        vendors,
+        "intel",
+        "xess_fg",
+        "libxess_fg.dll",
+        &manifest.xess_fg,
+    );
+    merge_swapper(vendors, "intel", "xell", "libxell.dll", &manifest.xell);
     Ok(())
+}
+
+fn vendor_subject(vendor: &str) -> &'static str {
+    match vendor {
+        "amd" => "Advanced Micro Devices, Inc.",
+        "intel" => "Intel Corporation",
+        _ => "NVIDIA Corporation",
+    }
 }
 
 fn merge_swapper(
@@ -369,7 +683,7 @@ fn merge_swapper(
                 version: e.version.clone(),
                 version_packed: e.version_number,
                 filename: filename.to_string(),
-                sha256: e.md5_hash.clone().to_lowercase(), // upstream gives MD5; treated as opaque integrity tag
+                sha256: e.md5_hash.clone().to_lowercase(),
                 size_bytes: e.file_size.unwrap_or(0),
                 signed: e.is_signature_valid.unwrap_or(false),
                 released_at,
@@ -384,7 +698,7 @@ fn merge_swapper(
                     .clone()
                     .or_else(|| e.file_description.clone()),
                 signature_subject: if e.is_signature_valid.unwrap_or(false) {
-                    Some("NVIDIA Corporation".into())
+                    Some(vendor_subject(vendor).to_string())
                 } else {
                     None
                 },
@@ -412,10 +726,6 @@ fn merge_swapper(
         .or_default()
         .insert(family.to_string(), entry);
 }
-
-// ----------------------------------------------------------------------
-// Generic GitHub zip-release ingest
-// ----------------------------------------------------------------------
 
 async fn ingest_github_zip_releases<F>(
     client: &reqwest::Client,
@@ -546,7 +856,6 @@ fn extract_dlls_from_zip(bytes: &[u8], rules: &[FilenameRule]) -> Result<Vec<Ext
             continue;
         };
         if !seen.insert((rule.vendor, rule.family)) {
-            // already captured this family from an earlier path (prefer x64/release variant)
             continue;
         }
         let mut buf = Vec::with_capacity(entry.size() as usize);
@@ -554,9 +863,6 @@ fn extract_dlls_from_zip(bytes: &[u8], rules: &[FilenameRule]) -> Result<Vec<Ext
         let mut hasher = Sha256::new();
         hasher.update(&buf);
         let sha = hex::encode(hasher.finalize());
-        // We can't run PowerShell on a zip-entry buffer; rely on upstream signing
-        // (Streamline/XeSS/FSR DLLs ship pre-signed by their vendor). Mark as signed
-        // and let runtime apply_update perform the real Authenticode check.
         let subject = match rule.vendor {
             "nvidia" => Some("NVIDIA Corporation".into()),
             "intel" => Some("Intel Corporation".into()),
@@ -597,10 +903,6 @@ fn pack_version(s: &str) -> u64 {
     let patch = parts.get(3).copied().unwrap_or(0) as u64;
     (major << 48) | (minor << 32) | (build << 16) | patch
 }
-
-// ----------------------------------------------------------------------
-// Microsoft DirectStorage NuGet ingest
-// ----------------------------------------------------------------------
 
 #[derive(Debug, Deserialize)]
 struct NugetIndex {
@@ -657,7 +959,6 @@ async fn ingest_directstorage_nuget(
         .error_for_status()?
         .json()
         .await?;
-    // Try to enrich with published dates from the registration index (best-effort).
     let reg_url = format!("https://api.nuget.org/v3/registration5-semver1/{DS_PKG}/index.json");
     let mut date_by_ver: BTreeMap<String, DateTime<Utc>> = BTreeMap::new();
     if let Ok(resp) = client.get(&reg_url).send().await {
@@ -674,7 +975,6 @@ async fn ingest_directstorage_nuget(
 
     let mut by_target: BTreeMap<(String, String), Vec<Release>> = BTreeMap::new();
     for ver in index.versions {
-        // skip prerelease tags by default
         let is_prerelease = ver.contains('-');
         let pkg_url =
             format!("https://api.nuget.org/v3-flatcontainer/{DS_PKG}/{ver}/{DS_PKG}.{ver}.nupkg");
@@ -758,5 +1058,79 @@ mod tests {
             (2u64 << 48) | (10u64 << 32) | (3u64 << 16)
         );
         assert_eq!(pack_version("1.4.0-preview1"), (1u64 << 48) | (4u64 << 32));
+    }
+
+    #[test]
+    fn first_appid_takes_base_game_from_comma_list() {
+        assert_eq!(first_appid("1245620"), Some(1245620));
+        assert_eq!(first_appid("3768760,4707780, 4601250"), Some(3768760));
+        assert_eq!(first_appid(" 990080 "), Some(990080));
+        assert_eq!(first_appid(""), None);
+        assert_eq!(first_appid("not-a-number"), None);
+    }
+
+    #[test]
+    fn clean_tokens_splits_trims_dedupes_and_drops_noise() {
+        assert_eq!(
+            clean_tokens("Easy Anti-Cheat, BattlEye , Easy Anti-Cheat"),
+            vec!["Easy Anti-Cheat".to_string(), "BattlEye".to_string()]
+        );
+        assert!(clean_tokens("None, none, false, , Unknown").is_empty());
+        assert_eq!(
+            clean_tokens("Steam,Ubisoft Connect,Denuvo Anti-Tamper")
+                .into_iter()
+                .filter(|d| ANTI_TAMPER_MARKERS
+                    .iter()
+                    .any(|m| d.to_ascii_lowercase().contains(m)))
+                .collect::<Vec<_>>(),
+            vec!["Denuvo Anti-Tamper".to_string()]
+        );
+    }
+
+    #[test]
+    fn merge_list_unions_case_insensitively() {
+        let mut a = vec!["Denuvo Anti-Tamper".to_string()];
+        merge_list(&mut a, vec!["denuvo anti-tamper".into(), "Arxan".into()]);
+        assert_eq!(
+            a,
+            vec!["Denuvo Anti-Tamper".to_string(), "Arxan".to_string()]
+        );
+    }
+
+    #[test]
+    fn merge_swapper_maps_fsr_to_amd_family_with_vendor_subject() {
+        let entries: Vec<SwapperEntry> = serde_json::from_str(
+            r#"[
+            {"version":"1.0.0.36208","version_number":1000036208,"md5_hash":"ABC","download_url":"https://x/fsr_a.zip","file_size":100,"is_signature_valid":true},
+            {"version":"1.0.1.41314","version_number":1000141314,"md5_hash":"DEF","download_url":"https://x/fsr_b.zip","file_size":200,"is_signature_valid":true}
+        ]"#,
+        )
+        .unwrap();
+        let mut vendors: BTreeMap<String, BTreeMap<String, FamilyEntry>> = BTreeMap::new();
+        merge_swapper(
+            &mut vendors,
+            "amd",
+            "fsr_upscaler",
+            "amd_fidelityfx_dx12.dll",
+            &entries,
+        );
+        let fam = &vendors["amd"]["fsr_upscaler"];
+        assert_eq!(fam.releases.len(), 2);
+        assert!(fam
+            .releases
+            .iter()
+            .all(|r| r.filename == "amd_fidelityfx_dx12.dll"));
+        assert_eq!(
+            fam.releases[0].signature_subject.as_deref(),
+            Some("Advanced Micro Devices, Inc.")
+        );
+        assert_eq!(fam.latest, "1.0.1.41314");
+    }
+
+    #[test]
+    fn vendor_subject_maps_each_vendor() {
+        assert_eq!(vendor_subject("amd"), "Advanced Micro Devices, Inc.");
+        assert_eq!(vendor_subject("intel"), "Intel Corporation");
+        assert_eq!(vendor_subject("nvidia"), "NVIDIA Corporation");
     }
 }
