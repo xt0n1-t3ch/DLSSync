@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <sub><b>New in v1.2:</b> fixes the Intel XeSS apply that was failing halfway through with random network errors, downloads each shared archive only once instead of four times, retries automatically on flaky GitHub release CDN responses, and a rebuilt failure view tells you exactly what broke with one-click <code>Retry failed</code>, <code>Allow unsigned &amp; retry</code>, and <code>Copy report</code>. Tray badge while applies are running. See <a href="CHANGELOG.md#120---2026-05-24">CHANGELOG</a>.</sub>
+  <sub><b>New in v1.5:</b> a GPU driver updater for NVIDIA, AMD and Intel with full per-card version history and signature-verified installs; DLSS preset and frame-generation overrides through the NVIDIA driver profile, global or per game; a per-game anti-cheat and anti-tamper warning (Denuvo, Easy Anti-Cheat, BattlEye, VMProtect and more) before any swap; broader FSR and XeSS coverage; and a redesigned Library, Drivers tab and game drawer. See <a href="CHANGELOG.md#150---2026-05-27">CHANGELOG</a>.</sub>
 </p>
 
 <p align="center">
@@ -221,10 +221,9 @@ cargo check --workspace
 
 - [x] v1.0: Windows portable, NSIS installer, auto-update banner, tray, EcoQoS Efficiency Mode, all 7 launchers, hash and Authenticode gates, Apache 2.0.
 - [x] v1.2: Apply pipeline hardening — shared per-URL download cache, streaming downloads with retry ladder, per-apply cancellation, failure-centric apply modal, tray inflight badge.
-- [x] v1.3: GPU driver updater for NVIDIA, Intel and AMD, plus DLSS preset and frame-generation overrides through the NVIDIA driver profile.
-- [ ] v1.4: SignPath OSS Authenticode signing. Removes the SmartScreen warning on first run.
-- [ ] v1.5: Per-DLL changelog viewer with diff against the currently installed build.
-- [ ] v1.6: Custom catalog sources for community-maintained DLL trees.
+- [x] v1.5: GPU driver updater for NVIDIA, AMD and Intel with per-card version history and signature-verified installs; DLSS preset and frame-generation overrides through the NVIDIA driver profile; per-game anti-cheat and anti-tamper detection; broader FSR and XeSS coverage; redesigned Library, Drivers tab and game drawer.
+- [ ] Next: SignPath OSS Authenticode signing to remove the SmartScreen warning on first run.
+- [ ] Later: per-DLL changelog viewer with a diff against the installed build, and custom catalog sources for community-maintained DLL trees.
 
 ---
 
