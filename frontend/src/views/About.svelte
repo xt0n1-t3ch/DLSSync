@@ -230,6 +230,14 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.79 23.4c.6.11.82-.26.82-.58v-2c-3.34.73-4.04-1.61-4.04-1.61-.55-1.4-1.34-1.77-1.34-1.77-1.1-.75.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.84 2.81 1.31 3.5 1 .1-.78.42-1.31.76-1.61-2.66-.3-5.46-1.33-5.46-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.12-3.17 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.65.25 2.87.12 3.17.77.84 1.24 1.91 1.24 3.22 0 4.61-2.8 5.62-5.47 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12 12 0 0 0 12 .3Z"/></svg>
       GitHub
     </button>
+    <button class="btn btn-ghost sponsor-btn" onclick={() => openExternal(EXTERNAL_URLS.sponsor)} title="GitHub Sponsors — recurring or one-time support">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.27 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.77-3.4 6.86-8.55 11.53L12 21.35z"/></svg>
+      Sponsor
+    </button>
+    <button class="btn btn-ghost kofi-btn" onclick={() => openExternal(EXTERNAL_URLS.kofi)} title="Ko-fi — quick one-time tip">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 8h1a4 4 0 0 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg>
+      Ko-fi
+    </button>
     <button class="btn btn-ghost" onclick={reportBug} disabled={reporting} title="Open a pre-filled GitHub issue with app version, OS, and recent logs attached">
       {#if reporting}
         <span class="spin"></span>
@@ -522,6 +530,10 @@
 </footer>
 
 <style>
+  .sponsor-btn svg { color: #db61a2; }
+  .sponsor-btn:hover svg { color: #f0707f; }
+  .kofi-btn svg { color: #ff5e5b; }
+  .kofi-btn:hover svg { color: #ff7674; }
   .brand-row {
     display: grid;
     grid-template-columns: 56px 1fr auto;

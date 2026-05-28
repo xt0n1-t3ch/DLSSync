@@ -55,6 +55,102 @@ pub struct Catalog {
     pub vendors: BTreeMap<String, BTreeMap<String, FamilyEntry>>,
     #[serde(default)]
     pub incompatible_games: Vec<String>,
+    #[serde(default)]
+    pub anticheat: Option<AntiCheatIndex>,
+}
+
+/// Slim per-game anti-cheat index distilled from PCGamingWiki at manifest-build
+/// time (with an AreWeAntiCheatYet Linux/Wine status overlay applied
+/// server-side), bundled into the manifest with zero new runtime outbound. Keys
+/// in `by_name` are lowercased for case-insensitive matching.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct AntiCheatIndex {
+    #[serde(default)]
+    pub by_appid: BTreeMap<u32, AntiCheatEntry>,
+    #[serde(default)]
+    pub by_name: BTreeMap<String, AntiCheatEntry>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AntiCheatEntry {
+    /// Kernel/usermode anti-cheat engines (Easy Anti-Cheat, BattlEye, Vanguard …)
+    /// — account-ban risk on a DLL swap.
+    pub anticheats: Vec<String>,
+    /// Anti-tamper / heavy DRM (Denuvo Anti-Tamper, Arxan, VMProtect …) — these
+    /// can reject a swapped DLL on signature mismatch and block launch.
+    #[serde(default)]
+    pub anti_tamper: Vec<String>,
+    /// AreWeAntiCheatYet Linux/Wine compatibility status when known.
+    #[serde(default)]
+    pub status: Option<String>,
+}
+
+impl AntiCheatEntry {
+    /// Union another entry's protection lists into this one (case-insensitive
+    /// dedupe) and adopt its status when present. Used by the layered merge so
+    /// no source erases another's findings.
+    fn absorb(&mut self, other: &AntiCheatEntry) {
+        push_unique(&mut self.anticheats, &other.anticheats);
+        push_unique(&mut self.anti_tamper, &other.anti_tamper);
+        if other.status.is_some() {
+            self.status = other.status.clone();
+        }
+    }
+}
+
+fn push_unique(into: &mut Vec<String>, more: &[String]) {
+    for m in more {
+        if !into.iter().any(|x| x.eq_ignore_ascii_case(m)) {
+            into.push(m.clone());
+        }
+    }
+}
+
+/// Canonical game-name key: lowercase, keep only ASCII alphanumerics. Used both
+/// when building the index and when looking up, so "Assassin's Creed: Shadows"
+/// and "assassins creed shadows" resolve to the same entry.
+pub fn normalize_name(name: &str) -> String {
+    name.chars()
+        .filter(|c| c.is_ascii_alphanumeric())
+        .map(|c| c.to_ascii_lowercase())
+        .collect()
+}
+
+impl AntiCheatIndex {
+    /// The dataset distilled from PCGamingWiki (with an AreWeAntiCheatYet status
+    /// overlay), embedded so the warning works offline and before the CDN
+    /// manifest carries the index.
+    pub fn embedded() -> Self {
+        serde_json::from_str(include_str!("../anticheat-snapshot.json")).unwrap_or_default()
+    }
+
+    /// Fold `other` into `self`, unioning the protection lists per game (so a
+    /// layer that only knows the anti-cheat does not erase another layer's
+    /// anti-tamper finding) and taking `other`'s status when it has one. Layer
+    /// order: embedded (base) → manifest → live-fetch (freshest last). Union,
+    /// not replace, keeps detection maximal — a game flagged by any layer stays
+    /// flagged.
+    pub fn merge(&mut self, other: &AntiCheatIndex) {
+        for (id, entry) in &other.by_appid {
+            self.by_appid.entry(*id).or_default().absorb(entry);
+        }
+        for (name, entry) in &other.by_name {
+            self.by_name.entry(name.clone()).or_default().absorb(entry);
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.by_appid.is_empty() && self.by_name.is_empty()
+    }
+
+    pub fn lookup(&self, app_id: Option<&str>, name: &str) -> Option<&AntiCheatEntry> {
+        if let Some(id) = app_id.and_then(|s| s.parse::<u32>().ok()) {
+            if let Some(entry) = self.by_appid.get(&id) {
+                return Some(entry);
+            }
+        }
+        self.by_name.get(&normalize_name(name))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -266,7 +362,109 @@ mod tests {
             generated_at: chrono::Utc::now(),
             vendors,
             incompatible_games: vec![],
+            anticheat: None,
         }
+    }
+
+    #[test]
+    fn anticheat_index_prefers_appid_then_falls_back_to_name() {
+        let mut index = AntiCheatIndex::default();
+        index.by_appid.insert(
+            440,
+            AntiCheatEntry {
+                anticheats: vec!["VAC".into()],
+                status: Some("Supported".into()),
+                ..Default::default()
+            },
+        );
+        index.by_name.insert(
+            normalize_name("Team Fortress 2"),
+            AntiCheatEntry {
+                anticheats: vec!["VAC".into()],
+                ..Default::default()
+            },
+        );
+        assert_eq!(
+            index
+                .lookup(Some("440"), "anything")
+                .unwrap()
+                .status
+                .as_deref(),
+            Some("Supported")
+        );
+        assert_eq!(
+            index.lookup(None, "Team Fortress 2!").unwrap().anticheats,
+            vec!["VAC".to_string()]
+        );
+        assert!(index.lookup(Some("999999"), "unknown game").is_none());
+    }
+
+    #[test]
+    fn normalize_name_strips_punctuation_and_case() {
+        assert_eq!(
+            normalize_name("Assassin's Creed: Shadows"),
+            "assassinscreedshadows"
+        );
+        assert_eq!(normalize_name("Team Fortress 2"), "teamfortress2");
+        assert_eq!(normalize_name("  ELDEN RING  "), "eldenring");
+    }
+
+    #[test]
+    fn embedded_snapshot_loads_and_resolves_known_titles() {
+        let index = AntiCheatIndex::embedded();
+        assert!(!index.is_empty());
+        assert!(index
+            .lookup(Some("1245620"), "whatever")
+            .is_some_and(|e| e.anticheats.iter().any(|a| a.contains("Easy Anti-Cheat"))));
+        assert!(index.lookup(None, "Elden Ring").is_some());
+    }
+
+    #[test]
+    fn embedded_snapshot_carries_anti_tamper_for_denuvo_titles() {
+        let index = AntiCheatIndex::embedded();
+        let ac_shadows = index.lookup(None, "Assassin's Creed Shadows");
+        assert!(
+            ac_shadows.is_some_and(|e| e.anti_tamper.iter().any(|a| a.contains("Denuvo"))),
+            "AC Shadows should resolve with Denuvo anti-tamper from the embedded snapshot"
+        );
+    }
+
+    #[test]
+    fn merge_unions_lists_and_adopts_status() {
+        let mut base = AntiCheatIndex::default();
+        base.by_appid.insert(
+            1,
+            AntiCheatEntry {
+                anticheats: vec!["Easy Anti-Cheat".into()],
+                anti_tamper: vec!["Arxan Anti-Tamper".into()],
+                status: None,
+            },
+        );
+        let mut top = AntiCheatIndex::default();
+        top.by_appid.insert(
+            1,
+            AntiCheatEntry {
+                anticheats: vec!["easy anti-cheat".into()],
+                status: Some("Supported".into()),
+                ..Default::default()
+            },
+        );
+        top.by_appid.insert(
+            2,
+            AntiCheatEntry {
+                anticheats: vec!["Added".into()],
+                ..Default::default()
+            },
+        );
+        base.merge(&top);
+        let one = base.by_appid.get(&1).unwrap();
+        assert_eq!(one.anticheats, vec!["Easy Anti-Cheat".to_string()]);
+        assert_eq!(one.anti_tamper, vec!["Arxan Anti-Tamper".to_string()]);
+        assert_eq!(one.status.as_deref(), Some("Supported"));
+        assert_eq!(
+            base.by_appid.get(&2).unwrap().anticheats,
+            vec!["Added".to_string()]
+        );
     }
 
     #[test]

@@ -8,6 +8,9 @@
     loadSettings,
     showToast,
     scanGames,
+    currentView,
+    driverReports,
+    loadDriverUpdates,
   } from "../lib/stores";
   import {
     setDlssDebugOverlay,
@@ -72,6 +75,7 @@
     } catch {
       appPaths = null;
     }
+    if ($driverReports.length === 0) void loadDriverUpdates();
   });
 
   async function checkForUpdatesNow(): Promise<void> {
@@ -804,6 +808,14 @@
               onchange={(e) => updateNetwork("download_cache_ttl_secs", Math.max(60, Math.min(3600, Number((e.target as HTMLInputElement).value) || 300)))}
             />
           </div>
+        </div>
+
+        <div class="settings-card" style="margin-top: 18px;">
+          <header class="card-head">
+            <h3>DLSS Overrides <span class="chip chip-update small-pill">NVIDIA</span></h3>
+            <p class="card-sub">DLSS preset and frame-generation overrides moved to the <strong>Drivers</strong> tab, alongside your GPU driver updates. Per-game overrides stay in each game's detail drawer.</p>
+          </header>
+          <button class="btn btn-primary" style="margin-top: 14px;" onclick={() => currentView.set("drivers")}>Open the Drivers tab</button>
         </div>
       </section>
     {/if}

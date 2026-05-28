@@ -104,6 +104,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "anticheat-detect"
+version = "1.5.0"
+dependencies = [
+ "jwalk",
+ "memchr",
+ "once_cell",
+ "pelite",
+ "serde",
+ "tempfile",
+]
+
+[[package]]
 name = "anyhow"
 version = "1.0.102"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -340,7 +352,7 @@ checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
 name = "backup-store"
-version = "1.2.0"
+version = "1.5.0"
 dependencies = [
  "chrono",
  "rusqlite",
@@ -1082,7 +1094,7 @@ dependencies = [
 
 [[package]]
 name = "dll-catalog"
-version = "1.2.0"
+version = "1.5.0"
 dependencies = [
  "bytes",
  "chrono",
@@ -1105,7 +1117,7 @@ dependencies = [
 
 [[package]]
 name = "dll-scanner"
-version = "1.2.0"
+version = "1.5.0"
 dependencies = [
  "jwalk",
  "once_cell",
@@ -1142,15 +1154,19 @@ dependencies = [
 
 [[package]]
 name = "dlssync"
-version = "1.2.0"
+version = "1.5.0"
 dependencies = [
+ "anticheat-detect",
  "anyhow",
  "backup-store",
  "chrono",
  "dll-catalog",
  "dll-scanner",
+ "driver-catalog",
+ "driver-install",
  "launcher-scan",
  "notifications-store",
+ "nvapi-drs",
  "once_cell",
  "parking_lot",
  "pe-version",
@@ -1215,6 +1231,40 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "driver-catalog"
+version = "1.5.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "reqwest 0.12.28",
+ "roxmltree",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "zip 2.4.2",
+]
+
+[[package]]
+name = "driver-install"
+version = "1.5.0"
+dependencies = [
+ "dll-catalog",
+ "futures-util",
+ "pe-version",
+ "reqwest 0.12.28",
+ "serde",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "windows 0.58.0",
+ "wiremock",
 ]
 
 [[package]]
@@ -2507,7 +2557,7 @@ dependencies = [
 
 [[package]]
 name = "launcher-scan"
-version = "1.2.0"
+version = "1.5.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -2644,7 +2694,7 @@ dependencies = [
 
 [[package]]
 name = "manifest-builder"
-version = "1.2.0"
+version = "1.5.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2829,7 +2879,7 @@ dependencies = [
 
 [[package]]
 name = "notifications-store"
-version = "1.2.0"
+version = "1.5.0"
 dependencies = [
  "chrono",
  "rusqlite",
@@ -2917,6 +2967,14 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.117",
+]
+
+[[package]]
+name = "nvapi-drs"
+version = "1.5.0"
+dependencies = [
+ "serde",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -3276,7 +3334,7 @@ checksum = "df94ce210e5bc13cb6651479fa48d14f601d9858cfe0467f43ae157023b938d3"
 
 [[package]]
 name = "pe-version"
-version = "1.2.0"
+version = "1.5.0"
 dependencies = [
  "pelite",
  "serde",
@@ -3910,6 +3968,12 @@ dependencies = [
  "untrusted",
  "windows-sys 0.52.0",
 ]
+
+[[package]]
+name = "roxmltree"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6c20b6793b5c2fa6553b250154b78d6d0db37e72700ae35fad9387a46f487c97"
 
 [[package]]
 name = "rusqlite"

@@ -1,0 +1,30 @@
+[package]
+name = "driver-install"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+thiserror.workspace = true
+reqwest.workspace = true
+tokio = { workspace = true, features = ["io-util", "fs"] }
+tokio-util.workspace = true
+futures-util.workspace = true
+tracing.workspace = true
+dll-catalog = { path = "../dll-catalog" }
+pe-version = { path = "../pe-version" }
+
+[target.'cfg(windows)'.dependencies]
+windows = { workspace = true, features = [
+    "Win32_Foundation",
+    "Win32_UI_Shell",
+    "Win32_System_Threading",
+    "Win32_System_Registry",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "io-util", "fs", "time"] }
+tempfile.workspace = true
+wiremock = "0.6"

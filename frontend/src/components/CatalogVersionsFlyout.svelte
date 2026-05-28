@@ -13,13 +13,16 @@
   } from "../lib/labels";
   import type { CatalogFamily } from "../lib/stores";
   import { showToast } from "../lib/stores";
+  import { mergeFamilyReleases } from "../lib/catalogReleases";
   import FeatureIcon from "./FeatureIcon.svelte";
+  import Checkbox from "./Checkbox.svelte";
 
   let {
     vendor,
     catalogKey,
     featureSlot,
     accent,
+    families,
     advancedFamilies,
     vendorLabel,
     onClose,
@@ -28,6 +31,7 @@
     catalogKey: string;
     featureSlot: FeatureSlot;
     accent: string;
+    families?: string[];
     advancedFamilies?: CatalogFamily[];
     vendorLabel?: string;
     onClose: () => void;
@@ -66,11 +70,17 @@
       activeFamilyIcon = "advanced";
     } else {
       mode = "versions";
-      activeFamilyLabel = familyLabel(catalogKey);
+      activeFamilyLabel = featureTitle(featureSlot);
       activeFamilyIcon = featureIconId(featureSlot);
-      void loadFamilyVersions(catalogKey);
+      void loadFeatureVersions(families && families.length > 0 ? families : [catalogKey]);
     }
   });
+
+  function toError(err: unknown): string {
+    return err && typeof err === "object" && "message" in err
+      ? String((err as { message: unknown }).message)
+      : String(err);
+  }
 
   async function loadFamilyVersions(family: string): Promise<void> {
     loading = true;
@@ -81,10 +91,23 @@
       list.sort((a, b) => Number(b.version_packed ?? 0) - Number(a.version_packed ?? 0));
       releases = list;
     } catch (err: unknown) {
-      error =
-        err && typeof err === "object" && "message" in err
-          ? String((err as { message: unknown }).message)
-          : String(err);
+      error = toError(err);
+    } finally {
+      loading = false;
+    }
+  }
+
+  /// Load + merge every DLL family that maps to this feature (e.g. FSR Upscaling =
+  /// DX12 + Vulkan), de-duped by version+hash and sorted newest-first.
+  async function loadFeatureVersions(fams: string[]): Promise<void> {
+    loading = true;
+    error = null;
+    releases = [];
+    try {
+      const lists = await Promise.all(fams.map((f) => listReleases(vendor, f)));
+      releases = mergeFamilyReleases(lists);
+    } catch (err: unknown) {
+      error = toError(err);
     } finally {
       loading = false;
     }
@@ -260,10 +283,10 @@
         bind:value={query}
         class="flyout-search"
       />
-      <label class="flyout-toggle" title="Hide beta and experimental builds">
-        <input type="checkbox" bind:checked={stableOnly} />
-        <span>Stable only{hiddenByStable > 0 ? ` (-${hiddenByStable})` : ""}</span>
-      </label>
+      <Checkbox
+        bind:checked={stableOnly}
+        label={`Stable only${hiddenByStable > 0 ? ` (-${hiddenByStable})` : ""}`}
+      />
     </div>
     <div class="flyout-body">
       {#if loading}
@@ -414,8 +437,6 @@
     background: var(--bg-input);
   }
   .flyout-search { flex: 1; min-width: 160px; font-size: var(--fs-sm); padding: 7px 12px; }
-  .flyout-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-chip); color: var(--text-secondary); cursor: pointer; user-select: none; }
-  .flyout-toggle input { accent-color: var(--accent); }
   .toolbar-count { font-size: var(--fs-xs); color: var(--text-muted); font-variant-numeric: tabular-nums; }
 
   .flyout-body { flex: 1; overflow-y: auto; }

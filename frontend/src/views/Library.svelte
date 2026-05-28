@@ -284,47 +284,43 @@
 </header>
 
 {#if outdatedTotal > 0}
-  <div class="hero-shell">
-  <section class="hero-band aura-card aura-card-xl" aria-label="Update summary">
-    <div class="aura-badge hero-glyph" data-tint="blue" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="23 4 23 10 17 10"/>
-        <polyline points="1 20 1 14 7 14"/>
-        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
-      </svg>
-    </div>
-    <div class="aura-stack aura-stack-tight hero-meta">
-      <span class="hero-eyebrow">UPDATES READY</span>
-      <div class="hero-line">
-        <span class="hero-count">{outdatedTotal}</span>
-        <span class="hero-headline">
-          update{outdatedTotal === 1 ? "" : "s"} across {outdatedGameCount} game{outdatedGameCount === 1 ? "" : "s"}
-        </span>
+  <div class="updates-hero-shell">
+    <aside class="updates-hero" role="status" aria-label="Pending updates">
+      <span class="updates-hero-edge" aria-hidden="true"></span>
+      <div class="updates-hero-body">
+        <p class="updates-hero-headline">
+          <strong>{outdatedTotal}</strong>
+          update{outdatedTotal === 1 ? "" : "s"} ready
+          <span class="updates-hero-scope"
+            >across {outdatedGameCount} game{outdatedGameCount === 1 ? "" : "s"}</span
+          >
+        </p>
+        <ul class="updates-hero-tags" role="list">
+          {#each outdatedBreakdown as bucket (bucket.group)}
+            <li class="updates-hero-tag" data-group={bucket.group}>
+              {bucket.label}<span class="updates-hero-tag-n">{bucket.count}</span>
+            </li>
+          {/each}
+        </ul>
       </div>
-      <div class="hero-breakdown">
-        {#each outdatedBreakdown as bucket (bucket.group)}
-          <span class="hero-chip" data-group={bucket.group}>
-            <span class="hero-chip-dot" aria-hidden="true"></span>
-            {bucket.label}
-            <span class="hero-chip-count">{bucket.count}</span>
-          </span>
-        {/each}
-        {#if $manifestUpdatedAt}
-          <span class="hero-foot-time" title="Catalog manifest refresh time">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            <span class="mono">{$manifestUpdatedAt}</span>
-          </span>
-        {/if}
+      <div class="updates-hero-actions">
+        <button
+          class="updates-hero-review"
+          onclick={reviewChanges}
+          title="Filter the library to just the games with pending updates">Review</button
+        >
+        <button
+          class="updates-hero-apply"
+          onclick={updateAllOutdated}
+          title="Apply every detected update across the library">Apply all</button
+        >
       </div>
-    </div>
-    <div class="hero-actions">
-      <button class="aura-pill aura-pill-ghost" onclick={reviewChanges} title="Filter the library to just the games with pending updates">Review updates</button>
-      <button class="aura-pill aura-pill-primary" onclick={updateAllOutdated} title="Apply every detected update across the library">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-        Update everything
-      </button>
-    </div>
-  </section>
+      {#if $manifestUpdatedAt}
+        <span class="updates-hero-stamp" title="Catalog manifest refresh time"
+          >Manifest {$manifestUpdatedAt}</span
+        >
+      {/if}
+    </aside>
   </div>
 {/if}
 
@@ -588,99 +584,120 @@
   .pill.active .pill-count { background: var(--accent-glow); color: var(--accent); }
   .pill.is-hidden.active .pill-count { background: rgba(239, 68, 68, 0.18); color: var(--danger); }
 
-  .hero-shell { container-type: inline-size; }
-  .hero-band {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    grid-template-areas: "glyph meta actions";
-    align-items: center;
-    gap: 22px;
-    margin-bottom: 22px;
-    background:
-      radial-gradient(60% 120% at 0% 0%, var(--accent-soft) 0%, transparent 65%),
-      var(--bg-card);
-  }
-  .hero-glyph { grid-area: glyph; }
-  .hero-meta { grid-area: meta; }
-  .hero-actions { grid-area: actions; }
-  @container (max-width: 720px) {
-    .hero-band {
-      grid-template-columns: auto minmax(0, 1fr);
-      grid-template-areas: "glyph meta" "actions actions";
-      align-items: start;
-      row-gap: 18px;
-    }
-    .hero-actions { width: 100%; }
-    .hero-actions .aura-pill { flex: 1 1 0; justify-content: center; }
-  }
-  .hero-glyph { width: 48px; height: 48px; border-radius: 14px; }
-  .hero-glyph :global(svg) { width: 24px; height: 24px; }
-  .hero-meta { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-  .hero-eyebrow {
-    font-size: var(--fs-2xs);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: var(--letter-wider);
-    color: var(--accent);
-  }
-  .hero-line { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-  .hero-count {
-    font-size: 36px;
-    font-weight: 700;
-    color: var(--text-primary);
-    letter-spacing: -0.025em;
-    font-variant-numeric: tabular-nums;
-    line-height: 1;
-  }
-  .hero-headline {
-    font-size: var(--fs-md);
-    font-weight: 500;
-    color: var(--text-muted);
-    letter-spacing: var(--letter-tight);
-    line-height: 1.2;
-  }
-  .hero-breakdown {
+  .updates-hero-shell { container-type: inline-size; margin-bottom: 20px; }
+  .updates-hero {
+    position: relative;
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
-    gap: 6px;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 16px 20px 16px 22px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background:
+      linear-gradient(120deg, color-mix(in oklab, var(--accent) 7%, transparent), transparent 48%),
+      var(--bg-card);
+    overflow: hidden;
   }
-  .hero-breakdown { gap: 8px; align-items: center; }
-  .hero-chip {
+  .updates-hero-edge {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    background: linear-gradient(
+      to bottom,
+      var(--accent),
+      color-mix(in oklab, var(--accent) 30%, transparent)
+    );
+  }
+  .updates-hero-body { display: flex; flex-direction: column; gap: 9px; min-width: 0; }
+  .updates-hero-headline {
+    margin: 0;
+    font-size: 14.5px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    letter-spacing: -0.005em;
+  }
+  .updates-hero-headline strong {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+    margin-right: 3px;
+  }
+  .updates-hero-scope { color: var(--text-muted); margin-left: 3px; }
+  .updates-hero-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+  .updates-hero-tag {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 4px 11px;
+    padding: 3px 8px 3px 10px;
     border-radius: var(--radius-full);
-    background: var(--bg-elevated);
-    font-size: var(--fs-xs);
+    font-size: 11.5px;
     font-weight: 600;
+    background: var(--bg-elevated);
     color: var(--text-secondary);
-    letter-spacing: 0;
   }
-  .hero-chip[data-group="dlss"]     { background: var(--badge-green-bg);  color: var(--badge-green-fg);  }
-  .hero-chip[data-group="fsr"]      { background: var(--badge-red-bg);    color: var(--badge-red-fg);    }
-  .hero-chip[data-group="xess"]     { background: var(--badge-blue-bg);   color: var(--badge-blue-fg);   }
-  .hero-chip[data-group="advanced"] { background: var(--badge-purple-bg); color: var(--badge-purple-fg); }
-  .hero-chip-dot { display: none; }
-  .hero-chip-count {
+  .updates-hero-tag-n {
     font-variant-numeric: tabular-nums;
     font-weight: 700;
-    opacity: 0.9;
+    min-width: 17px;
+    padding: 0 5px;
+    text-align: center;
+    border-radius: var(--radius-full);
+    background: color-mix(in oklab, currentColor 16%, transparent);
   }
-  .hero-foot-time {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
+  .updates-hero-tag[data-group="dlss"]     { color: var(--badge-green-fg); }
+  .updates-hero-tag[data-group="fsr"]      { color: var(--badge-red-fg); }
+  .updates-hero-tag[data-group="xess"]     { color: var(--badge-blue-fg); }
+  .updates-hero-tag[data-group="advanced"] { color: var(--badge-purple-fg); }
+  .updates-hero-actions { display: inline-flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .updates-hero-review {
+    height: 34px;
+    padding: 0 14px;
+    border-radius: var(--radius-md);
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-size: 12.5px;
+    font-weight: 600;
+    transition:
+      color var(--dur-fast) var(--ease),
+      background var(--dur-fast) var(--ease),
+      border-color var(--dur-fast) var(--ease);
+  }
+  .updates-hero-review:hover {
+    color: var(--text-primary);
+    background: var(--bg-elevated);
+    border-color: var(--border-strong);
+  }
+  .updates-hero-apply {
+    height: 34px;
+    padding: 0 18px;
+    border-radius: var(--radius-md);
+    background: var(--accent);
+    color: var(--accent-fg);
+    font-size: 12.5px;
+    font-weight: 600;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    transition: background var(--dur-fast) var(--ease);
+  }
+  .updates-hero-apply:hover { background: var(--accent-hover); }
+  .updates-hero-stamp {
+    position: absolute;
+    right: 18px;
+    bottom: 7px;
+    font-size: 10px;
     color: var(--text-muted);
-    font-size: var(--fs-2xs);
-    margin-left: 4px;
-    padding-left: 12px;
-    border-left: 1px solid var(--border);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.01em;
+    opacity: 0.65;
   }
-  .hero-foot-time .mono { font-variant-numeric: tabular-nums; letter-spacing: 0; }
-
-  .hero-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; flex-shrink: 0; }
+  @container (max-width: 620px) {
+    .updates-hero { flex-direction: column; align-items: stretch; gap: 14px; padding-bottom: 20px; }
+    .updates-hero-actions { width: 100%; }
+    .updates-hero-actions button { flex: 1; }
+    .updates-hero-stamp { display: none; }
+  }
 
   .sort-select {
     height: 32px;

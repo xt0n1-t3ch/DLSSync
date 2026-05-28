@@ -13,9 +13,12 @@
     persistSettings,
     showToast,
     rescanGame,
+    driverReports,
   } from "../lib/stores";
   import { dllRelation, targetVersion } from "../lib/relation";
-  import { addBlacklistEntry, removeBlacklistEntry, type DllRecord } from "../lib/api";
+  import { addBlacklistEntry, removeBlacklistEntry, findGameExecutable, detectAnticheat, type DllRecord, type AntiCheatReport } from "../lib/api";
+  import { hasAntiCheat, statusNote, warningMessage, severity } from "../lib/anticheat";
+  import DlssOverridePanel from "./DlssOverridePanel.svelte";
   import { dispatchApply, type ApplyTarget } from "../lib/applyController";
   import {
     LAUNCHER_ACCENTS,
@@ -75,6 +78,33 @@
   let expandedFeatures = $state<Record<string, boolean>>({});
   let advancedExpanded = $state(false);
 
+  let dlssExpanded = $state(false);
+  let gameExe = $state<string | null>(null);
+  let exeResolving = $state(false);
+  let exeResolved = $state(false);
+
+  let nvidiaPacked = $derived.by(
+    () => $driverReports.find((r) => r.device.vendor === "nvidia")?.installed.packed ?? 0,
+  );
+
+  async function resolveExe(): Promise<void> {
+    if (!game || exeResolved) return;
+    exeResolving = true;
+    try {
+      gameExe = await findGameExecutable(game.install_dir);
+    } catch {
+      gameExe = null;
+    } finally {
+      exeResolving = false;
+      exeResolved = true;
+    }
+  }
+
+  function toggleDlss(): void {
+    dlssExpanded = !dlssExpanded;
+    if (dlssExpanded) void resolveExe();
+  }
+
   $effect(() => {
     if (gameId !== activeGameId) {
       activeGameId = gameId;
@@ -85,6 +115,11 @@
       }
       selected = next;
       expandedFeatures = {};
+      dlssExpanded = false;
+      gameExe = null;
+      exeResolved = false;
+      acReport = null;
+      void loadAntiCheat();
     }
   });
 
@@ -348,14 +383,20 @@
   );
   let accent = $derived(game ? LAUNCHER_ACCENTS[game.launcher] ?? "#22d3ee" : "#22d3ee");
 
-  let anticheatHint = $derived.by(() => {
-    if (!game) return null;
-    const d = game.install_dir.replace(/\\/g, "/").toLowerCase();
-    if (d.includes("/easyanticheat") || d.includes("/eac")) return "Easy Anti-Cheat";
-    if (d.includes("/battleye")) return "BattlEye";
-    if (d.includes("/vac")) return "Valve Anti-Cheat";
-    return null;
-  });
+  let acReport = $state<AntiCheatReport | null>(null);
+  async function loadAntiCheat(): Promise<void> {
+    if (!game) return;
+    try {
+      acReport = await detectAnticheat(game.install_dir, game.app_id, game.name);
+    } catch {
+      acReport = null;
+    }
+  }
+
+  let acActive = $derived(hasAntiCheat(acReport));
+  let acStatus = $derived(acReport ? statusNote(acReport) : null);
+  let acSeverity = $derived(acReport ? severity(acReport) : "warning");
+  let acLearnUrl = $derived(acReport?.source_url ?? EXTERNAL_URLS.anticheatFaq);
 </script>
 
 <svelte:window onkeydown={(e) => { if (game && e.key === "Escape") onClose(); }} />
@@ -409,17 +450,17 @@
     </div>
 
     <div class="drawer-body">
-      {#if anticheatHint}
-        <div class="warning-banner" role="alert">
+      {#if acActive}
+        <div class="warning-banner" class:is-danger={acSeverity === "danger"} role="alert">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          <span><strong>{anticheatHint}</strong> detected in this install — patching DLLs may trigger a kick or ban. Verify with the developer before applying.</span>
+          <span>{warningMessage(acReport!)}{#if acStatus} {acStatus}{/if}</span>
           <button
             class="learn-more"
-            title="Open the README anti-cheat FAQ on GitHub"
+            title="Open the anti-cheat compatibility reference"
             onclick={async () => {
               try {
                 const { open } = await import("@tauri-apps/plugin-shell");
-                await open(EXTERNAL_URLS.anticheatFaq);
+                await open(acLearnUrl);
               } catch (err) { showToast("warning", `Open link failed: ${String(err)}`); }
             }}
           >Learn more</button>
@@ -729,6 +770,36 @@
           </section>
         {/if}
       {/if}
+
+      {#if game && !loading && !rescanning}
+        <section class="advanced-block" class:open={dlssExpanded} style="margin-top: 12px;">
+          <button type="button" class="advanced-head" onclick={toggleDlss} aria-expanded={dlssExpanded}>
+            <span class="advanced-titles">
+              <span class="advanced-name">
+                <span class="advanced-dot" style="background: #76b900;"></span>
+                DLSS Overrides
+                <span class="chip chip-neutral small-chip count">NVIDIA</span>
+              </span>
+              <span class="advanced-sub">Force the DLSS preset and frame-generation mode for this game via its NVIDIA driver profile.</span>
+            </span>
+            <span class="advanced-chevron" class:open={dlssExpanded}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </span>
+          </button>
+          {#if dlssExpanded}
+            <div class="dlss-drawer-body">
+              {#if exeResolving}
+                <p class="advanced-sub">Locating the game executable…</p>
+              {:else if gameExe}
+                <p class="advanced-sub mono truncate" title={gameExe}>{gameExe}</p>
+                <DlssOverridePanel scope={{ scope: "per_game", executable_path: gameExe }} driverPacked={nvidiaPacked} />
+              {:else}
+                <p class="advanced-sub">Could not locate this game's main executable automatically — use the Global override in Settings instead.</p>
+              {/if}
+            </div>
+          {/if}
+        </section>
+      {/if}
     </div>
 
     <footer class="drawer-foot">
@@ -764,10 +835,14 @@
       display: block;
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.5);
-      backdrop-filter: blur(2px);
-      -webkit-backdrop-filter: blur(2px);
+      background:
+        radial-gradient(circle at 70% 30%, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.82) 75%);
       z-index: 150;
+    }
+    @media (prefers-reduced-transparency: reduce) {
+      .drawer-scrim {
+        background: rgba(0, 0, 0, 0.82);
+      }
     }
   }
   .drawer {
@@ -784,8 +859,35 @@
     z-index: 151;
     overflow: hidden;
   }
+  .drawer::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.4),
+      transparent
+    );
+    pointer-events: none;
+    z-index: 3;
+  }
   .drawer-head { position: relative; }
-  .drawer-art { width: 100%; aspect-ratio: 16 / 9; overflow: hidden; }
+  .drawer-art { width: 100%; aspect-ratio: 16 / 9; overflow: hidden; position: relative; }
+  .drawer-art::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--launcher-accent, var(--accent));
+    z-index: 2;
+    pointer-events: none;
+  }
   .drawer-art img { width: 100%; height: 100%; object-fit: cover; }
   .drawer-art-fallback {
     width: 100%;
@@ -818,7 +920,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 2;
+    z-index: 4;
   }
   .drawer-close:hover { background: rgba(0, 0, 0, 0.85); }
   .drawer-meta {
@@ -859,33 +961,45 @@
 
   .warning-banner {
     display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    padding: 10px 12px;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
     border-radius: var(--radius-md);
     background: var(--warning-dim);
     border: 1px solid var(--warning);
     color: var(--warning);
     font-size: 11.5px;
     line-height: 1.45;
-    margin-bottom: 16px;
+    margin-bottom: 20px;
+  }
+  .warning-banner.is-danger {
+    background: var(--danger-dim, rgba(220, 70, 70, 0.14));
+    border-color: var(--danger, #dc4646);
+    color: var(--danger, #dc4646);
   }
   .warning-banner svg { flex-shrink: 0; margin-top: 1px; }
   .learn-more {
     margin-left: auto;
-    padding: 4px 10px;
-    border-radius: var(--radius-sm);
+    height: 28px;
+    padding: 0 12px;
+    border-radius: var(--radius-md);
     background: rgba(255, 255, 255, 0.08);
     color: currentColor;
-    font-size: 10.5px;
+    font-size: 11px;
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: var(--letter-wider);
+    letter-spacing: 0.02em;
     border: 1px solid currentColor;
     flex-shrink: 0;
-    transition: background var(--dur-fast) var(--ease);
+    display: inline-flex;
+    align-items: center;
+    transition:
+      background var(--dur-fast) var(--ease),
+      color var(--dur-fast) var(--ease);
   }
-  .learn-more:hover { background: rgba(255, 255, 255, 0.16); }
+  .learn-more:hover {
+    background: rgba(255, 255, 255, 0.18);
+    color: var(--text-primary);
+  }
   .learn-more:focus-visible { outline: none; box-shadow: var(--shadow-ring); }
 
   .status-ribbon {
@@ -938,7 +1052,7 @@
     padding: 10px 12px;
     background: var(--bg-elevated);
     border-radius: var(--radius-md);
-    margin-bottom: 14px;
+    margin-bottom: 16px;
   }
   .summary-stat {
     flex: 1;
@@ -964,9 +1078,9 @@
     margin-top: 2px;
   }
 
-  .quick-actions { display: flex; gap: 8px; margin-bottom: 14px; }
+  .quick-actions { display: flex; gap: 8px; margin-bottom: 16px; }
 
-  .feature-list { list-style: none; padding: 0; margin: 0 0 16px; display: flex; flex-direction: column; gap: 8px; }
+  .feature-list { list-style: none; padding: 0; margin: 0 0 20px; display: flex; flex-direction: column; gap: 10px; }
   .feature-row {
     position: relative;
     display: grid;
@@ -1174,7 +1288,7 @@
   .small-chip { padding: 1px 7px; font-size: 9.5px; letter-spacing: 0.04em; }
 
   .advanced-block {
-    margin-top: 8px;
+    margin-top: 16px;
     background: transparent;
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
@@ -1215,6 +1329,7 @@
   }
   .advanced-chevron.open { transform: rotate(180deg); color: var(--text-primary); }
   .count.chip { padding: 1px 7px; }
+  .dlss-drawer-body { padding: 0 14px 14px; display: flex; flex-direction: column; gap: 10px; }
 
   .drawer-foot {
     padding: 12px 22px;

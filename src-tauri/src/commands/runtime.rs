@@ -22,3 +22,12 @@ pub fn runtime_mode() -> RuntimeMode {
         release_url: GITHUB_LATEST_RELEASE_URL.to_string(),
     }
 }
+
+#[tauri::command]
+pub fn open_devtools(window: tauri::WebviewWindow) {
+    if window.is_devtools_open() {
+        window.close_devtools();
+    } else {
+        window.open_devtools();
+    }
+}

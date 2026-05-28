@@ -11,6 +11,7 @@
   import Library from "./views/Library.svelte";
   import Catalog from "./views/Catalog.svelte";
   import Backups from "./views/Backups.svelte";
+  import Drivers from "./views/Drivers.svelte";
   import Settings from "./views/Settings.svelte";
   import About from "./views/About.svelte";
   import {
@@ -68,6 +69,22 @@
       drawerGameId.set(null);
     }
   });
+
+  onMount(() => {
+    const onKey = async (e: KeyboardEvent): Promise<void> => {
+      if (e.key === "F12") {
+        e.preventDefault();
+        try {
+          const { invoke } = await import("@tauri-apps/api/core");
+          await invoke("open_devtools");
+        } catch {
+          /* outside tauri context */
+        }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
 </script>
 
 <Sidebar />
@@ -81,6 +98,8 @@
         <div in:fly={{ y: 8, duration: 200 }}><Catalog /></div>
       {:else if $currentView === "backups"}
         <div in:fly={{ y: 8, duration: 200 }}><Backups /></div>
+      {:else if $currentView === "drivers"}
+        <div in:fly={{ y: 8, duration: 200 }}><Drivers /></div>
       {:else if $currentView === "settings"}
         <div in:fly={{ y: 8, duration: 200 }}>
           <Settings onToggleTheme={toggleTheme} currentTheme={theme} />

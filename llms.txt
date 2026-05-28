@@ -36,6 +36,7 @@ DLSSync only makes outbound requests to:
 - `api.github.com` — release update check, at most once per 6 h
 - `cdn.jsdelivr.net` — DLL catalog manifest
 - `cdn.cloudflare.steamstatic.com` and `cdn2.steamgriddb.com` — game cover art (only if not already cached)
+- GPU driver updater (only when the Drivers tab is open or a driver install runs): `gfwsl.geforce.com` + `raw.githubusercontent.com/ZenitH-AT/nvidia-data` (NVIDIA), `dsadata.intel.com` (Intel), `raw.githubusercontent.com/GPUOpen-Drivers` version table + the AMD driver host (AMD)
 
 All requests are unauthenticated. No hardware ID, install list or any identifying information is sent.
 
@@ -49,7 +50,15 @@ All requests are unauthenticated. No hardware ID, install list or any identifyin
 
 ## Anti-cheat compatibility
 
-DLSSync only writes files into the game's own install directory — equivalent to a manual file swap. Anti-cheats that detect modified game files (EAC, BattlEye, Vanguard, Denuvo Anti-Tamper) will still flag a swapped DLL the same way they would any manual swap. Verify your specific title's policy before applying.
+DLSSync only writes files into the game's own install directory — equivalent to a manual file swap. Anti-cheats that detect modified game files (Easy Anti-Cheat, BattlEye, Riot Vanguard, Denuvo Anti-Tamper) will still flag a swapped DLL, and online titles can also flag a forced DLSS driver-profile override. DLSSync detects anti-cheat per game (a local scan for known anti-cheat binaries plus a community dataset bundled into the manifest) and shows a ban-risk warning before any DLL swap or DLSS override. It warns, it does not block — verify your specific title's policy before applying.
+
+## Sponsor
+
+DLSSync is built and maintained by one person on free time, with zero telemetry and no paid tier. If the app saves you time or you want to keep it healthy, sponsoring helps cover the manifest CI, the auto-update signing, and the hours that keep the catalog fresh.
+
+- Ko-fi: https://ko-fi.com/xt0n1
+- GitHub Sponsors: https://github.com/sponsors/xt0n1-t3ch
+- PayPal: https://www.paypal.me/xt0n1
 
 ## Links
 
@@ -58,8 +67,9 @@ DLSSync only writes files into the game's own install directory — equivalent t
 - Author: https://github.com/xt0n1-t3ch
 - Web: https://xt0n1.com
 - Issues: https://github.com/xt0n1-t3ch/DLSSync/issues
+- Sponsor: https://github.com/sponsors/xt0n1-t3ch
 - License: https://github.com/xt0n1-t3ch/DLSSync/blob/main/LICENSE
 
 ## Keywords
 
-DLSS updater, DLSS swapper, DLSS Frame Generation, DLSS Ray Reconstruction, FSR 3, FSR Frame Generation, Intel XeSS, NVIDIA Reflex, NVIDIA Streamline, Microsoft DirectStorage, upscaling, frame generation, RTX, GeForce, Radeon, Intel Arc, Steam, Epic Games, GOG, Ubisoft Connect, EA Desktop, Xbox, Battle.net, open source, Rust, Tauri, Svelte, Windows portable, zero telemetry, hash-verified, vendor-signed
+DLSS updater, DLSS swapper, DLSS Frame Generation, DLSS Ray Reconstruction, FSR 3, FSR Frame Generation, Intel XeSS, XeSS Frame Generation, XeLL, NVIDIA Reflex, NVIDIA Streamline, Microsoft DirectStorage, upscaling, frame generation, ray reconstruction, RTX, GeForce, Radeon, Intel Arc, GPU driver updater, NVIDIA driver update, Intel driver update, AMD Adrenalin update, NVAPI DRS, DLSS preset override, DLSS Multi Frame Generation, fixed and dynamic frame generation, anti-cheat detection, anti-tamper detection, Denuvo detection, Easy Anti-Cheat, BattlEye, Riot Vanguard, ban risk warning, Steam, Epic Games, GOG Galaxy, Ubisoft Connect, EA Desktop, Xbox, Battle.net, Tauri 2, Svelte 5, Rust, Windows portable, no admin, zero telemetry, hash-verified, vendor-signed Authenticode, Apache-2.0, open source, donate, sponsor

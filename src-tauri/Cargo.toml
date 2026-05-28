@@ -17,7 +17,7 @@ path = "src/main.rs"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["tray-icon"] }
+tauri = { version = "2", features = ["tray-icon", "devtools"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-notification = "2"
@@ -54,6 +54,10 @@ dll-scanner = { path = "../crates/dll-scanner" }
 dll-catalog = { path = "../crates/dll-catalog" }
 backup-store = { path = "../crates/backup-store" }
 notifications-store = { path = "../crates/notifications-store" }
+driver-catalog = { path = "../crates/driver-catalog" }
+driver-install = { path = "../crates/driver-install" }
+nvapi-drs = { path = "../crates/nvapi-drs" }
+anticheat-detect = { path = "../crates/anticheat-detect" }
 
 [target.'cfg(windows)'.dependencies]
 winreg = { workspace = true }

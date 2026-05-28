@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "dlssync/driver-release",
+  "title": "DriverRelease",
+  "description": "A resolved latest driver release for a detected GPU, shared across the Rust check_driver_updates command and the frontend DriverReleaseDto.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "vendor",
+    "version",
+    "channel",
+    "is_beta",
+    "download_url",
+    "size_bytes",
+    "signature_subject",
+    "released_at",
+    "release_notes_url",
+    "display_version",
+    "changelog"
+  ],
+  "properties": {
+    "vendor": { "enum": ["nvidia", "amd", "intel", "other"] },
+    "version": {
+      "type": "object",
+      "required": ["packed", "display", "raw"],
+      "properties": {
+        "packed": { "type": "integer", "minimum": 0 },
+        "display": { "type": "string" },
+        "raw": { "type": "string" }
+      }
+    },
+    "channel": { "enum": ["stable", "beta"] },
+    "is_beta": { "type": "boolean" },
+    "display_version": { "type": ["string", "null"] },
+    "download_url": { "type": "string", "minLength": 1 },
+    "size_bytes": { "type": "integer", "minimum": 0 },
+    "signature_subject": { "type": "string" },
+    "released_at": { "type": ["string", "null"] },
+    "release_notes_url": {
+      "type": ["string", "null"],
+      "description": "Human-readable per-vendor release-notes / details page. The Drivers view 'Release notes' link opens THIS, never the .exe."
+    },
+    "changelog": {
+      "type": ["object", "null"],
+      "required": ["highlights", "fixed", "notes_page_url"],
+      "properties": {
+        "highlights": { "type": "array", "items": { "type": "string" } },
+        "fixed": { "type": "array", "items": { "type": "string" } },
+        "notes_page_url": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

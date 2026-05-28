@@ -140,6 +140,49 @@ export interface SystemInfo {
   collected_at: string;
 }
 
+export type DriverUpdateStatus = "up_to_date" | "update_available" | "unknown" | "unsupported";
+
+export interface DriverVersionDto {
+  packed: number;
+  display: string;
+  raw: string;
+}
+
+export interface DriverChangelogDto {
+  highlights: string[];
+  fixed: string[];
+  notes_page_url: string | null;
+}
+
+export interface DriverReleaseDto {
+  vendor: GpuVendor;
+  version: DriverVersionDto;
+  channel: "stable" | "beta";
+  display_version: string | null;
+  is_beta: boolean;
+  download_url: string;
+  size_bytes: number;
+  signature_subject: string;
+  released_at: string | null;
+  release_notes_url: string | null;
+  changelog: DriverChangelogDto | null;
+}
+
+export interface DeviceIdDto {
+  class: "gpu";
+  vendor: GpuVendor;
+  pci_vendor_id: number;
+  pci_device_id: number;
+  model: string;
+}
+
+export interface DriverStatusReport {
+  device: DeviceIdDto;
+  installed: DriverVersionDto;
+  latest: DriverReleaseDto | null;
+  status: DriverUpdateStatus;
+}
+
 export interface CatalogSummary {
   generated_at: string;
   vendors: VendorSummary[];
@@ -417,6 +460,130 @@ export async function getSystemInfo(): Promise<SystemInfo> {
   return invoke("get_system_info");
 }
 
+export async function checkDriverUpdates(): Promise<DriverStatusReport[]> {
+  return invoke("check_driver_updates");
+}
+
+export async function listDriverHistory(
+  model: string,
+  vendor: "nvidia" | "amd" | "intel",
+): Promise<DriverReleaseDto[]> {
+  return invoke("list_driver_history", { model, vendor });
+}
+
+export type ProtectionKind = "anti_cheat" | "anti_tamper" | "drm";
+export type ProtectionSource = "binary" | "pe" | "dataset";
+
+export interface DetectedAntiCheat {
+  anticheat: string;
+  kind: ProtectionKind;
+  source: ProtectionSource;
+}
+
+export interface AntiCheatReport {
+  detected: DetectedAntiCheat[];
+  status: string | null;
+  source_url: string | null;
+}
+
+export async function detectAnticheat(
+  installDir: string,
+  appId: string | null,
+  name: string,
+): Promise<AntiCheatReport> {
+  return invoke("detect_anticheat", { installDir, appId, name });
+}
+
+export type InstallStage =
+  | "queued"
+  | "downloading"
+  | "verifying"
+  | "launching"
+  | "installing"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+export interface DriverInstallProgress {
+  stage: InstallStage;
+  message: string;
+  progress: number | null;
+}
+
+export interface DriverInstallOutcome {
+  stage: InstallStage;
+  exit_code: number;
+  message: string;
+}
+
+export const DRIVER_INSTALL_EVENT = "driver_install_progress";
+
+export async function installDriver(
+  vendor: string,
+  downloadUrl: string,
+): Promise<DriverInstallOutcome> {
+  return invoke("install_driver", { vendor, downloadUrl });
+}
+
+export type DlssPreset =
+  | "default"
+  | "a"
+  | "b"
+  | "c"
+  | "d"
+  | "e"
+  | "f"
+  | "g"
+  | "h"
+  | "j"
+  | "k"
+  | "l"
+  | "m"
+  | "recommended";
+
+export type FrameGenMode = "app_controlled" | "fixed" | "dynamic";
+export type FrameGenCount = "app_controlled" | "x2" | "x3" | "x4";
+
+export interface DlssOverrideConfig {
+  enable_sr_dll_override: boolean;
+  sr_preset: DlssPreset | null;
+  enable_fg_dll_override: boolean;
+  fg_preset: DlssPreset | null;
+  fg_mode: FrameGenMode | null;
+  fg_fixed_count: FrameGenCount | null;
+  fg_dynamic_target_fps: number | null;
+}
+
+export type OverrideScope = { scope: "global" } | { scope: "per_game"; executable_path: string };
+
+export interface DlssSettingValue {
+  id: number;
+  value: number | null;
+}
+
+export async function dlssOverridesSupported(): Promise<boolean> {
+  return invoke("dlss_overrides_supported");
+}
+
+export async function applyDlssOverride(
+  scope: OverrideScope,
+  config: DlssOverrideConfig,
+): Promise<void> {
+  return invoke("apply_dlss_override", { scope, config });
+}
+
+export async function resetDlssOverride(scope: OverrideScope): Promise<void> {
+  return invoke("reset_dlss_override", { scope });
+}
+
+export async function readDlssOverride(scope: OverrideScope): Promise<DlssSettingValue[]> {
+  return invoke("read_dlss_override", { scope });
+}
+
+export async function findGameExecutable(installDir: string): Promise<string | null> {
+  return invoke("find_game_executable", { installDir });
+}
+
 export async function getSettings(): Promise<AppSettings> {
   return invoke("get_settings");
 }
@@ -471,6 +638,11 @@ export async function fetchSteamArt(name: string): Promise<GameArt> {
 
 export async function openPath(path: string): Promise<void> {
   return invoke("open_path", { path });
+}
+
+export async function openUrl(url: string): Promise<void> {
+  const { open } = await import("@tauri-apps/plugin-shell");
+  await open(url);
 }
 
 export async function revealPath(path: string): Promise<void> {
