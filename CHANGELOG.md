@@ -5,6 +5,30 @@ All notable changes to DLSSync are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.1] - 2026-05-28
+
+A driver-detection accuracy release. GPU driver resolution is now keyed on the PCI device id for every
+vendor, so laptops with integrated Intel graphics alongside a discrete card get the correct driver instead
+of the Arc desktop package, and install progress no longer breaks when you switch tabs.
+
+### Fixed
+
+- Intel driver detection resolves the exact driver for the installed GPU by matching its PCI device id against the catalog's per-package hardware-id list, instead of always serving the Arc desktop driver. Integrated Intel graphics — including 6th–10th-gen parts on the 31.x branch and 11th–14th-gen parts on their own branch — no longer trigger the installer's "exit code 8" (no compatible device) and no longer open the generic Arc page when you click Release notes.
+- Driver download and install progress survives switching tabs. The state moved to a shared, app-level store, so leaving the Drivers tab mid-download no longer cancels the progress or corrupts the animation.
+- On systems with more than one GPU — an integrated plus a discrete card, or two cards from the same vendor — each adapter's installed driver version is matched by PCI hardware id rather than by name, so versions are no longer assigned to the wrong card. Duplicate adapter enumerations are collapsed.
+
+### Added
+
+- Device-id-driven resolution for all three families: Intel matches the catalog hardware-id list, AMD maps the device id to its driver branch (RDNA3+, RDNA1/2, Polaris/Vega) before falling back to the model name, and NVIDIA notebook ("Laptop GPU") and desktop products resolve to distinct drivers.
+- A clearer Drivers tab: an "Open download page" action for AMD, a "Find my driver" link when a GPU's driver cannot be resolved, an `aria-live` install-progress region, and visible keyboard focus rings.
+
+### Changed
+
+- AMD opens its official download page instead of a constructed installer URL. The direct `.exe` is gated behind a license prompt and its filename changes per release, so a fabricated link was unreliable; version and changelog detection are unchanged.
+- Vendor installer exit codes are reported with a readable message. Intel's "no compatible device" (exit code 8) now explains the GPU may be OEM-locked or need a different driver branch, pointing to the manufacturer or Windows Update.
+
+[1.5.1]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.5.1
+
 ## [1.5.0] - 2026-05-27
 
 The public release of the GPU driver updater, the NVIDIA DLSS overrides and the anti-cheat work

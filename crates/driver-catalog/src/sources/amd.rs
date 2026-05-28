@@ -8,15 +8,6 @@ use async_trait::async_trait;
 
 pub struct AmdGpuSource;
 
-pub fn adrenalin_download_url(version: &str, os_suffix: &str) -> String {
-    format!(
-        "{prefix}whql-amd-software-adrenalin-edition-{version}-{os}-c.exe",
-        prefix = c::DRIVER_DOWNLOAD_PREFIX,
-        version = version,
-        os = os_suffix,
-    )
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AmdArch {
     Mainstream,
@@ -24,9 +15,45 @@ pub enum AmdArch {
     PolarisVega,
 }
 
+/// Known PCI device ids on the RDNA1/RDNA2 legacy driver branch (Navi 10/12/14
+/// = RX 5000, Navi 21/22/23/24 = RX 6000). Used to pick the right branch even
+/// when an OEM renames the card so the model string is unreliable.
+const RDNA12_DEVICE_IDS: &[u16] = &[
+    0x7310, 0x7312, 0x7318, 0x7319, 0x731A, 0x731B, 0x731E, 0x731F, 0x7340, 0x7341, 0x7347, 0x734F,
+    0x7360, 0x7362, 0x73A0, 0x73A1, 0x73A2, 0x73A3, 0x73A5, 0x73AB, 0x73AE, 0x73AF, 0x73BF, 0x73D0,
+    0x73DF, 0x73E0, 0x73E1, 0x73E3, 0x73E8, 0x73E9, 0x73EF, 0x73FF, 0x7420, 0x7421, 0x7422, 0x7423,
+    0x743F,
+];
+
+/// Known PCI device ids on the Polaris/Vega legacy driver branch (Polaris 10/11/
+/// 12/20/21/22 = RX 400/500, Vega 10/12/20 = Vega 56/64, Radeon VII).
+const POLARIS_VEGA_DEVICE_IDS: &[u16] = &[
+    0x67C0, 0x67C2, 0x67C4, 0x67C7, 0x67CA, 0x67CC, 0x67CF, 0x67D0, 0x67D4, 0x67D7, 0x67DF, 0x6FDF,
+    0x67E0, 0x67E1, 0x67E3, 0x67E8, 0x67EB, 0x67EF, 0x67FF, 0x6980, 0x6981, 0x6985, 0x6986, 0x6987,
+    0x698F, 0x699F, 0x6860, 0x6861, 0x6862, 0x6863, 0x6864, 0x6867, 0x6868, 0x686C, 0x687F, 0x69A0,
+    0x69A1, 0x69A2, 0x69A3, 0x69AF, 0x66A0, 0x66A1, 0x66A2, 0x66A3, 0x66A7, 0x66AF,
+];
+
+/// Classify by PCI device id — the authoritative key. Returns `None` for ids not
+/// on a legacy branch (RDNA3+ / APUs / unknown) so the caller falls back to the
+/// model-name classifier (which defaults such cards to the mainstream branch).
+pub fn amd_arch_from_device_id(device_id: u16) -> Option<AmdArch> {
+    if device_id == 0 {
+        return None;
+    }
+    if RDNA12_DEVICE_IDS.contains(&device_id) {
+        return Some(AmdArch::Rdna12);
+    }
+    if POLARIS_VEGA_DEVICE_IDS.contains(&device_id) {
+        return Some(AmdArch::PolarisVega);
+    }
+    None
+}
+
 /// Classify an AMD GPU model into the driver branch AMD publishes for it.
 /// RDNA3+ (RX 7000/9000) take the mainstream branch; RX 5000/6000 take the
-/// RDNA1/2 legacy branch; Polaris/Vega take their own.
+/// RDNA1/2 legacy branch; Polaris/Vega take their own. Used as a fallback when
+/// the PCI device id is unknown.
 pub fn amd_arch(model: &str) -> AmdArch {
     let m = model.to_lowercase();
     let has = |needles: &[&str]| needles.iter().any(|n| m.contains(n));
@@ -41,6 +68,12 @@ pub fn amd_arch(model: &str) -> AmdArch {
         return AmdArch::PolarisVega;
     }
     AmdArch::Mainstream
+}
+
+/// Resolve the driver branch for a device: PCI device id first, model name as a
+/// fallback. This is the single place the two classifiers are combined.
+fn arch_for(device: &DeviceId) -> AmdArch {
+    amd_arch_from_device_id(device.pci_device_id).unwrap_or_else(|| amd_arch(&device.model))
 }
 
 fn version_branch(version_attr: &str) -> AmdArch {
@@ -159,7 +192,7 @@ impl DriverSource for AmdGpuSource {
         _os: &OsTarget,
     ) -> Result<Option<DriverRelease>, DriverError> {
         let xml = fetch_version_table(client).await?;
-        parse_version_table(&xml, amd_arch(&device.model))
+        parse_version_table(&xml, arch_for(device))
     }
 
     async fn history(
@@ -170,7 +203,7 @@ impl DriverSource for AmdGpuSource {
         limit: usize,
     ) -> Result<Vec<DriverRelease>, DriverError> {
         let xml = fetch_version_table(client).await?;
-        let mut releases = parse_version_table_history(&xml, amd_arch(&device.model))?;
+        let mut releases = parse_version_table_history(&xml, arch_for(device))?;
         releases.truncate(limit);
         Ok(releases)
     }
@@ -190,11 +223,44 @@ async fn fetch_version_table(client: &reqwest::Client) -> Result<String, DriverE
 mod tests {
     use super::*;
 
+    fn amd_device(device_id: u16, model: &str) -> DeviceId {
+        DeviceId {
+            class: DeviceClass::Gpu,
+            vendor: DriverVendor::Amd,
+            pci_vendor_id: 0x1002,
+            pci_device_id: device_id,
+            model: model.into(),
+        }
+    }
+
     #[test]
-    fn adrenalin_download_url_matches_known_pattern() {
+    fn amd_arch_from_device_id_classifies_legacy_branches() {
+        assert_eq!(amd_arch_from_device_id(0x73BF), Some(AmdArch::Rdna12));
+        assert_eq!(amd_arch_from_device_id(0x731F), Some(AmdArch::Rdna12));
+        assert_eq!(amd_arch_from_device_id(0x67DF), Some(AmdArch::PolarisVega));
+        assert_eq!(amd_arch_from_device_id(0x687F), Some(AmdArch::PolarisVega));
+        assert_eq!(amd_arch_from_device_id(0x66AF), Some(AmdArch::PolarisVega));
+    }
+
+    #[test]
+    fn amd_arch_from_device_id_returns_none_for_rdna3_plus_and_zero() {
+        assert_eq!(amd_arch_from_device_id(0x744C), None);
+        assert_eq!(amd_arch_from_device_id(0), None);
+    }
+
+    #[test]
+    fn arch_for_prefers_device_id_over_name_then_falls_back() {
         assert_eq!(
-            adrenalin_download_url("26.5.1", "win11"),
-            "https://drivers.amd.com/drivers/whql-amd-software-adrenalin-edition-26.5.1-win11-c.exe"
+            arch_for(&amd_device(0x67DF, "AMD Radeon Graphics")),
+            AmdArch::PolarisVega
+        );
+        assert_eq!(
+            arch_for(&amd_device(0, "AMD Radeon RX 6800 XT")),
+            AmdArch::Rdna12
+        );
+        assert_eq!(
+            arch_for(&amd_device(0x744C, "AMD Radeon RX 7900 XTX")),
+            AmdArch::Mainstream
         );
     }
 

@@ -3,10 +3,10 @@ use crate::state::AppState;
 use crate::system_info::{self, GpuInfo, GpuVendor, SystemInfo};
 use dll_catalog::DownloadProgress;
 use driver_catalog::{
-    consts, sources::DEFAULT_HISTORY_LIMIT, DeviceClass, DeviceId, DriverRegistry, DriverRelease,
+    sources::DEFAULT_HISTORY_LIMIT, DeviceClass, DeviceId, DriverRegistry, DriverRelease,
     DriverStatusReport, DriverVendor, DriverVersion, OsFamily, OsTarget, UpdateStatus,
 };
-use driver_install::state::{classify_exit, InstallStage};
+use driver_install::state::{classify_exit, describe_exit, InstallStage};
 use driver_install::{download_to_file, verify_signature, DownloadOpts};
 use serde::Serialize;
 use std::path::Path;
@@ -20,15 +20,6 @@ fn map_vendor(vendor: GpuVendor) -> DriverVendor {
         GpuVendor::Amd => DriverVendor::Amd,
         GpuVendor::Intel => DriverVendor::Intel,
         GpuVendor::Other => DriverVendor::Other,
-    }
-}
-
-fn pci_vendor_id(vendor: DriverVendor) -> u16 {
-    match vendor {
-        DriverVendor::Nvidia => consts::pci::NVIDIA,
-        DriverVendor::Amd => consts::pci::AMD,
-        DriverVendor::Intel => consts::pci::INTEL,
-        _ => 0,
     }
 }
 
@@ -47,8 +38,8 @@ fn device_for(gpu: &GpuInfo) -> (DeviceId, DriverVersion) {
     let device = DeviceId {
         class: DeviceClass::Gpu,
         vendor,
-        pci_vendor_id: pci_vendor_id(vendor),
-        pci_device_id: 0,
+        pci_vendor_id: gpu.pci_vendor_id,
+        pci_device_id: gpu.pci_device_id,
         model: gpu.model.clone(),
     };
     let installed = DriverVersion::from_installed(vendor, &gpu.driver_version);
@@ -271,11 +262,7 @@ pub async fn install_driver(
         .map_err(AppError::Other)?;
 
     let stage = classify_exit(exit_code);
-    let message = match stage {
-        InstallStage::Completed => "Driver installed. A reboot may be required.".to_string(),
-        InstallStage::Cancelled => "Installation cancelled.".to_string(),
-        _ => format!("Installer exited with code {exit_code}."),
-    };
+    let message = describe_exit(exit_code, &vendor);
     emit_stage(&app, stage, &message, None);
     Ok(InstallOutcome {
         stage,
@@ -332,6 +319,8 @@ mod tests {
     fn device_for_nvidia_normalizes_installed_version() {
         let gpu = GpuInfo {
             vendor: GpuVendor::Nvidia,
+            pci_vendor_id: driver_catalog::consts::pci::NVIDIA,
+            pci_device_id: 0x2705,
             model: "NVIDIA GeForce RTX 4070 Ti SUPER".into(),
             driver_version: "32.0.15.9174".into(),
             vram_bytes: 0,
@@ -339,7 +328,8 @@ mod tests {
         };
         let (device, installed) = device_for(&gpu);
         assert_eq!(device.vendor, DriverVendor::Nvidia);
-        assert_eq!(device.pci_vendor_id, consts::pci::NVIDIA);
+        assert_eq!(device.pci_vendor_id, driver_catalog::consts::pci::NVIDIA);
+        assert_eq!(device.pci_device_id, 0x2705);
         assert_eq!(installed.display, "591.74");
     }
 
