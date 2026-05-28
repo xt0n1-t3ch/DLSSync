@@ -159,12 +159,28 @@ fn launch_installer(_path: &Path) -> Result<i32, String> {
     Err("driver install requires Windows".to_string())
 }
 
+/// Derive the on-disk installer filename from the download URL. The result is
+/// joined under the driver cache dir, so it must be a single path component:
+/// strip any query/fragment, take the last `/` segment, and reject anything
+/// carrying a path separator, a drive/ADS colon, or a `..` traversal so a
+/// crafted URL cannot escape the cache directory.
 fn installer_filename(url: &str) -> String {
-    url.rsplit('/')
+    const FALLBACK: &str = "driver-setup.exe";
+    let candidate = url
+        .split(['?', '#'])
         .next()
-        .filter(|name| name.to_ascii_lowercase().ends_with(".exe"))
-        .unwrap_or("driver-setup.exe")
-        .to_string()
+        .unwrap_or(url)
+        .rsplit('/')
+        .next()
+        .unwrap_or("");
+    let safe = candidate.to_ascii_lowercase().ends_with(".exe")
+        && !candidate.contains(['/', '\\', ':'])
+        && !candidate.contains("..");
+    if safe {
+        candidate.to_string()
+    } else {
+        FALLBACK.to_string()
+    }
 }
 
 fn emit_stage(app: &AppHandle, stage: InstallStage, message: &str, progress: Option<f64>) {
@@ -325,5 +341,52 @@ mod tests {
         assert_eq!(device.vendor, DriverVendor::Nvidia);
         assert_eq!(device.pci_vendor_id, consts::pci::NVIDIA);
         assert_eq!(installed.display, "591.74");
+    }
+
+    #[test]
+    fn installer_filename_keeps_a_clean_exe_segment() {
+        assert_eq!(
+            installer_filename(
+                "https://us.download.nvidia.com/Windows/610.47/610.47-desktop-win10-win11-64bit-international-dch-whql.exe"
+            ),
+            "610.47-desktop-win10-win11-64bit-international-dch-whql.exe"
+        );
+    }
+
+    #[test]
+    fn installer_filename_strips_query_and_fragment() {
+        assert_eq!(
+            installer_filename("https://host/setup.exe?token=abc"),
+            "setup.exe"
+        );
+        assert_eq!(
+            installer_filename("https://host/setup.exe#frag"),
+            "setup.exe"
+        );
+    }
+
+    #[test]
+    fn installer_filename_rejects_path_traversal_and_separators() {
+        assert_eq!(
+            installer_filename("https://host/x/..\\..\\..\\Windows\\System32\\evil.exe"),
+            "driver-setup.exe"
+        );
+        assert_eq!(
+            installer_filename("https://host/C:evil.exe"),
+            "driver-setup.exe"
+        );
+        assert_eq!(
+            installer_filename("https://host/..%2fevil.exe"),
+            "driver-setup.exe"
+        );
+    }
+
+    #[test]
+    fn installer_filename_falls_back_when_not_an_exe() {
+        assert_eq!(installer_filename("https://host/page"), "driver-setup.exe");
+        assert_eq!(
+            installer_filename("https://host/archive.zip"),
+            "driver-setup.exe"
+        );
     }
 }

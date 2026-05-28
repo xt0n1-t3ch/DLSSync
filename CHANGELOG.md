@@ -34,6 +34,11 @@ a redesigned Library, Drivers tab and game drawer. Skips 1.3 and 1.4 as public b
 - The Catalog footer no longer overlaps the cards at the bottom of the page.
 - The Settings "DLSS Overrides" pointer button is no longer cramped against its description.
 
+### Security
+
+- The driver installer is launched only after `WinVerifyTrust` validates the file digest and the certificate chain, then the signer subject is matched against the vendor allowlist. The previous check read the embedded certificate's subject name without verifying the signature, so a binary carrying a self-signed certificate with a vendor subject would have passed; the new gate rejects it.
+- The downloaded installer filename is taken from the URL as a single sanitized path component (path separators, drive/ADS colons and `..` are rejected, query and fragment stripped), so a crafted download URL cannot write outside the driver cache directory.
+
 [1.5.0]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.5.0
 
 ## [1.4.0] - 2026-05-26

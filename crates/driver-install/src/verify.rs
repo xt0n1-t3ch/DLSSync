@@ -8,6 +8,12 @@ pub fn verify_signature(path: &Path, vendor: &str) -> Result<AuthenticodeInfo, D
             "Authenticode verification unavailable on this platform".to_string(),
         )
     })?;
+    if !info.trusted {
+        return Err(DriverInstallError::Signature(format!(
+            "Authenticode signature is not trusted (status: {})",
+            info.status
+        )));
+    }
     enforce_subject(&info, vendor).map_err(DriverInstallError::Signature)?;
     Ok(info)
 }

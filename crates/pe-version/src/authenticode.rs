@@ -29,6 +29,8 @@ pub fn read_authenticode(_path: &Path) -> Option<AuthenticodeInfo> {
 #[cfg(windows)]
 mod win {
     use super::AuthenticodeInfo;
+    use std::ffi::c_void;
+    use std::mem::size_of;
     use std::os::windows::ffi::OsStrExt;
     use std::path::Path;
     use std::ptr::null_mut;
@@ -36,12 +38,54 @@ mod win {
 
     const ENCODING: u32 = X509_ASN_ENCODING | PKCS_7_ASN_ENCODING;
 
+    /// Cryptographically verify the file's embedded Authenticode signature with
+    /// `WinVerifyTrust` (`WINTRUST_ACTION_GENERIC_VERIFY_V2`): the signed digest
+    /// must match the file and the signer certificate must chain to a trusted
+    /// root. Without this the embedded subject name is forgeable — any binary
+    /// can carry a self-signed cert claiming `CN = NVIDIA Corporation`. Online
+    /// revocation is skipped (`WTD_REVOKE_NONE`) to honor the offline / minimal-
+    /// outbound promise; the digest + chain trust are still enforced.
+    fn verify_trust(wide: &[u16]) -> bool {
+        use windows_sys::Win32::Security::WinTrust::{
+            WinVerifyTrust, WINTRUST_DATA, WINTRUST_FILE_INFO, WTD_CHOICE_FILE, WTD_REVOKE_NONE,
+            WTD_STATEACTION_CLOSE, WTD_STATEACTION_VERIFY, WTD_UI_NONE,
+        };
+        // WINTRUST_ACTION_GENERIC_VERIFY_V2 {00AAC56B-CD44-11d0-8CC2-00C04FC295EE}
+        let mut action = windows_sys::core::GUID {
+            data1: 0x00AA_C56B,
+            data2: 0xCD44,
+            data3: 0x11d0,
+            data4: [0x8C, 0xC2, 0x00, 0xC0, 0x4F, 0xC2, 0x95, 0xEE],
+        };
+        let mut file_info: WINTRUST_FILE_INFO = unsafe { std::mem::zeroed() };
+        file_info.cbStruct = size_of::<WINTRUST_FILE_INFO>() as u32;
+        file_info.pcwszFilePath = wide.as_ptr();
+
+        let mut data: WINTRUST_DATA = unsafe { std::mem::zeroed() };
+        data.cbStruct = size_of::<WINTRUST_DATA>() as u32;
+        data.dwUIChoice = WTD_UI_NONE;
+        data.fdwRevocationChecks = WTD_REVOKE_NONE;
+        data.dwUnionChoice = WTD_CHOICE_FILE;
+        data.dwStateAction = WTD_STATEACTION_VERIFY;
+        data.Anonymous.pFile = &mut file_info;
+
+        let status =
+            unsafe { WinVerifyTrust(null_mut(), &mut action, &mut data as *mut _ as *mut c_void) };
+
+        data.dwStateAction = WTD_STATEACTION_CLOSE;
+        unsafe {
+            WinVerifyTrust(null_mut(), &mut action, &mut data as *mut _ as *mut c_void);
+        }
+        status == 0
+    }
+
     pub fn read(path: &Path) -> Result<AuthenticodeInfo, String> {
         let wide: Vec<u16> = path
             .as_os_str()
             .encode_wide()
             .chain(std::iter::once(0))
             .collect();
+        let trusted = verify_trust(&wide);
 
         let mut encoding: u32 = 0;
         let mut content_type: u32 = 0;
@@ -121,11 +165,15 @@ mod win {
                 CertFreeCertificateContext(cert_ctx);
             }
             Ok(AuthenticodeInfo {
-                trusted: true,
+                trusted,
                 subject_cn,
                 subject_dn,
                 issuer_dn,
-                status: "Signed".to_string(),
+                status: if trusted {
+                    "Trusted".to_string()
+                } else {
+                    "Signed (digest or chain not trusted)".to_string()
+                },
             })
         })();
 
