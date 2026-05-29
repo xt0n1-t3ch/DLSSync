@@ -2,7 +2,8 @@
   import { onMount } from "svelte";
   import { fly } from "svelte/transition";
   import { backups, loadBackups, games, showToast, settings, persistSettings } from "../lib/stores";
-  import { restoreBackup, deleteBackup, openPath, type BackupEntry, type DetectedGame, type BackupsGroupBy } from "../lib/api";
+  import { pushNotification, makeNotificationEntry } from "../lib/notifications";
+  import { restoreBackup, restoreSystemDriver, deleteBackup, openPath, type BackupEntry, type DetectedGame, type BackupsGroupBy } from "../lib/api";
   import { BACKUPS_GROUP_BYS, BACKUPS_GROUP_BY_DEFAULT } from "../lib/ux";
   import { confirm } from "@tauri-apps/plugin-dialog";
   import {
@@ -93,9 +94,81 @@
     return d.toLocaleDateString(undefined, { weekday: "short", year: "numeric", month: "short", day: "numeric" });
   }
 
+  let dllBackups = $derived($backups.filter((b) => b.backup_type !== "driver_package"));
+  let driverBackups = $derived($backups.filter((b) => b.backup_type === "driver_package"));
+
+  let driverQuery = $state("");
+  let driverClassFilter = $state<string>("all");
+  let restoringDriverId = $state<string | null>(null);
+
+  type DriverClassGroup = { deviceClass: string; entries: BackupEntry[] };
+
+  let driverClasses = $derived.by<string[]>(() => {
+    const set = new Set<string>();
+    for (const b of driverBackups) set.add(b.device_class ?? "Driver");
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  });
+
+  let driverGroups = $derived.by<DriverClassGroup[]>(() => {
+    const q = driverQuery.trim().toLowerCase();
+    const m = new Map<string, BackupEntry[]>();
+    for (const b of driverBackups) {
+      const cls = b.device_class ?? "Driver";
+      if (driverClassFilter !== "all" && cls !== driverClassFilter) continue;
+      if (
+        q &&
+        !(
+          cls.toLowerCase().includes(q) ||
+          (b.driver_provider ?? "").toLowerCase().includes(q) ||
+          b.dll_filename.toLowerCase().includes(q) ||
+          (b.hardware_id ?? "").toLowerCase().includes(q) ||
+          (b.previous_version ?? "").toLowerCase().includes(q)
+        )
+      )
+        continue;
+      (m.get(cls) ?? m.set(cls, []).get(cls)!).push(b);
+    }
+    return Array.from(m.entries())
+      .map(([deviceClass, entries]) => ({
+        deviceClass,
+        entries: entries.sort((a, b) => b.created_at.localeCompare(a.created_at)),
+      }))
+      .sort((a, b) => a.deviceClass.localeCompare(b.deviceClass));
+  });
+
+  async function doDriverRestore(b: BackupEntry): Promise<void> {
+    if (restoringDriverId) return;
+    const ok = await confirm(
+      `Roll ${b.driver_provider ?? "this"} ${(b.device_class ?? "driver").toLowerCase()} driver back to v${b.previous_version ?? "?"}?\n\nDLSSync re-installs the snapshot it took before the update. Windows will ask for Administrator approval, and a reboot may be needed.`,
+      { title: "Roll back driver", kind: "warning", okLabel: "Roll back", cancelLabel: "Cancel" },
+    );
+    if (!ok) return;
+    restoringDriverId = b.id;
+    try {
+      const outcome = await restoreSystemDriver(b.id);
+      if (outcome.success) {
+        showToast("success", `Rolled back ${b.dll_filename}${outcome.reboot_required ? " — reboot to finish" : ""}`);
+        void pushNotification(
+          makeNotificationEntry(
+            "backup_restored",
+            `Rolled back ${b.device_class ?? "driver"} driver`,
+            `${b.driver_provider ?? ""} ${b.dll_filename}`.trim(),
+          ),
+        ).catch((err) => console.warn("[dlssync] push driver-rollback notification failed:", err));
+        await loadBackups();
+      } else {
+        showToast("danger", outcome.message);
+      }
+    } catch (err: unknown) {
+      showToast("danger", `Rollback failed: ${String(err)}`);
+    } finally {
+      restoringDriverId = null;
+    }
+  }
+
   let grouped = $derived.by<GroupedBackup[]>(() => {
     const m = new Map<string, GroupedBackup>();
-    for (const b of $backups) {
+    for (const b of dllBackups) {
       const key = groupBy === "date" ? b.created_at.slice(0, 10) : b.game_id;
       let g = m.get(key);
       if (!g) {
@@ -146,18 +219,18 @@
       .filter((g) => g.entries.length > 0);
   });
 
-  let totalRestorable = $derived($backups.filter((b) => !b.restored_at && !isMissing(b)).length);
-  let totalRestored = $derived($backups.filter((b) => b.restored_at).length);
-  let totalMissing = $derived($backups.filter((b) => isMissing(b)).length);
-  let uniqueGames = $derived(new Set($backups.map((b) => b.game_id)).size);
-  let totalBytes = $derived($backups.reduce((n, b) => n + (b.size_bytes ?? 0), 0));
+  let totalRestorable = $derived(dllBackups.filter((b) => !b.restored_at && !isMissing(b)).length);
+  let totalRestored = $derived(dllBackups.filter((b) => b.restored_at).length);
+  let totalMissing = $derived(dllBackups.filter((b) => isMissing(b)).length);
+  let uniqueGames = $derived(new Set(dllBackups.map((b) => b.game_id)).size);
+  let totalBytes = $derived(dllBackups.reduce((n, b) => n + (b.size_bytes ?? 0), 0));
   let oldestDate = $derived.by<string | null>(() => {
-    if ($backups.length === 0) return null;
-    return $backups.reduce((acc, b) => (b.created_at < acc ? b.created_at : acc), $backups[0].created_at);
+    if (dllBackups.length === 0) return null;
+    return dllBackups.reduce((acc, b) => (b.created_at < acc ? b.created_at : acc), dllBackups[0].created_at);
   });
   let newestDate = $derived.by<string | null>(() => {
-    if ($backups.length === 0) return null;
-    return $backups.reduce((acc, b) => (b.created_at > acc ? b.created_at : acc), $backups[0].created_at);
+    if (dllBackups.length === 0) return null;
+    return dllBackups.reduce((acc, b) => (b.created_at > acc ? b.created_at : acc), dllBackups[0].created_at);
   });
 
   async function doRestore(b: BackupEntry): Promise<void> {
@@ -166,6 +239,14 @@
     try {
       await restoreBackup(b.id);
       showToast("success", `Restored ${b.dll_filename}`);
+      void pushNotification(
+        makeNotificationEntry(
+          "backup_restored",
+          `Restored ${b.dll_filename}`,
+          gameById.get(b.game_id)?.name ?? b.game_id,
+          { game_id: b.game_id },
+        ),
+      ).catch((err) => console.warn("[dlssync] push backup-restored notification failed:", err));
       await loadBackups();
     } catch (err: unknown) {
       showToast("danger", `Restore failed: ${String(err)}`);
@@ -174,7 +255,7 @@
     }
   }
 
-  let selectedEntries = $derived.by<BackupEntry[]>(() => $backups.filter((b) => selectedIds.has(b.id)));
+  let selectedEntries = $derived.by<BackupEntry[]>(() => dllBackups.filter((b) => selectedIds.has(b.id)));
   let selectedActiveCount = $derived(selectedEntries.filter((e) => !e.restored_at && !isMissing(e)).length);
   let selectedTotalBytes = $derived(selectedEntries.reduce((n, e) => n + (e.size_bytes ?? 0), 0));
 
@@ -199,6 +280,15 @@
     bulkRunning = null;
     selectedIds = new Set();
     await loadBackups();
+    if (ok > 0) {
+      void pushNotification(
+        makeNotificationEntry(
+          "backup_restored",
+          `Restored ${ok} snapshot${ok === 1 ? "" : "s"}`,
+          fail > 0 ? `${fail} failed to restore` : "All selected snapshots restored",
+        ),
+      ).catch((err) => console.warn("[dlssync] push backup-restored notification failed:", err));
+    }
     if (fail === 0) showToast("success", `Restored ${ok} snapshot${ok === 1 ? "" : "s"}`);
     else if (ok === 0) showToast("danger", `Restore failed for all ${fail} snapshots`);
     else showToast("warning", `Restored ${ok}, ${fail} failed`);
@@ -334,17 +424,18 @@
   <div class="empty">
     <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5" rx="0.5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
     <h3 class="empty-title">No backups yet</h3>
-    <p class="section-sub">Backups are created automatically when you apply a DLL update. Open any game from the Library, pick DLLs, and click Apply selected.</p>
+    <p class="section-sub">Backups are created automatically when you apply a DLL update or a System &amp; Components driver. Open any game from the Library, pick DLLs, and click Apply selected.</p>
   </div>
 {:else}
-  <section class="backup-hero aura-card" in:fly={{ y: 6, duration: 220 }}>
+  {#if dllBackups.length > 0}
+  <section class="backup-hero aura-card edge-accent" in:fly={{ y: 6, duration: 220 }}>
     <div class="hero-stats">
       <div class="bk-stat">
         <span class="bk-stat-badge aura-badge" data-tint="blue" aria-hidden="true">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5" rx="0.5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
         </span>
         <div class="bk-stat-text">
-          <span class="bk-stat-num">{$backups.length.toLocaleString()}</span>
+          <span class="bk-stat-num">{dllBackups.length.toLocaleString()}</span>
           <span class="bk-stat-lbl">Total backups</span>
         </div>
       </div>
@@ -452,7 +543,7 @@
       <button class="seg-btn" class:active={groupBy === "date"} onclick={() => void setGroupBy("date")} aria-pressed={groupBy === "date"}>Date</button>
     </div>
     <span class="toolbar-summary">
-      {filtered.reduce((a, g) => a + g.entries.length, 0)} of {$backups.length} backup{$backups.length === 1 ? "" : "s"}{filtered.length !== grouped.length ? ` · ${filtered.length} ${groupBy === "date" ? "day" : "game"}${filtered.length === 1 ? "" : "s"}` : ""}
+      {filtered.reduce((a, g) => a + g.entries.length, 0)} of {dllBackups.length} backup{dllBackups.length === 1 ? "" : "s"}{filtered.length !== grouped.length ? ` · ${filtered.length} ${groupBy === "date" ? "day" : "game"}${filtered.length === 1 ? "" : "s"}` : ""}
     </span>
   </div>
 
@@ -637,6 +728,114 @@
       {/each}
     </div>
   {/if}
+  {/if}
+
+  {#if driverBackups.length > 0}
+    <section class="driver-section" in:fly={{ y: 6, duration: 220 }}>
+      <div class="section-head driver-head">
+        <h2 class="section-title">System Drivers</h2>
+        <span class="section-count">{driverBackups.length}</span>
+      </div>
+      <p class="section-sub driver-sub">
+        Pre-update snapshots of your audio, network, Bluetooth, chipset, and other
+        component drivers. Roll any one back if an update misbehaves — Windows asks
+        for Administrator approval, and a reboot may be needed.
+      </p>
+
+      <div class="driver-toolbar">
+        <div class="backup-search">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="search-icon"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="search" placeholder="Search by component, vendor, INF, or hardware id…" bind:value={driverQuery} />
+          {#if driverQuery}
+            <button class="search-clear" onclick={() => (driverQuery = "")} aria-label="Clear search">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          {/if}
+        </div>
+        {#if driverClasses.length > 1}
+          <div class="pills" role="group" aria-label="Filter drivers by component">
+            <button class="pill" class:active={driverClassFilter === "all"} onclick={() => (driverClassFilter = "all")}>All</button>
+            {#each driverClasses as c (c)}
+              <button class="pill" class:active={driverClassFilter === c} onclick={() => (driverClassFilter = c)}>{c}</button>
+            {/each}
+          </div>
+        {/if}
+      </div>
+
+      {#if driverGroups.length === 0}
+        <div class="empty small">
+          <p class="section-sub">No driver backups match your filter.</p>
+        </div>
+      {:else}
+        <div class="groups">
+          {#each driverGroups as dg (dg.deviceClass)}
+            <section class="group">
+              <div class="driver-group-head">
+                <span class="driver-class">{dg.deviceClass}</span>
+                <span class="driver-class-count">{dg.entries.length}</span>
+              </div>
+              <ul class="entries">
+                {#each dg.entries as b (b.id)}
+                  <li class="entry driver-entry" class:restored={b.restored_at}>
+                    <div class="entry-glyph" aria-hidden="true">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
+                    </div>
+                    <div class="entry-main">
+                      <div class="entry-head">
+                        <span class="entry-title">{b.driver_provider ?? "Driver"}</span>
+                        {#if b.restored_at}
+                          <span class="chip chip-success small-chip" title={`Rolled back ${fmtDate(b.restored_at)}`}>Rolled back</span>
+                        {:else}
+                          <span class="chip chip-update small-chip" title="The driver in place before the update is snapshotted and ready to roll back.">Snapshot</span>
+                        {/if}
+                      </div>
+                      <div class="entry-meta mono">
+                        <span class="file">{b.dll_filename}</span>
+                        <span class="sep">·</span>
+                        <span>v{b.previous_version ?? "?"}</span>
+                        <span class="sep">·</span>
+                        <span class="truncate hwid" title={b.hardware_id ?? ""}>{b.hardware_id ?? "—"}</span>
+                        <span class="sep">·</span>
+                        <span title={b.created_at}>{fmtDate(b.created_at)}</span>
+                      </div>
+                    </div>
+                    <div class="entry-actions">
+                      <button
+                        class="btn btn-sm btn-ghost"
+                        onclick={() => revealBackup(b)}
+                        title="Open the snapshot folder in Explorer"
+                        disabled={openingPath === b.id}
+                      >
+                        {#if openingPath === b.id}
+                          <span class="spin"></span>
+                        {:else}
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        {/if}
+                      </button>
+                      <button
+                        class="btn btn-sm btn-accent"
+                        disabled={restoringDriverId === b.id}
+                        onclick={() => doDriverRestore(b)}
+                        title="Re-install the driver that was in place before the update (Administrator approval required)"
+                      >
+                        {#if restoringDriverId === b.id}
+                          <span class="spin"></span>
+                          Rolling back
+                        {:else}
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9c-2.52 0-4.85.93-6.63 2.46"/><polyline points="3 4 3 9 8 9"/></svg>
+                          Roll back
+                        {/if}
+                      </button>
+                    </div>
+                  </li>
+                {/each}
+              </ul>
+            </section>
+          {/each}
+        </div>
+      {/if}
+    </section>
+  {/if}
 {/if}
 
 <style>
@@ -664,7 +863,7 @@
   .empty-title { font-size: var(--fs-lg); font-weight: 600; color: var(--text-primary); }
   .empty .section-sub { max-width: 460px; }
 
-  .backup-hero { margin-bottom: 16px; }
+  .backup-hero { margin-bottom: 16px; overflow: hidden; }
   .hero-stats {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
@@ -935,6 +1134,13 @@
     border-radius: var(--radius-lg);
     box-shadow: 0 4px 14px rgba(0,0,0,0.25);
     backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .bulk-bar { background: var(--bg-elevated); }
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .bulk-bar { background: var(--bg-elevated); }
   }
   .bulk-count {
     font-size: var(--fs-sm);
@@ -973,4 +1179,43 @@
 
   .spin { width: 11px; height: 11px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; }
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  .driver-section { margin-top: 28px; }
+  .driver-head { margin-bottom: 4px; }
+  .driver-sub { max-width: 640px; margin-bottom: 14px; }
+  .driver-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .driver-group-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-input);
+  }
+  .driver-class {
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: var(--letter-wider);
+    color: var(--text-secondary);
+  }
+  .driver-class-count {
+    font-size: var(--fs-2xs);
+    font-weight: 600;
+    color: var(--text-muted);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-full);
+    padding: 0 7px;
+    font-variant-numeric: tabular-nums;
+  }
+  .entry-meta .hwid { max-width: 320px; display: inline-block; vertical-align: bottom; }
+  .entry.driver-entry { grid-template-columns: 32px 1fr auto; }
 </style>

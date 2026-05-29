@@ -20,7 +20,13 @@ export interface DetectedGame {
   size_bytes: number | null;
 }
 
-export type UpdateStatus = "outdated" | "up_to_date" | "no_dlls" | "unknown" | "scanning";
+export type UpdateStatus =
+  | "outdated"
+  | "up_to_date"
+  | "no_dlls"
+  | "unknown"
+  | "scanning"
+  | "scan_failed";
 
 export type DllFamily =
   | "dlss_sr"
@@ -40,7 +46,9 @@ export type DllFamily =
   | "fsr_upscaler_vk"
   | "fsr_fg"
   | "fsr_loader"
-  | "direct_storage";
+  | "fsr_denoiser"
+  | "direct_storage"
+  | "direct_storage_core";
 
 export interface DllRecord {
   family: DllFamily;
@@ -79,6 +87,10 @@ export interface BackupEntry {
   created_at: string;
   restored_at: string | null;
   size_bytes: number | null;
+  backup_type: string;
+  device_class: string | null;
+  hardware_id: string | null;
+  driver_provider: string | null;
 }
 
 export interface DeleteOutcome {
@@ -426,6 +438,10 @@ export async function detectDlls(installDir: string): Promise<DllRecord[]> {
   return invoke("detect_dlls", { installDir });
 }
 
+export async function detectDlssEnabler(installDir: string): Promise<boolean> {
+  return invoke("detect_dlss_enabler", { installDir });
+}
+
 export async function refreshCatalog(): Promise<void> {
   return invoke("refresh_catalog");
 }
@@ -527,6 +543,120 @@ export async function installDriver(
   return invoke("install_driver", { vendor, downloadUrl });
 }
 
+
+export type SystemDeviceClass =
+  | "audio"
+  | "display"
+  | "monitor"
+  | "network"
+  | "bluetooth"
+  | "input"
+  | "storage"
+  | "printer"
+  | "camera"
+  | "sensor"
+  | "battery"
+  | "smart_card"
+  | "firmware"
+  | "chipset"
+  | "system"
+  | "usb"
+  | "other";
+
+export interface SystemDriverUpdate {
+  update_id: string;
+  title: string;
+  class: SystemDeviceClass;
+  provider: string;
+  driver_version: string | null;
+  driver_date: string | null;
+  hardware_id: string | null;
+  size_bytes: number;
+  target_device: string | null;
+  current_version: string | null;
+  /** DriverStore `oemNN.inf` of the matched installed device, for snapshot + version history. */
+  target_inf: string | null;
+  /** Hardware id of the matched installed device. */
+  target_hardware_id: string | null;
+  support_url: string | null;
+}
+
+export interface SystemDeviceGroup {
+  class: SystemDeviceClass;
+  label: string;
+  updates: SystemDriverUpdate[];
+}
+
+export type SystemInstallStage = "downloading" | "installing" | "completed" | "failed";
+
+export interface SystemDriverProgress {
+  stage: SystemInstallStage;
+  message: string;
+  fraction: number | null;
+}
+
+export interface SystemDriverOutcome {
+  success: boolean;
+  reboot_required: boolean;
+  result_code: number;
+  message: string;
+}
+
+export const SYSTEM_DRIVER_INSTALL_EVENT = "system_driver_install_progress";
+
+/** Installed-device context so the install snapshots the current driver before applying. */
+export interface DriverInstallContext {
+  infName: string | null;
+  hardwareId: string | null;
+  deviceClass: string | null;
+  provider: string | null;
+  currentVersion: string | null;
+}
+
+/** One DriverStore version (current or superseded) of a driver package. */
+export interface DriverStoreVersion {
+  publishedName: string;
+  version: string;
+  date: string | null;
+  provider: string;
+  current: boolean;
+}
+
+/** Build the snapshot context for a System & Components update from its matched device. */
+export function driverInstallContext(
+  update: SystemDriverUpdate,
+  deviceClass: string,
+): DriverInstallContext {
+  return {
+    infName: update.target_inf,
+    hardwareId: update.target_hardware_id,
+    deviceClass,
+    provider: update.provider,
+    currentVersion: update.current_version,
+  };
+}
+
+export async function scanSystemDrivers(): Promise<SystemDeviceGroup[]> {
+  return invoke("scan_system_drivers");
+}
+
+export async function installSystemDriver(
+  updateId: string,
+  context?: DriverInstallContext,
+): Promise<SystemDriverOutcome> {
+  return invoke("install_system_driver", { updateId, context: context ?? null });
+}
+
+/** Roll a System & Components driver back to a previously-snapshotted version. */
+export async function restoreSystemDriver(backupId: string): Promise<SystemDriverOutcome> {
+  return invoke("restore_system_driver", { backupId });
+}
+
+/** DriverStore versions (current + superseded) of a driver package, newest-first. */
+export async function systemDriverVersions(infName: string): Promise<DriverStoreVersion[]> {
+  return invoke("system_driver_versions", { infName });
+}
+
 export type DlssPreset =
   | "default"
   | "a"
@@ -537,10 +667,13 @@ export type DlssPreset =
   | "f"
   | "g"
   | "h"
+  | "i"
   | "j"
   | "k"
   | "l"
   | "m"
+  | "n"
+  | "o"
   | "recommended";
 
 export type FrameGenMode = "app_controlled" | "fixed" | "dynamic";
@@ -558,19 +691,27 @@ export interface DlssOverrideConfig {
 
 export type OverrideScope = { scope: "global" } | { scope: "per_game"; executable_path: string };
 
-export interface DlssSettingValue {
-  id: number;
-  value: number | null;
+export type DlssOverrideSource = "per_game" | "global" | "none";
+
+export interface DlssOverrideReadback {
+  config: DlssOverrideConfig;
+  source: DlssOverrideSource;
+  active_count: number;
 }
 
 export async function dlssOverridesSupported(): Promise<boolean> {
   return invoke("dlss_overrides_supported");
 }
 
+export interface DlssApplyOutcome {
+  needs_elevation: boolean;
+  denied_settings: number[];
+}
+
 export async function applyDlssOverride(
   scope: OverrideScope,
   config: DlssOverrideConfig,
-): Promise<void> {
+): Promise<DlssApplyOutcome> {
   return invoke("apply_dlss_override", { scope, config });
 }
 
@@ -578,8 +719,8 @@ export async function resetDlssOverride(scope: OverrideScope): Promise<void> {
   return invoke("reset_dlss_override", { scope });
 }
 
-export async function readDlssOverride(scope: OverrideScope): Promise<DlssSettingValue[]> {
-  return invoke("read_dlss_override", { scope });
+export async function readDlssOverrideConfig(scope: OverrideScope): Promise<DlssOverrideReadback> {
+  return invoke("read_dlss_override_config", { scope });
 }
 
 export async function findGameExecutable(installDir: string): Promise<string | null> {

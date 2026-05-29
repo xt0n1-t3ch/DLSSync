@@ -1,6 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render } from "@testing-library/svelte";
 import DlssOverridePanel from "@/components/DlssOverridePanel.svelte";
+import { emptyDlssConfig } from "@/lib/dlss";
+import * as api from "@/lib/api";
 
 const globalScope = { scope: "global" } as const;
 
@@ -34,5 +36,20 @@ describe("DlssOverridePanel", () => {
       props: { scope: globalScope, driverPacked: 57000 },
     });
     expect(container.textContent).toContain("572.16 or newer");
+  });
+
+  it("hydrates the form from read_dlss_override_config and labels the source (forum #1)", async () => {
+    const readback: api.DlssOverrideReadback = {
+      config: { ...emptyDlssConfig(), enable_sr_dll_override: true, sr_preset: "k" },
+      source: "global",
+      active_count: 1,
+    };
+    const spy = vi.spyOn(api, "readDlssOverrideConfig").mockResolvedValue(readback);
+    const { findByText } = render(DlssOverridePanel, {
+      props: { scope: globalScope, driverPacked: 61047 },
+    });
+    expect(await findByText(/Preset K/)).toBeTruthy();
+    expect(await findByText("Set in NVIDIA driver")).toBeTruthy();
+    spy.mockRestore();
   });
 });

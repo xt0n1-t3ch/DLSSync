@@ -33,7 +33,9 @@ pub enum DllFamily {
     FsrUpscalerVk,
     FsrFg,
     FsrLoader,
+    FsrDenoiser,
     DirectStorage,
+    DirectStorageCore,
 }
 
 impl DllFamily {
@@ -54,8 +56,9 @@ impl DllFamily {
             DllFamily::FsrUpscaler
             | DllFamily::FsrUpscalerVk
             | DllFamily::FsrFg
-            | DllFamily::FsrLoader => "amd",
-            DllFamily::DirectStorage => "microsoft",
+            | DllFamily::FsrLoader
+            | DllFamily::FsrDenoiser => "amd",
+            DllFamily::DirectStorage | DllFamily::DirectStorageCore => "microsoft",
         }
     }
 
@@ -77,7 +80,9 @@ impl DllFamily {
                 "fsr_upscaler"
             }
             DllFamily::FsrFg => "fsr_fg",
+            DllFamily::FsrDenoiser => "fsr_denoiser",
             DllFamily::DirectStorage => "direct_storage",
+            DllFamily::DirectStorageCore => "direct_storage_core",
         }
     }
 }
@@ -90,6 +95,104 @@ pub struct DllRecord {
     pub file_description: Option<String>,
     #[serde(default)]
     pub sha256: Option<String>,
+}
+
+/// Marker DLLs that signal a DLSS/FG injector mod (DLSS Enabler, OptiScaler,
+/// dlssg-to-fsr3) owns the Streamline set in this game tree. Matched
+/// case-insensitively by EXACT file name — a bare `nvngx.dll` is an injector
+/// proxy (real games ship `nvngx_dlss.dll` with the underscore), so generic
+/// loaders like `dxgi.dll`/`version.dll` are deliberately excluded to keep
+/// false positives at zero.
+pub const DLSS_ENABLER_MARKERS: &[&str] = &[
+    "dlss-enabler.dll",
+    "dlss-enabler-upscaler.dll",
+    "nvngx.dll",
+    "optiscaler.dll",
+    "dlssg_to_fsr3_amd_is_better.dll",
+];
+
+/// Bounded depth for the DLSS Enabler scan. The enabler DLLs sit near the game
+/// root, so a shallow early-exit walk is far cheaper than the full DLL scan and
+/// keeps enabler detection a separate, non-breaking command from `scan_install`.
+const DLSS_ENABLER_SCAN_DEPTH: usize = 4;
+
+/// Whether DLSS Enabler is installed in this game tree (bounded, early-exit walk).
+/// Kept separate from `scan_install` so the DLL-detection contract stays a plain
+/// `Vec<DllRecord>` — a partially-updated frontend/backend can never blank the
+/// whole library on a shape mismatch.
+pub fn detect_dlss_enabler(root: &Path) -> bool {
+    enabler_present_within(root, 0)
+}
+
+fn enabler_present_within(dir: &Path, depth: usize) -> bool {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return false;
+    };
+    let mut subdirs = Vec::new();
+    for entry in entries.flatten() {
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+        if file_type.is_file() {
+            if is_dlss_enabler_marker(&entry.file_name().to_string_lossy()) {
+                return true;
+            }
+        } else if file_type.is_dir() && depth < DLSS_ENABLER_SCAN_DEPTH {
+            let name = entry.file_name();
+            if !SKIP_DIRS.contains(name.to_string_lossy().as_ref()) {
+                subdirs.push(entry.path());
+            }
+        }
+    }
+    subdirs.iter().any(|d| enabler_present_within(d, depth + 1))
+}
+
+/// An NVIDIA Streamline plugin/interposer DLL (`sl.*.dll`). These form a single
+/// version-locked set: swapping one component (e.g. `sl.dlss_g.dll`) without the
+/// matching `sl.interposer.dll` mismatches Streamline's ABI struct versions and
+/// crashes the game on launch. Distinct from the NGX runtime DLLs
+/// (`nvngx_dlss.dll`), which the driver loads independently and are safe to swap.
+pub fn is_streamline_plugin(filename: &str) -> bool {
+    let lower = filename.to_ascii_lowercase();
+    lower.starts_with("sl.") && lower.ends_with(".dll")
+}
+
+/// Whether a single file name is a DLSS Enabler marker.
+pub fn is_dlss_enabler_marker(filename: &str) -> bool {
+    let lower = filename.to_ascii_lowercase();
+    DLSS_ENABLER_MARKERS.iter().any(|m| lower == *m)
+}
+
+/// Look for DLSS Enabler markers in `start` and up to `max_ancestors` parent
+/// directories. Streamline plugins live in deeply nested engine plugin folders
+/// while the enabler DLL sits near the game root, so the apply-time guard walks
+/// upward from the DLL being replaced.
+pub fn dlss_enabler_present_near(start: &Path, max_ancestors: usize) -> bool {
+    let mut dir = Some(start);
+    let mut hops = 0usize;
+    while let Some(current) = dir {
+        if dir_has_dlss_enabler(current) {
+            return true;
+        }
+        if hops >= max_ancestors {
+            break;
+        }
+        hops += 1;
+        dir = current.parent();
+    }
+    false
+}
+
+fn dir_has_dlss_enabler(dir: &Path) -> bool {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return false;
+    };
+    for entry in entries.flatten() {
+        if is_dlss_enabler_marker(&entry.file_name().to_string_lossy()) {
+            return true;
+        }
+    }
+    false
 }
 
 static KNOWN_DLLS: Lazy<Vec<(&'static str, DllFamily)>> = Lazy::new(|| {
@@ -117,8 +220,9 @@ static KNOWN_DLLS: Lazy<Vec<(&'static str, DllFamily)>> = Lazy::new(|| {
         ("amd_fidelityfx_loader_dx12.dll", DllFamily::FsrLoader),
         ("ffx_fsr3upscaler_x64.dll", DllFamily::FsrUpscaler),
         ("ffx_frameinterpolation_x64.dll", DllFamily::FsrFg),
+        ("amd_fidelityfx_denoiser_dx12.dll", DllFamily::FsrDenoiser),
         ("dstorage.dll", DllFamily::DirectStorage),
-        ("dstoragecore.dll", DllFamily::DirectStorage),
+        ("dstoragecore.dll", DllFamily::DirectStorageCore),
     ]
 });
 
@@ -264,5 +368,84 @@ mod tests {
         let p = dir.path().join("ghost.dll");
         let res = hash_file_capped(&p);
         assert!(res.is_err());
+    }
+
+    #[test]
+    fn streamline_plugins_recognized_case_insensitively() {
+        assert!(is_streamline_plugin("sl.dlss.dll"));
+        assert!(is_streamline_plugin("sl.dlss_g.dll"));
+        assert!(is_streamline_plugin("SL.Reflex.DLL"));
+        assert!(is_streamline_plugin("sl.interposer.dll"));
+        assert!(!is_streamline_plugin("nvngx_dlss.dll"));
+        assert!(!is_streamline_plugin("nvngx_dlssg.dll"));
+        assert!(!is_streamline_plugin("libxess.dll"));
+        assert!(!is_streamline_plugin("slime.dll"));
+    }
+
+    #[test]
+    fn dlss_enabler_markers_match_injector_dlls_not_generic_loaders() {
+        assert!(is_dlss_enabler_marker("dlss-enabler.dll"));
+        assert!(is_dlss_enabler_marker("DLSS-Enabler-Upscaler.dll"));
+        assert!(is_dlss_enabler_marker("nvngx.dll"));
+        assert!(is_dlss_enabler_marker("OptiScaler.dll"));
+        assert!(!is_dlss_enabler_marker("nvngx_dlss.dll"));
+        assert!(!is_dlss_enabler_marker("dxgi.dll"));
+        assert!(!is_dlss_enabler_marker("sl.dlss.dll"));
+    }
+
+    #[test]
+    fn dlss_enabler_present_near_walks_up_to_the_game_root() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(root.path().join("dlss-enabler.dll"), b"x").unwrap();
+        let nested = root
+            .path()
+            .join("Engine/Plugins/Runtime/Nvidia/Streamline/Binaries/ThirdParty/Win64");
+        std::fs::create_dir_all(&nested).unwrap();
+        assert!(dlss_enabler_present_near(&nested, 8));
+        assert!(!dlss_enabler_present_near(&nested, 2));
+    }
+
+    #[test]
+    fn detect_dlss_enabler_finds_marker_in_nested_dir_and_keeps_scan_contract() {
+        let root = tempfile::tempdir().unwrap();
+        let nested = root.path().join("Binaries/Win64");
+        std::fs::create_dir_all(&nested).unwrap();
+        std::fs::write(nested.join("dlss-enabler.dll"), b"x").unwrap();
+        std::fs::write(root.path().join("sl.dlss_g.dll"), b"x").unwrap();
+        assert!(detect_dlss_enabler(root.path()));
+        let records = scan_install(root.path()).unwrap();
+        assert!(records
+            .iter()
+            .any(|r| r.path.file_name().unwrap() == "sl.dlss_g.dll"));
+    }
+
+    #[test]
+    fn detect_dlss_enabler_is_false_without_markers() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(root.path().join("nvngx_dlss.dll"), b"x").unwrap();
+        assert!(!detect_dlss_enabler(root.path()));
+    }
+
+    #[test]
+    fn directstorage_core_and_fsr_denoiser_have_distinct_catalog_keys() {
+        assert_eq!(
+            DllFamily::DirectStorageCore.catalog_key(),
+            "direct_storage_core"
+        );
+        assert_eq!(DllFamily::DirectStorageCore.vendor(), "microsoft");
+        assert_eq!(DllFamily::FsrDenoiser.catalog_key(), "fsr_denoiser");
+        assert_eq!(DllFamily::FsrDenoiser.vendor(), "amd");
+    }
+
+    #[test]
+    fn scan_maps_dstoragecore_and_denoiser_to_their_own_families() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(root.path().join("dstoragecore.dll"), b"x").unwrap();
+        std::fs::write(root.path().join("amd_fidelityfx_denoiser_dx12.dll"), b"x").unwrap();
+        let recs = scan_install(root.path()).unwrap();
+        assert!(recs
+            .iter()
+            .any(|r| r.family == DllFamily::DirectStorageCore));
+        assert!(recs.iter().any(|r| r.family == DllFamily::FsrDenoiser));
     }
 }

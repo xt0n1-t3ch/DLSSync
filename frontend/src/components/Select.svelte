@@ -96,7 +96,7 @@
     <svg class="sel-chev" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
   </button>
   {#if open}
-    <div class="sel-menu" role="listbox">
+    <div class="sel-menu glass-dialog" role="listbox">
       {#each options as o, i (String(o.value))}
         <button
           type="button"
@@ -186,13 +186,10 @@
     z-index: 240;
     list-style: none;
     margin: 0;
-    padding: 4px;
+    padding: 4px 4px 4px 6px;
     max-height: 280px;
     overflow-y: auto;
-    background: var(--bg-card);
-    border: 1px solid var(--border-strong, var(--border));
     border-radius: var(--radius-md, 8px);
-    box-shadow: var(--shadow-lg, 0 12px 32px rgba(0, 0, 0, 0.4));
   }
   .sel-opt {
     display: flex;

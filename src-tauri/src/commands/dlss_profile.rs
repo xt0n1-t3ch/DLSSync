@@ -24,14 +24,29 @@ const EXE_SKIP_TOKENS: &[&str] = &[
     "touchup",
 ];
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DlssOverrideSource {
+    PerGame,
+    Global,
+    None,
+}
+
 #[derive(Debug, Clone, Serialize)]
-pub struct DlssSettingValue {
-    pub id: u32,
-    pub value: Option<u32>,
+pub struct DlssOverrideReadback {
+    pub config: DlssOverrideConfig,
+    pub source: DlssOverrideSource,
+    pub active_count: u32,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ApplyOutcome {
+    pub needs_elevation: bool,
+    pub denied_settings: Vec<u32>,
 }
 
 #[cfg(windows)]
-fn run_apply(scope: &OverrideScope, settings: &[DrsSetting]) -> Result<(), String> {
+fn run_apply(scope: &OverrideScope, settings: &[DrsSetting]) -> Result<Vec<u32>, String> {
     nvapi_drs::ffi::apply_overrides(scope, settings)
 }
 
@@ -46,7 +61,7 @@ fn run_read(scope: &OverrideScope, ids: &[u32]) -> Result<Vec<(u32, Option<u32>)
 }
 
 #[cfg(not(windows))]
-fn run_apply(_scope: &OverrideScope, _settings: &[DrsSetting]) -> Result<(), String> {
+fn run_apply(_scope: &OverrideScope, _settings: &[DrsSetting]) -> Result<Vec<u32>, String> {
     Err("DLSS overrides require Windows with an NVIDIA driver".to_string())
 }
 
@@ -70,12 +85,16 @@ pub async fn dlss_overrides_supported(state: State<'_, AppState>) -> AppResult<b
 pub async fn apply_dlss_override(
     scope: OverrideScope,
     config: DlssOverrideConfig,
-) -> AppResult<()> {
+) -> AppResult<ApplyOutcome> {
     let settings = config.to_drs_settings();
-    tokio::task::spawn_blocking(move || run_apply(&scope, &settings))
+    let denied = tokio::task::spawn_blocking(move || run_apply(&scope, &settings))
         .await
         .map_err(|e| AppError::Other(format!("dlss apply task: {e}")))?
-        .map_err(AppError::Other)
+        .map_err(AppError::Other)?;
+    Ok(ApplyOutcome {
+        needs_elevation: !denied.is_empty(),
+        denied_settings: denied,
+    })
 }
 
 #[tauri::command]
@@ -87,16 +106,35 @@ pub async fn reset_dlss_override(scope: OverrideScope) -> AppResult<()> {
 }
 
 #[tauri::command]
-pub async fn read_dlss_override(scope: OverrideScope) -> AppResult<Vec<DlssSettingValue>> {
+pub async fn read_dlss_override_config(scope: OverrideScope) -> AppResult<DlssOverrideReadback> {
     let ids = RESETTABLE_IDS.to_vec();
-    let raw = tokio::task::spawn_blocking(move || run_read(&scope, &ids))
-        .await
-        .map_err(|e| AppError::Other(format!("dlss read task: {e}")))?
-        .map_err(AppError::Other)?;
-    Ok(raw
-        .into_iter()
-        .map(|(id, value)| DlssSettingValue { id, value })
-        .collect())
+    tokio::task::spawn_blocking(move || -> Result<DlssOverrideReadback, String> {
+        let config = DlssOverrideConfig::from_drs_settings(&run_read(&scope, &ids)?);
+        if matches!(scope, OverrideScope::PerGame { .. }) && config.is_empty() {
+            let inherited =
+                DlssOverrideConfig::from_drs_settings(&run_read(&OverrideScope::Global, &ids)?);
+            if !inherited.is_empty() {
+                return Ok(DlssOverrideReadback {
+                    active_count: inherited.active_override_count() as u32,
+                    config: inherited,
+                    source: DlssOverrideSource::Global,
+                });
+            }
+        }
+        let source = match (&scope, config.is_empty()) {
+            (_, true) => DlssOverrideSource::None,
+            (OverrideScope::Global, false) => DlssOverrideSource::Global,
+            (OverrideScope::PerGame { .. }, false) => DlssOverrideSource::PerGame,
+        };
+        Ok(DlssOverrideReadback {
+            active_count: config.active_override_count() as u32,
+            config,
+            source,
+        })
+    })
+    .await
+    .map_err(|e| AppError::Other(format!("dlss read config task: {e}")))?
+    .map_err(AppError::Other)
 }
 
 fn collect_executables(dir: &Path, depth: usize, out: &mut Vec<(u64, PathBuf)>) {

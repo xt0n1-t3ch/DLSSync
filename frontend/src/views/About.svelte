@@ -36,6 +36,7 @@
   import FileText from "@lucide/svelte/icons/file-text";
   import ExternalLink from "@lucide/svelte/icons/external-link";
   import Database from "@lucide/svelte/icons/database";
+  import BrandMark from "../components/BrandMark.svelte";
 
   let version = $state("dev");
   let appPaths = $state<AppPathsDto | null>(null);
@@ -259,7 +260,7 @@
   </div>
 </header>
 
-<section class="brand-row" in:fly={{ y: 6, duration: 240 }}>
+<section class="brand-row edge-accent" in:fly={{ y: 6, duration: 240 }}>
   <div class="brand-mark" aria-hidden="true">
     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M3 12a9 9 0 1 0 3-6.7"/>
@@ -447,7 +448,13 @@
         <div class="system-row">
           <span class="system-label"><HardDrive size={13} /> {systemInfo.gpus.length > 1 ? `GPU ${idx + 1}` : "GPU"}</span>
           <span class="system-value">
-            <span class="chip chip-neutral">{vendorLabel(gpu.vendor)}</span>
+            <span class="chip chip-neutral">
+              {#if gpu.vendor === "other"}
+                {vendorLabel(gpu.vendor)}
+              {:else}
+                <BrandMark key={gpu.vendor} tone="mono" size={12} />
+              {/if}
+            </span>
             {gpu.model}
             {#if gpu.driver_version && gpu.driver_version !== "Unknown"}
               <span class="system-muted mono">driver {gpu.driver_version}</span>
@@ -483,7 +490,7 @@
         in:fly={{ y: 4, duration: 220, delay: 240 + i * 30 }}
       >
         <span class="source-stripe"></span>
-        <span class="source-vendor">{s.vendor}</span>
+        <span class="source-vendor"><BrandMark key={s.vendor} tone="mono" size={12} /></span>
         <span class="source-label">{s.label}</span>
         <ExternalLink size={11} />
       </button>
@@ -685,9 +692,9 @@
     background: var(--bg-input);
     color: var(--text-secondary);
   }
-  .update-banner.is-success { color: var(--success); border-color: rgba(52,211,153,0.4); background: var(--success-dim); }
-  .update-banner.is-warning { color: var(--warning); border-color: rgba(245,185,80,0.4); background: var(--warning-dim); }
-  .update-banner.is-danger { color: var(--danger); border-color: rgba(239,68,68,0.4); background: var(--danger-dim); }
+  .update-banner.is-success { color: var(--success); border-color: color-mix(in oklab, var(--success) 40%, transparent); background: var(--success-dim); }
+  .update-banner.is-warning { color: var(--warning); border-color: color-mix(in oklab, var(--warning) 40%, transparent); background: var(--warning-dim); }
+  .update-banner.is-danger { color: var(--danger); border-color: color-mix(in oklab, var(--danger) 40%, transparent); background: var(--danger-dim); }
   .update-banner.is-info { color: var(--accent); border-color: var(--accent-ring); background: var(--accent-soft); }
 
   .info-grid {
@@ -846,9 +853,10 @@
   .sources-section { margin-bottom: 16px; }
   .section-head-row { margin-bottom: 12px; }
   .section-heading-h {
-    font-size: var(--fs-md);
-    font-weight: 600;
-    letter-spacing: var(--letter-tight);
+    font-size: var(--fs-lg);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: var(--letter-wide);
     color: var(--text-primary);
     margin-bottom: 3px;
   }

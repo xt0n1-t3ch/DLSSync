@@ -62,6 +62,18 @@ pub async fn detect_dlls(
     Ok(records)
 }
 
+#[tauri::command]
+pub async fn detect_dlss_enabler(
+    _state: State<'_, AppState>,
+    install_dir: String,
+) -> AppResult<bool> {
+    let path = PathBuf::from(install_dir);
+    let present = tokio::task::spawn_blocking(move || dll_scanner::detect_dlss_enabler(&path))
+        .await
+        .map_err(|e| AppError::Other(e.to_string()))?;
+    Ok(present)
+}
+
 fn deduplicate(games: Vec<DetectedGame>) -> Vec<DetectedGame> {
     let mut seen = std::collections::HashSet::new();
     let mut out = Vec::with_capacity(games.len());

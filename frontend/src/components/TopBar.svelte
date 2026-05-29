@@ -4,13 +4,12 @@
     searchQuery,
     currentView,
     commandPaletteOpen,
+    notificationsOpen,
     notificationsUnreadCount,
   } from "../lib/stores";
   import { viewTitle } from "../lib/labels";
-  import NotificationsBell from "./NotificationsBell.svelte";
 
   let { onToggleTheme, theme }: { onToggleTheme: () => void; theme: string } = $props();
-  let notificationsOpen = $state(false);
 
   let searchInput: HTMLInputElement | undefined = $state();
 
@@ -88,9 +87,10 @@
       <button
         class="topbar-btn bell-btn"
         title="Notifications"
-        onclick={() => (notificationsOpen = !notificationsOpen)}
+        data-notifications-toggle
+        onclick={() => notificationsOpen.update((v) => !v)}
         aria-haspopup="dialog"
-        aria-expanded={notificationsOpen}
+        aria-expanded={$notificationsOpen}
         aria-label={unread > 0 ? `${unread} unread notifications` : "Notifications"}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -101,7 +101,6 @@
           <span class="bell-badge" aria-hidden="true">{unread > 9 ? "9+" : unread}</span>
         {/if}
       </button>
-      <NotificationsBell open={notificationsOpen} onClose={() => (notificationsOpen = false)} />
     </div>
 
     <button class="topbar-btn" title="Toggle theme" onclick={onToggleTheme} aria-label="Toggle theme">
@@ -133,19 +132,22 @@
     align-items: center;
     justify-content: space-between;
     padding: 0 12px 0 20px;
-    background: var(--bg-topbar);
-    backdrop-filter: blur(20px) saturate(160%);
-    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    background: var(--glass-2);
+    backdrop-filter: var(--glass-blur-bar);
+    -webkit-backdrop-filter: var(--glass-blur-bar);
     border-bottom: 1px solid var(--border);
+    box-shadow: var(--glass-edge);
     gap: 16px;
     user-select: none;
     -webkit-app-region: drag;
-    position: sticky;
+    position: absolute;
     top: 0;
+    left: 0;
+    right: 0;
     z-index: 50;
   }
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    .topbar { background: var(--bg-app); }
+    .topbar { background: var(--glass-fallback); }
   }
   .topbar-left { flex: 1; min-width: 0; display: flex; align-items: center; }
   .page-title { font-size: var(--fs-lg); font-weight: 600; color: var(--text-primary); letter-spacing: var(--letter-tighter); -webkit-app-region: no-drag; }

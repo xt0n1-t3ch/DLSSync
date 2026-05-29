@@ -95,33 +95,37 @@ export interface PaletteCommand {
   title: string;
   aliases: readonly string[];
   category: CommandCategory;
+  /** Lucide icon key (kebab-case file name) resolved to a component in the palette. */
+  icon: string;
+  /** Key sequence shown as a chip, e.g. ["g","l"]. Display-only — the global handlers own the bindings. */
+  shortcut?: readonly string[];
   hint?: string;
 }
 
 export const COMMANDS: readonly PaletteCommand[] = [
-  { id: "nav.library", title: "Go to Library", aliases: ["library", "games"], category: "navigate" },
-  { id: "nav.catalog", title: "Go to Catalog", aliases: ["catalog", "versions", "manifest"], category: "navigate" },
-  { id: "nav.backups", title: "Go to Backups", aliases: ["backups", "snapshots", "restore"], category: "navigate" },
-  { id: "nav.settings", title: "Go to Settings", aliases: ["settings", "prefs", "preferences", "options"], category: "navigate" },
-  { id: "nav.about", title: "Go to About", aliases: ["about", "info", "version", "system"], category: "navigate" },
+  { id: "nav.library", title: "Go to Library", aliases: ["library", "games"], category: "navigate", icon: "layout-grid", shortcut: ["g", "l"], hint: "Your installed games and pending updates" },
+  { id: "nav.catalog", title: "Go to Catalog", aliases: ["catalog", "versions", "manifest"], category: "navigate", icon: "layers", shortcut: ["g", "c"], hint: "Every DLL version in the manifest" },
+  { id: "nav.backups", title: "Go to Backups", aliases: ["backups", "snapshots", "restore"], category: "navigate", icon: "archive", shortcut: ["g", "b"], hint: "Saved snapshots you can restore" },
+  { id: "nav.settings", title: "Go to Settings", aliases: ["settings", "prefs", "preferences", "options"], category: "navigate", icon: "settings", shortcut: ["g", "s"] },
+  { id: "nav.about", title: "Go to About", aliases: ["about", "info", "version", "system"], category: "navigate", icon: "info", shortcut: ["g", "a"] },
 
-  { id: "action.apply_all_outdated", title: "Apply all outdated updates", aliases: ["apply", "update all", "run updates"], category: "action" },
-  { id: "action.rescan", title: "Rescan installed games", aliases: ["rescan", "refresh games"], category: "action" },
-  { id: "action.refresh_manifest", title: "Refresh DLL manifest", aliases: ["refresh manifest", "catalog refresh"], category: "action" },
-  { id: "action.check_updates", title: "Check for app updates", aliases: ["check updates", "upgrade"], category: "action" },
-  { id: "action.restore_recent", title: "Restore most recent backup", aliases: ["restore", "undo", "revert"], category: "action" },
-  { id: "action.open_data_folder", title: "Open DLSSync data folder", aliases: ["open data", "reveal data folder"], category: "action" },
-  { id: "action.open_backups_folder", title: "Open backups folder", aliases: ["open backups", "reveal backups"], category: "action" },
-  { id: "action.open_logs_folder", title: "Open logs folder", aliases: ["open logs", "reveal logs"], category: "action" },
-  { id: "action.toggle_theme", title: "Toggle dark / light theme", aliases: ["toggle theme", "dark mode", "light mode"], category: "action" },
-  { id: "action.toggle_view_mode", title: "Toggle Library view (Grid / List)", aliases: ["toggle view", "grid", "list"], category: "action" },
-  { id: "action.toggle_density", title: "Toggle Library density (Compact / Comfy)", aliases: ["toggle density", "compact", "comfy"], category: "action" },
+  { id: "action.apply_all_outdated", title: "Apply all outdated updates", aliases: ["apply", "update all", "run updates"], category: "action", icon: "download-cloud", shortcut: ["a"] },
+  { id: "action.rescan", title: "Rescan installed games", aliases: ["rescan", "refresh games"], category: "action", icon: "refresh-cw", shortcut: ["r"] },
+  { id: "action.refresh_manifest", title: "Refresh DLL manifest", aliases: ["refresh manifest", "catalog refresh"], category: "action", icon: "rotate-cw" },
+  { id: "action.check_updates", title: "Check for app updates", aliases: ["check updates", "upgrade"], category: "action", icon: "arrow-up-circle" },
+  { id: "action.restore_recent", title: "Restore most recent backup", aliases: ["restore", "undo", "revert"], category: "action", icon: "undo-2" },
+  { id: "action.open_data_folder", title: "Open DLSSync data folder", aliases: ["open data", "reveal data folder"], category: "action", icon: "folder" },
+  { id: "action.open_backups_folder", title: "Open backups folder", aliases: ["open backups", "reveal backups"], category: "action", icon: "folder-archive" },
+  { id: "action.open_logs_folder", title: "Open logs folder", aliases: ["open logs", "reveal logs"], category: "action", icon: "scroll-text" },
+  { id: "action.toggle_theme", title: "Toggle dark / light theme", aliases: ["toggle theme", "dark mode", "light mode"], category: "action", icon: "sun-moon" },
+  { id: "action.toggle_view_mode", title: "Toggle Library view (Grid / List)", aliases: ["toggle view", "grid", "list"], category: "action", icon: "layout-list", shortcut: ["v"] },
+  { id: "action.toggle_density", title: "Toggle Library density (Compact / Comfy)", aliases: ["toggle density", "compact", "comfy"], category: "action", icon: "rows-3", shortcut: ["d"] },
 
-  { id: "settings.general", title: "Settings · General", aliases: ["general", "startup"], category: "settings" },
-  { id: "settings.updates", title: "Settings · Update preferences", aliases: ["update preferences", "vendor toggles"], category: "settings" },
-  { id: "settings.detection", title: "Settings · Detection", aliases: ["detection", "scanners", "launchers"], category: "settings" },
-  { id: "settings.art", title: "Settings · Art", aliases: ["art", "covers", "steamgriddb"], category: "settings" },
-  { id: "settings.advanced", title: "Settings · Advanced", aliases: ["advanced", "retries", "concurrency", "allow unsigned"], category: "settings" },
+  { id: "settings.general", title: "Settings · General", aliases: ["general", "startup"], category: "settings", icon: "sliders-horizontal" },
+  { id: "settings.updates", title: "Settings · Update preferences", aliases: ["update preferences", "vendor toggles"], category: "settings", icon: "download-cloud" },
+  { id: "settings.detection", title: "Settings · Detection", aliases: ["detection", "scanners", "launchers"], category: "settings", icon: "radar" },
+  { id: "settings.art", title: "Settings · Art", aliases: ["art", "covers", "steamgriddb"], category: "settings", icon: "image" },
+  { id: "settings.advanced", title: "Settings · Advanced", aliases: ["advanced", "retries", "concurrency", "allow unsigned"], category: "settings", icon: "wrench" },
 ];
 
 export const COMMAND_CATEGORY_LABELS: Record<CommandCategory | "all", string> = {
@@ -152,6 +156,53 @@ export function matchCommands(query: string, commands: readonly PaletteCommand[]
   return out;
 }
 
+/** Indices in `text` that the query matched, for fuzzy-character highlighting.
+ *  Prefers a contiguous substring span; falls back to subsequence positions;
+ *  returns [] when the query is not a subsequence of `text` (e.g. it matched an alias). */
+export function matchedIndices(query: string, text: string): number[] {
+  const q = query.toLowerCase().trim();
+  if (!q) return [];
+  const t = text.toLowerCase();
+  const span = t.indexOf(q);
+  if (span >= 0) {
+    return Array.from({ length: q.length }, (_, k) => span + k);
+  }
+  const out: number[] = [];
+  let i = 0;
+  for (let pos = 0; pos < t.length && i < q.length; pos++) {
+    if (t[pos] === q[i]) {
+      out.push(pos);
+      i += 1;
+    }
+  }
+  return i === q.length ? out : [];
+}
+
+export interface HighlightSegment {
+  text: string;
+  hit: boolean;
+}
+
+/** Split `text` into consecutive hit / non-hit segments from matched indices. */
+export function highlightSegments(text: string, indices: readonly number[]): HighlightSegment[] {
+  if (indices.length === 0) return [{ text, hit: false }];
+  const flags = new Set(indices);
+  const segments: HighlightSegment[] = [];
+  let buffer = "";
+  let bufferHit = flags.has(0);
+  for (let i = 0; i < text.length; i++) {
+    const hit = flags.has(i);
+    if (hit !== bufferHit) {
+      if (buffer) segments.push({ text: buffer, hit: bufferHit });
+      buffer = "";
+      bufferHit = hit;
+    }
+    buffer += text[i];
+  }
+  if (buffer) segments.push({ text: buffer, hit: bufferHit });
+  return segments;
+}
+
 function subsequenceScore(needle: string, haystack: string): number | null {
   if (haystack.includes(needle)) return haystack.length - needle.length;
   let i = 0;
@@ -167,9 +218,21 @@ export const EXTERNAL_URLS = {
   anticheatFaq: "https://www.pcgamingwiki.com/wiki/Glossary:Anti-cheat",
   homepage: "https://github.com/xt0n1-t3ch/DLSSync",
   releases: "https://github.com/xt0n1-t3ch/DLSSync/releases",
+  releasesLatest: "https://github.com/xt0n1-t3ch/DLSSync/releases/latest",
+  nexusMod: "https://www.nexusmods.com/site/mods/1922",
   sponsor: "https://github.com/sponsors/xt0n1-t3ch",
   kofi: "https://ko-fi.com/xt0n1",
 } as const;
+
+export function githubReleaseTagUrl(version: string): string {
+  const tag = version.trim().replace(/^v/i, "");
+  return `${EXTERNAL_URLS.homepage}/releases/tag/v${tag}`;
+}
+
+/** Why a driver install asks for Administrator — shown wherever a per-machine
+ *  install can trigger a UAC prompt (System & Components, GPU drivers). */
+export const ADMIN_ELEVATION_NOTE =
+  "Windows installs per-machine drivers only with Administrator rights, so Update shows a UAC prompt. DLSSync stays unelevated and runs a signed helper with your approval — it snapshots the current driver and sets a System Restore point first, so you can roll back.";
 
 export const VENDOR_TOKEN_BY_FAMILY: Record<string, string> = {
   dlss_sr: "var(--vendor-nvidia)",

@@ -12,4 +12,5 @@ pub mod scan;
 pub mod settings;
 pub mod shell;
 pub mod system;
+pub mod system_drivers;
 pub mod ui_prefs;

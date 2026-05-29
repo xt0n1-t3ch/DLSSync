@@ -1,11 +1,13 @@
 import { describe, it, expect } from "vitest";
-import type { DllRecord } from "@/lib/api";
+import type { DllRecord, UpdatePreferences } from "@/lib/api";
 import {
   catalogShaKey,
   buildShasByVendor,
   targetVersion,
   dllRelation,
   isOutdated,
+  isStreamlinePlugin,
+  recordUpdatable,
   gameStatusFromRecords,
   type RelationContext,
 } from "@/lib/relation";
@@ -22,6 +24,22 @@ function rec(partial: Partial<DllRecord>): DllRecord {
 
 function ctx(over: Partial<RelationContext> = {}): RelationContext {
   return { latestByKey: {}, shas: {}, shasByVendor: {}, ...over };
+}
+
+function prefs(over: Partial<UpdatePreferences> = {}): UpdatePreferences {
+  return {
+    update_dlss: true,
+    update_dlss_fg: true,
+    update_dlss_rr: true,
+    update_streamline: false,
+    update_reflex: true,
+    update_xess: true,
+    update_fsr: true,
+    update_direct_storage: true,
+    create_backups: true,
+    auto_apply_all_on_rescan: false,
+    ...over,
+  };
 }
 
 describe("catalogShaKey", () => {
@@ -142,5 +160,68 @@ describe("gameStatusFromRecords", () => {
 
   it("all current is up_to_date", () => {
     expect(gameStatusFromRecords([rec({ current_version: "2.0.0.0" })], outdatedCtx)).toBe("up_to_date");
+  });
+
+  it("a Streamline plugin outdated only is up_to_date when the Streamline switch is off", () => {
+    const records = [rec({ family: "dlss_sr", path: "C:\\g\\sl.dlss.dll", current_version: "1.0.0.0" })];
+    expect(gameStatusFromRecords(records, outdatedCtx, [], null, prefs({ update_streamline: false }))).toBe("up_to_date");
+    expect(gameStatusFromRecords(records, outdatedCtx, [], null, prefs({ update_streamline: true }))).toBe("outdated");
+  });
+
+  it("a Streamline plugin is never offered when DLSS Enabler manages the set", () => {
+    const records = [rec({ family: "reflex", path: "C:\\g\\sl.reflex.dll", current_version: "1.0.0.0" })];
+    const reflexCtx = ctx({ latestByKey: { reflex: "2.0.0.0" } });
+    expect(gameStatusFromRecords(records, reflexCtx, [], null, prefs({ update_streamline: true }), true)).toBe("up_to_date");
+    expect(gameStatusFromRecords(records, reflexCtx, [], null, prefs({ update_streamline: true }), false)).toBe("outdated");
+  });
+});
+
+describe("isStreamlinePlugin", () => {
+  it("matches sl.* dlls case-insensitively and rejects NGX/other dlls", () => {
+    expect(isStreamlinePlugin("sl.dlss.dll")).toBe(true);
+    expect(isStreamlinePlugin("SL.Reflex.DLL")).toBe(true);
+    expect(isStreamlinePlugin("sl.interposer.dll")).toBe(true);
+    expect(isStreamlinePlugin("nvngx_dlss.dll")).toBe(false);
+    expect(isStreamlinePlugin("libxess.dll")).toBe(false);
+  });
+});
+
+describe("recordUpdatable", () => {
+  it("permissive when no prefs are supplied (legacy)", () => {
+    expect(recordUpdatable(rec({ path: "C:\\g\\sl.dlss.dll" }))).toBe(true);
+  });
+
+  it("NGX DLLs follow only their feature pref, never the Streamline switch", () => {
+    const ngx = rec({ family: "dlss_sr", path: "C:\\g\\nvngx_dlss.dll" });
+    expect(recordUpdatable(ngx, prefs({ update_dlss: true, update_streamline: false }))).toBe(true);
+    expect(recordUpdatable(ngx, prefs({ update_dlss: false }))).toBe(false);
+  });
+
+  it("Streamline plugins require BOTH the feature pref and the Streamline switch", () => {
+    const slSr = rec({ family: "dlss_sr", path: "C:\\g\\sl.dlss.dll" });
+    expect(recordUpdatable(slSr, prefs({ update_dlss: true, update_streamline: false }))).toBe(false);
+    expect(recordUpdatable(slSr, prefs({ update_dlss: true, update_streamline: true }))).toBe(true);
+    expect(recordUpdatable(slSr, prefs({ update_dlss: false, update_streamline: true }))).toBe(false);
+  });
+
+  it("a Streamline plugin is blocked when DLSS Enabler is present even if opted in", () => {
+    const slReflex = rec({ family: "reflex", path: "C:\\g\\sl.reflex.dll" });
+    expect(recordUpdatable(slReflex, prefs({ update_reflex: true, update_streamline: true }), true)).toBe(false);
+    expect(recordUpdatable(slReflex, prefs({ update_reflex: true, update_streamline: true }), false)).toBe(true);
+  });
+
+  it("DirectStorage follows its own pref and is never gated by the Streamline switch", () => {
+    const ds = rec({ family: "direct_storage", path: "C:\\g\\dstorage.dll" });
+    expect(recordUpdatable(ds, prefs({ update_direct_storage: true, update_streamline: false }))).toBe(true);
+    expect(recordUpdatable(ds, prefs({ update_direct_storage: false }))).toBe(false);
+  });
+
+  it("XeSS and FSR follow their own prefs, unaffected by the Streamline switch", () => {
+    const xess = rec({ family: "xess_sr", path: "C:\\g\\libxess.dll" });
+    const fsr = rec({ family: "fsr_upscaler", path: "C:\\g\\amd_fidelityfx_dx12.dll" });
+    expect(recordUpdatable(xess, prefs({ update_xess: true, update_streamline: false }))).toBe(true);
+    expect(recordUpdatable(xess, prefs({ update_xess: false }))).toBe(false);
+    expect(recordUpdatable(fsr, prefs({ update_fsr: true, update_streamline: false }))).toBe(true);
+    expect(recordUpdatable(fsr, prefs({ update_fsr: false }))).toBe(false);
   });
 });

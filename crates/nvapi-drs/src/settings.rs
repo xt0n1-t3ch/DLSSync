@@ -12,7 +12,8 @@ pub mod ids {
 }
 
 const VALUE_ON: u32 = 0x0000_0001;
-const PRESET_RECOMMENDED: u32 = 0x00FF_FFFE;
+const PRESET_RECOMMENDED: u32 = 0x00FF_FFFF;
+const PRESET_RECOMMENDED_LEGACY: u32 = 0x00FF_FFFE;
 const FRAME_GEN_MODE_FIXED: u32 = 0x0000_0002;
 const FRAME_GEN_MODE_DYNAMIC: u32 = 0x0000_0004;
 
@@ -39,10 +40,13 @@ pub enum DlssPreset {
     F,
     G,
     H,
+    I,
     J,
     K,
     L,
     M,
+    N,
+    O,
     Recommended,
 }
 
@@ -58,12 +62,38 @@ impl DlssPreset {
             DlssPreset::F => 6,
             DlssPreset::G => 7,
             DlssPreset::H => 8,
+            DlssPreset::I => 9,
             DlssPreset::J => 0x0A,
             DlssPreset::K => 0x0B,
             DlssPreset::L => 0x0C,
             DlssPreset::M => 0x0D,
+            DlssPreset::N => 0x0E,
+            DlssPreset::O => 0x0F,
             DlssPreset::Recommended => PRESET_RECOMMENDED,
         }
+    }
+
+    pub fn from_value(value: u32) -> Option<Self> {
+        Some(match value {
+            0 => DlssPreset::Default,
+            1 => DlssPreset::A,
+            2 => DlssPreset::B,
+            3 => DlssPreset::C,
+            4 => DlssPreset::D,
+            5 => DlssPreset::E,
+            6 => DlssPreset::F,
+            7 => DlssPreset::G,
+            8 => DlssPreset::H,
+            9 => DlssPreset::I,
+            0x0A => DlssPreset::J,
+            0x0B => DlssPreset::K,
+            0x0C => DlssPreset::L,
+            0x0D => DlssPreset::M,
+            0x0E => DlssPreset::N,
+            0x0F => DlssPreset::O,
+            PRESET_RECOMMENDED | PRESET_RECOMMENDED_LEGACY => DlssPreset::Recommended,
+            _ => return None,
+        })
     }
 }
 
@@ -82,6 +112,15 @@ impl FrameGenMode {
             FrameGenMode::Fixed => FRAME_GEN_MODE_FIXED,
             FrameGenMode::Dynamic => FRAME_GEN_MODE_DYNAMIC,
         }
+    }
+
+    pub fn from_value(value: u32) -> Option<Self> {
+        Some(match value {
+            0 => FrameGenMode::AppControlled,
+            FRAME_GEN_MODE_FIXED => FrameGenMode::Fixed,
+            FRAME_GEN_MODE_DYNAMIC => FrameGenMode::Dynamic,
+            _ => return None,
+        })
     }
 }
 
@@ -102,6 +141,16 @@ impl FrameGenCount {
             FrameGenCount::X3 => 2,
             FrameGenCount::X4 => 3,
         }
+    }
+
+    pub fn from_value(value: u32) -> Option<Self> {
+        Some(match value {
+            0 => FrameGenCount::AppControlled,
+            1 => FrameGenCount::X2,
+            2 => FrameGenCount::X3,
+            3 => FrameGenCount::X4,
+            _ => return None,
+        })
     }
 }
 
@@ -168,13 +217,61 @@ impl DlssOverrideConfig {
                 value: count.to_value(),
             });
         }
-        if let Some(target_fps) = self.fg_dynamic_target_fps {
+        if let Some(target_fps) = self.fg_dynamic_target_fps.filter(|&fps| fps != 0) {
             settings.push(DrsSetting {
                 id: ids::DLSS_MFG_TARGET_FRAME_RATE,
                 value: target_fps,
             });
         }
         settings
+    }
+
+    pub fn from_drs_settings(settings: &[(u32, Option<u32>)]) -> Self {
+        let get = |id: u32| -> Option<u32> {
+            settings
+                .iter()
+                .find_map(|&(i, v)| (i == id).then_some(v))
+                .flatten()
+        };
+        DlssOverrideConfig {
+            enable_sr_dll_override: get(ids::DLSS_SR_ENABLE_OVERRIDE) == Some(VALUE_ON),
+            sr_preset: get(ids::DLSS_SR_FORCED_PRESET).and_then(DlssPreset::from_value),
+            enable_fg_dll_override: get(ids::DLSS_FG_ENABLE_OVERRIDE) == Some(VALUE_ON),
+            fg_preset: get(ids::DLSS_FG_FORCED_PRESET).and_then(DlssPreset::from_value),
+            fg_mode: get(ids::DLSS_FG_FORCED_MODE).and_then(FrameGenMode::from_value),
+            fg_fixed_count: get(ids::DLSS_MFG_FIXED_COUNT).and_then(FrameGenCount::from_value),
+            fg_dynamic_target_fps: get(ids::DLSS_MFG_TARGET_FRAME_RATE).filter(|&fps| fps != 0),
+        }
+    }
+
+    pub fn active_override_count(&self) -> usize {
+        let mut count = 0;
+        if self.enable_sr_dll_override {
+            count += 1;
+        }
+        if self.enable_fg_dll_override {
+            count += 1;
+        }
+        if matches!(self.sr_preset, Some(p) if p != DlssPreset::Default) {
+            count += 1;
+        }
+        if matches!(self.fg_preset, Some(p) if p != DlssPreset::Default) {
+            count += 1;
+        }
+        if matches!(self.fg_mode, Some(m) if m != FrameGenMode::AppControlled) {
+            count += 1;
+        }
+        if matches!(self.fg_fixed_count, Some(c) if c != FrameGenCount::AppControlled) {
+            count += 1;
+        }
+        if matches!(self.fg_dynamic_target_fps, Some(fps) if fps > 0) {
+            count += 1;
+        }
+        count
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.active_override_count() == 0
     }
 }
 
@@ -188,7 +285,7 @@ mod tests {
         assert_eq!(DlssPreset::J.to_value(), 0x0A);
         assert_eq!(DlssPreset::K.to_value(), 0x0B);
         assert_eq!(DlssPreset::M.to_value(), 0x0D);
-        assert_eq!(DlssPreset::Recommended.to_value(), 0x00FF_FFFE);
+        assert_eq!(DlssPreset::Recommended.to_value(), 0x00FF_FFFF);
         assert_eq!(DlssPreset::Default.to_value(), 0);
     }
 
@@ -260,5 +357,136 @@ mod tests {
     fn resettable_ids_cover_every_override_setting() {
         assert_eq!(RESETTABLE_IDS.len(), 8);
         assert!(RESETTABLE_IDS.contains(&ids::DLSS_FG_FORCED_MODE));
+    }
+
+    #[test]
+    fn preset_from_value_inverts_to_value() {
+        for &preset in &[
+            DlssPreset::Default,
+            DlssPreset::A,
+            DlssPreset::B,
+            DlssPreset::C,
+            DlssPreset::D,
+            DlssPreset::E,
+            DlssPreset::F,
+            DlssPreset::G,
+            DlssPreset::H,
+            DlssPreset::I,
+            DlssPreset::J,
+            DlssPreset::K,
+            DlssPreset::L,
+            DlssPreset::M,
+            DlssPreset::N,
+            DlssPreset::O,
+            DlssPreset::Recommended,
+        ] {
+            assert_eq!(DlssPreset::from_value(preset.to_value()), Some(preset));
+        }
+    }
+
+    #[test]
+    fn preset_from_value_accepts_both_recommended_sentinels() {
+        assert_eq!(
+            DlssPreset::from_value(0x00FF_FFFE),
+            Some(DlssPreset::Recommended)
+        );
+        assert_eq!(
+            DlssPreset::from_value(0x00FF_FFFF),
+            Some(DlssPreset::Recommended)
+        );
+    }
+
+    #[test]
+    fn preset_from_value_covers_full_a_to_o_range_and_rejects_garbage() {
+        assert_eq!(DlssPreset::from_value(0x09), Some(DlssPreset::I));
+        assert_eq!(DlssPreset::from_value(0x0E), Some(DlssPreset::N));
+        assert_eq!(DlssPreset::from_value(0x0F), Some(DlssPreset::O));
+        assert_eq!(DlssPreset::from_value(0x10), None);
+        assert_eq!(DlssPreset::from_value(0xDEAD), None);
+    }
+
+    #[test]
+    fn frame_gen_mode_and_count_from_value_invert() {
+        for &mode in &[
+            FrameGenMode::AppControlled,
+            FrameGenMode::Fixed,
+            FrameGenMode::Dynamic,
+        ] {
+            assert_eq!(FrameGenMode::from_value(mode.to_value()), Some(mode));
+        }
+        assert_eq!(FrameGenMode::from_value(3), None);
+        for &count in &[
+            FrameGenCount::AppControlled,
+            FrameGenCount::X2,
+            FrameGenCount::X3,
+            FrameGenCount::X4,
+        ] {
+            assert_eq!(FrameGenCount::from_value(count.to_value()), Some(count));
+        }
+        assert_eq!(FrameGenCount::from_value(9), None);
+    }
+
+    fn emulate_read(written: &[DrsSetting]) -> Vec<(u32, Option<u32>)> {
+        RESETTABLE_IDS
+            .iter()
+            .map(|&id| (id, written.iter().find(|s| s.id == id).map(|s| s.value)))
+            .collect()
+    }
+
+    #[test]
+    fn config_round_trips_through_drs_settings() {
+        let cfg = DlssOverrideConfig {
+            enable_sr_dll_override: true,
+            sr_preset: Some(DlssPreset::K),
+            enable_fg_dll_override: true,
+            fg_preset: Some(DlssPreset::J),
+            fg_mode: Some(FrameGenMode::Dynamic),
+            fg_fixed_count: Some(FrameGenCount::X4),
+            fg_dynamic_target_fps: Some(240),
+        };
+        let read = emulate_read(&cfg.to_drs_settings());
+        assert_eq!(DlssOverrideConfig::from_drs_settings(&read), cfg);
+    }
+
+    #[test]
+    fn from_drs_settings_decodes_a_globally_set_preset() {
+        let read = vec![(ids::DLSS_SR_FORCED_PRESET, Some(DlssPreset::K.to_value()))];
+        let cfg = DlssOverrideConfig::from_drs_settings(&read);
+        assert_eq!(cfg.sr_preset, Some(DlssPreset::K));
+        assert_eq!(cfg.active_override_count(), 1);
+        assert!(!cfg.is_empty());
+    }
+
+    #[test]
+    fn empty_read_reconstructs_the_default_inactive_config() {
+        let read: Vec<(u32, Option<u32>)> = RESETTABLE_IDS.iter().map(|&id| (id, None)).collect();
+        let cfg = DlssOverrideConfig::from_drs_settings(&read);
+        assert_eq!(cfg, DlssOverrideConfig::default());
+        assert!(cfg.is_empty());
+        assert_eq!(cfg.active_override_count(), 0);
+    }
+
+    #[test]
+    fn unknown_drs_value_degrades_to_none_not_a_wrong_preset() {
+        let read = vec![(ids::DLSS_SR_FORCED_PRESET, Some(0x10))];
+        assert_eq!(DlssOverrideConfig::from_drs_settings(&read).sr_preset, None);
+    }
+
+    #[test]
+    fn zero_target_fps_is_treated_as_unset_both_ways() {
+        let cfg = DlssOverrideConfig {
+            fg_dynamic_target_fps: Some(0),
+            ..Default::default()
+        };
+        assert!(cfg.is_empty());
+        assert!(
+            cfg.to_drs_settings().is_empty(),
+            "a 0 fps target is not a real override and must not be written"
+        );
+        let read = emulate_read(&cfg.to_drs_settings());
+        assert_eq!(
+            DlssOverrideConfig::from_drs_settings(&read).fg_dynamic_target_fps,
+            None
+        );
     }
 }

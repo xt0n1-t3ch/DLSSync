@@ -24,6 +24,7 @@
   } from "../lib/labels";
   import FeatureIcon from "./../components/FeatureIcon.svelte";
   import CatalogVersionsFlyout from "./../components/CatalogVersionsFlyout.svelte";
+  import BrandMark from "./../components/BrandMark.svelte";
 
   let refreshing = $state(false);
   let flyoutTarget = $state<{
@@ -221,7 +222,7 @@
   </button>
 </header>
 
-<section class="info-bar" in:fade={{ duration: 200 }}>
+<section class="info-bar edge-accent" in:fade={{ duration: 200 }}>
   <div class="info-item">
     <span class="info-item-label">Versions</span>
     <span class="info-item-value">{totals.releases.toLocaleString()}</span>
@@ -252,7 +253,13 @@
       {#each $driverReports as report (report.device.model)}
         {@const tone = driverStatusTone(report.status)}
         <li class="driver-cat-row">
-          <span class="driver-cat-vendor" data-vendor={report.device.vendor}>{report.device.vendor.toUpperCase()}</span>
+          <span class="driver-cat-vendor" data-vendor={report.device.vendor}>
+            {#if report.device.vendor === "other"}
+              GPU
+            {:else}
+              <BrandMark key={report.device.vendor} tone="mono" size={11} />
+            {/if}
+          </span>
           <span class="driver-cat-model">{report.device.model}</span>
           <span class="driver-cat-ver mono">
             {report.installed.display}
@@ -300,7 +307,7 @@
         <div class="vendor-stripe" style:background={v.accent}></div>
         <header class="vendor-head">
           <div class="vendor-dot" style:background={v.accent} style:box-shadow="0 0 14px {v.accent}80"></div>
-          <h3 class="vendor-name">{v.label}</h3>
+          <h3 class="vendor-name"><BrandMark key={v.vendor} label={v.label} size={16} /></h3>
           <span class="chip chip-neutral vendor-pill">{v.totalReleases} versions</span>
           {#if portal}
             <button class="vendor-portal" onclick={() => openExternal(portal.url)} title={portal.label} aria-label={`Open ${portal.label}`}>
@@ -411,17 +418,17 @@
     border-radius: var(--radius-md);
   }
   .driver-cat-vendor { font-size: 10px; font-weight: 700; letter-spacing: 0.04em; color: var(--text-secondary); }
-  .driver-cat-vendor[data-vendor="nvidia"] { color: #76b900; }
-  .driver-cat-vendor[data-vendor="amd"] { color: #ed1c24; }
-  .driver-cat-vendor[data-vendor="intel"] { color: #2f9be6; }
+  .driver-cat-vendor[data-vendor="nvidia"] { color: var(--vendor-nvidia); }
+  .driver-cat-vendor[data-vendor="amd"] { color: var(--vendor-amd); }
+  .driver-cat-vendor[data-vendor="intel"] { color: var(--vendor-intel); }
   .driver-cat-model { font-size: var(--fs-sm); font-weight: 600; color: var(--text-primary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .driver-cat-ver { font-size: var(--fs-xs); color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .driver-cat-arrow { margin: 0 5px; color: var(--text-muted); }
   .driver-cat-next { color: var(--accent); font-weight: 600; }
   .driver-cat-badge { font-size: 10.5px; font-weight: 600; padding: 3px 9px; border-radius: var(--radius-full); background: var(--bg-card); color: var(--text-muted); white-space: nowrap; }
-  .driver-cat-badge[data-tone="success"] { background: var(--success-dim, rgba(70,180,110,0.14)); color: var(--success, #46b46e); }
-  .driver-cat-badge[data-tone="accent"] { background: var(--update-dim, var(--accent-dim)); color: var(--update, var(--accent)); }
-  .driver-cat-badge[data-tone="warning"] { background: var(--warning-dim, rgba(220,160,50,0.14)); color: var(--warning, #d6a032); }
+  .driver-cat-badge[data-tone="success"] { background: var(--success-dim); color: var(--success); }
+  .driver-cat-badge[data-tone="accent"] { background: var(--update-dim); color: var(--update); }
+  .driver-cat-badge[data-tone="warning"] { background: var(--warning-dim); color: var(--warning); }
 
 
   .catalog-toolbar {
@@ -466,10 +473,11 @@
     padding-top: 4px;
   }
   .section-title {
-    font-size: 15px;
+    font-size: var(--fs-lg);
     font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: var(--letter-wide);
     color: var(--text-primary);
-    letter-spacing: var(--letter-tight);
   }
   .section-sub {
     font-size: var(--fs-xs);

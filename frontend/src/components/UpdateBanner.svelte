@@ -8,6 +8,7 @@
     pushNotification,
     makeNotificationEntry,
   } from "../lib/notifications";
+  import { githubReleaseTagUrl } from "../lib/ux";
   import Download from "@lucide/svelte/icons/download";
   import X from "@lucide/svelte/icons/x";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
@@ -103,6 +104,19 @@
     return null;
   }
 
+  const NOTIFICATION_BODY_MAX = 160;
+
+  function notificationBody(notes: string | null): string {
+    const items = notes ? renderNotes(notes).flatMap((section) => section.items) : [];
+    if (items.length === 0) {
+      return firstChangelogHeading(notes) ?? "New version ready to install.";
+    }
+    const summary = items.slice(0, 2).join(" · ");
+    return summary.length > NOTIFICATION_BODY_MAX
+      ? `${summary.slice(0, NOTIFICATION_BODY_MAX - 1)}…`
+      : summary;
+  }
+
   function emitAppUpdateNotification(next: UpdateInfo): void {
     const existing = get(notifications).find(
       (n) => n.kind === "app_update_available" && (n.title.includes(next.version) || n.body?.includes(next.version)),
@@ -111,7 +125,8 @@
     const entry = makeNotificationEntry(
       "app_update_available",
       `DLSSync v${next.version} available`,
-      firstChangelogHeading(next.notes),
+      notificationBody(next.notes),
+      { link: githubReleaseTagUrl(next.version) },
     );
     pushNotification(entry).catch((err) => console.warn("[dlssync] push app-update notification failed:", err));
   }

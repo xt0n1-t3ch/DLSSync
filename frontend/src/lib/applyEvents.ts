@@ -58,6 +58,7 @@ function buildTerminalEntry(
     apply_id: p.apply_id,
     game_id: tracker.game_id,
     error_class: p.error_class ?? null,
+    link: null,
   };
 }
 

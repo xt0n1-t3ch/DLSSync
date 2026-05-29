@@ -15,13 +15,14 @@
   import { dllRelation, targetVersion } from "../lib/relation";
   import { launcherIcon } from "../lib/launcherIcons";
 
-  let { game, hidden = false, onApply, onOpenFolder, onBlacklist, onClick }: {
+  let { game, hidden = false, onApply, onOpenFolder, onBlacklist, onClick, onContextMenu }: {
     game: DetectedGame;
     hidden?: boolean;
     onApply: (g: DetectedGame) => void;
     onOpenFolder: (g: DetectedGame) => void;
     onBlacklist: (g: DetectedGame) => void;
     onClick: (g: DetectedGame) => void;
+    onContextMenu?: (g: DetectedGame, e: MouseEvent) => void;
   } = $props();
 
   let status: UpdateStatus = $derived(($gameStatuses[game.id] ?? "unknown") as UpdateStatus);
@@ -80,6 +81,7 @@
   tabindex="0"
   aria-label={`${game.name}, ${STATUS_LABELS[status] ?? status}`}
   onclick={() => onClick(game)}
+  oncontextmenu={onContextMenu ? (e) => { e.preventDefault(); onContextMenu(game, e); } : undefined}
   onkeydown={onKey}
 >
   <div class="cover" style:--launcher-accent={accent}>
@@ -222,9 +224,9 @@
     font-size: 10.5px;
     font-weight: 600;
     border-radius: var(--radius-sm);
-    background: var(--update-dim);
-    color: var(--update);
-    border: 1px solid rgba(34, 211, 238, 0.30);
+    background: color-mix(in oklab, var(--chip-accent, var(--update)) 12%, var(--bg-elevated));
+    color: var(--chip-accent, var(--update));
+    border: 1px solid color-mix(in oklab, var(--chip-accent, var(--update)) 32%, transparent);
     white-space: nowrap;
   }
   .feature-chip.overflow {

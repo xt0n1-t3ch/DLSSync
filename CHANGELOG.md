@@ -5,6 +5,37 @@ All notable changes to DLSSync are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.2] - 2026-05-29
+
+A reliability and catalog release. The in-app catalog is complete again — DirectStorage and the full AMD and Intel upscaler history are back — and DLSS updates no longer swap the version-locked Streamline runtime that could crash games such as Starfield. The System & Components driver updater installs without hanging, snapshots each driver before updating so you can roll it back, and shows the older and latest versions of every component driver. It also carries the notification, command-palette, and game-detail work from the interface pass.
+
+### Added
+
+- System & Components shows each component's installed driver version next to the older versions still cached on your PC and the latest available one, read from the local driver store.
+- Before a system or component driver update, DLSSync exports the current driver and sets a System Restore point, then records it in a new, filterable System Drivers section in Backups where you can roll any driver back.
+- A note on the Drivers tab explains why a driver install asks for Administrator: Windows installs per-machine drivers only with elevation, so DLSSync stays unelevated and runs a signed helper with your approval.
+- Release notifications now carry the version, a short summary of the release notes, and one-click links to both the GitHub release and the Nexus Mods page — instead of only the changelog heading.
+- The notification center covers more events: GPU driver updates, system and component driver updates, and restored backups each post their own entry. Any notification with a link opens it externally.
+- Command palette: a per-command icon, a keyboard-shortcut chip (for example, G then L for Library), grouped sections (Recent, Navigate, Action, Settings), and highlighting on the characters your query matched.
+
+### Changed
+
+- DirectStorage (dstorage.dll with dstoragecore.dll) and the split FSR runtime are handled as matched sets, and the catalog build no longer overwrites the older AMD, Intel, and DirectStorage versions it used to drop.
+- After a DLL swap, DLSSync re-hashes the file it wrote and rolls back automatically when it does not match, and reports a locked file (game still running) separately from a real failure.
+- The game-detail view is now a full page instead of a slide-over panel. Opening a game shows a spacious page with a hero banner, status, update counts, the feature list, and a docked action bar; the window controls, search, notifications, and theme toggle stay visible and usable. "Back to Library" or Esc returns.
+- The command palette opens as a clean top-right panel — no full-screen dim — with an integrated search field.
+- System & Components (Drivers tab) copy rewritten to be plain and concrete.
+
+### Fixed
+
+- DLSS no longer swaps NVIDIA's version-locked Streamline runtime (the sl.* DLLs) across SDK major versions, or when an injector mod such as DLSS Enabler or OptiScaler is present — the cause of immediate crashes in games like Starfield and Subnautica 2. The upscaling DLLs (nvngx_dlss and the rest) still update normally.
+- "Not in catalog" no longer shows for DirectStorage and other technologies that are in fact covered; the catalog now carries them.
+- A System & Components driver install no longer hangs after the Administrator prompt and then disappears. It shows real progress, times out instead of freezing, and always ends with a clear result — including the per-machine "access denied" (0x80240044) case.
+- Resetting a DLSS override no longer creates an empty per-game profile that inherited the global preset. A game without an override now follows its own configuration.
+- The notification center is frosted again — the page behind it no longer shows through. The panel was moved out of the top bar so its blur applies to the page instead of being clipped.
+- The detail page's action bar no longer clips over content mid-scroll; it is an opaque docked bar.
+- A notification's link survives an app restart. It is stored with the notification, and notifications saved before this release migrate automatically.
+
 ## [1.5.1] - 2026-05-28
 
 A driver-detection accuracy release. GPU driver resolution is now keyed on the PCI device id for every
@@ -27,6 +58,7 @@ of the Arc desktop package, and install progress no longer breaks when you switc
 - AMD opens its official download page instead of a constructed installer URL. The direct `.exe` is gated behind a license prompt and its filename changes per release, so a fabricated link was unreliable; version and changelog detection are unchanged.
 - Vendor installer exit codes are reported with a readable message. Intel's "no compatible device" (exit code 8) now explains the GPU may be OEM-locked or need a different driver branch, pointing to the manufacturer or Windows Update.
 
+[1.5.2]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.5.2
 [1.5.1]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.5.1
 
 ## [1.5.0] - 2026-05-27

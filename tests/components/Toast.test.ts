@@ -43,4 +43,24 @@ describe("Toast popup (rendered)", () => {
     await tick();
     expect(container.querySelector(".toast-close")).not.toBeNull();
   });
+
+  it("renders a kind-icon tinted to the toast kind", async () => {
+    const { container } = render(Toast);
+    showToast("danger", "boom");
+    await tick();
+    const icon = container.querySelector(".toast-icon");
+    expect(icon).not.toBeNull();
+    expect(icon?.getAttribute("data-kind")).toBe("danger");
+    expect(icon?.querySelector("svg")).not.toBeNull();
+  });
+
+  it("renders an auto-dismiss progress indicator carrying the ttl duration", async () => {
+    const { container } = render(Toast);
+    showToast("info", "draining", 5000);
+    await tick();
+    const progress = container.querySelector(".toast-progress") as HTMLElement | null;
+    expect(progress).not.toBeNull();
+    expect(progress?.getAttribute("data-kind")).toBe("info");
+    expect(progress?.style.getPropertyValue("--toast-ttl")).toBe("5000ms");
+  });
 });

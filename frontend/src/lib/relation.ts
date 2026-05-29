@@ -1,5 +1,54 @@
-import type { DllRecord } from "./api";
+import type { DllRecord, UpdatePreferences } from "./api";
 import { familyVendor, familyCatalogKey, filenameFromPath, type UpdateStatus } from "./labels";
+
+const FAMILY_PREF: Record<string, keyof UpdatePreferences> = {
+  dlss_sr: "update_dlss",
+  dlss_fg: "update_dlss_fg",
+  dlss_rr: "update_dlss_rr",
+  streamline: "update_streamline",
+  streamline_common: "update_streamline",
+  streamline_pcl: "update_streamline",
+  streamline_nis: "update_streamline",
+  streamline_direct_sr: "update_streamline",
+  reflex: "update_reflex",
+  xess_sr: "update_xess",
+  xess_sr_dx11: "update_xess",
+  xess_fg: "update_xess",
+  xell: "update_xess",
+  fsr_upscaler: "update_fsr",
+  fsr_upscaler_vk: "update_fsr",
+  fsr_fg: "update_fsr",
+  fsr_loader: "update_fsr",
+  fsr_denoiser: "update_fsr",
+  direct_storage: "update_direct_storage",
+  direct_storage_core: "update_direct_storage",
+};
+
+/** An NVIDIA Streamline plugin/interposer DLL (`sl.*.dll`) — a version-locked set
+ * that must not be swapped piecemeal (mirrors the backend `is_streamline_plugin`). */
+export function isStreamlinePlugin(filename: string): boolean {
+  const lower = filename.toLowerCase();
+  return lower.startsWith("sl.") && lower.endsWith(".dll");
+}
+
+/** Whether a DLL may be offered/applied given the user's per-feature preferences.
+ * `sl.*` Streamline plugins additionally require the Streamline master switch and
+ * are never offered when DLSS Enabler manages the Streamline set in this game —
+ * swapping them out of lockstep crashes the game (kFeatureReflex). `prefs === null`
+ * keeps the legacy permissive behaviour. */
+export function recordUpdatable(
+  r: DllRecord,
+  prefs: UpdatePreferences | null = null,
+  dlssEnablerPresent = false,
+): boolean {
+  const streamlinePlugin = isStreamlinePlugin(filenameFromPath(r.path));
+  if (streamlinePlugin && dlssEnablerPresent) return false;
+  if (!prefs) return true;
+  const prefKey = FAMILY_PREF[r.family];
+  if (prefKey && !prefs[prefKey]) return false;
+  if (streamlinePlugin && !prefs.update_streamline) return false;
+  return true;
+}
 
 export type DllRelation = "outdated" | "same" | "ahead" | "no-target";
 
@@ -73,12 +122,15 @@ export function gameStatusFromRecords(
   ctx: RelationContext,
   disabledFamilies: string[] = [],
   scanError: string | null = null,
+  prefs: UpdatePreferences | null = null,
+  dlssEnablerPresent = false,
 ): UpdateStatus {
   if (scanError) return "scan_failed";
   if (!records) return "unknown";
   if (records.length === 0) return "no_dlls";
   for (const r of records) {
     if (disabledFamilies.includes(r.family)) continue;
+    if (!recordUpdatable(r, prefs, dlssEnablerPresent)) continue;
     if (dllRelation(r, ctx) === "outdated") return "outdated";
   }
   return "up_to_date";

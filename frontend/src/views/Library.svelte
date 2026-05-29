@@ -14,6 +14,7 @@
     settings,
     persistSettings,
     gameDlls,
+    gameDlssEnabler,
     gameStatuses,
     relationContext,
     activeApplies,
@@ -24,7 +25,7 @@
     requestApplyAllOutdated,
     type StatusFilter,
   } from "../lib/stores";
-  import { dllRelation, targetVersion } from "../lib/relation";
+  import { dllRelation, targetVersion, recordUpdatable } from "../lib/relation";
   import { addBlacklistEntry, removeBlacklistEntry, type DllRecord } from "../lib/api";
   import type { DetectedGame, LibraryViewMode, LibraryDensity, LibrarySort } from "../lib/api";
   import {
@@ -38,7 +39,7 @@
   import { STATUS_LABELS, launcherLabel, familyGroup, GROUP_LABELS, type FamilyGroup } from "../lib/labels";
   import GameCard from "../components/GameCard.svelte";
   import GameListRow from "../components/GameListRow.svelte";
-  import GameDetailDrawer from "../components/GameDetailDrawer.svelte";
+  import ContextMenu, { type ContextMenuAction, type ContextMenuItem } from "../components/ContextMenu.svelte";
   import { dispatchApply, type ApplyTarget } from "../lib/applyController";
   import { listen, type UnlistenFn } from "@tauri-apps/api/event";
   import { TRAY_SHOW_PROGRESS_EVENT } from "../lib/api";
@@ -51,8 +52,10 @@
       const records = $gameDlls[game.id] ?? [];
       const disabled = $settings?.game_preferences[game.id]?.disabled_families ?? [];
       const pinned = $settings?.game_preferences[game.id]?.pinned_versions ?? {};
+      const enabler = $gameDlssEnabler[game.id] ?? false;
       for (const r of records) {
         if (disabled.includes(r.family)) continue;
+        if (!recordUpdatable(r, $settings?.update_prefs ?? null, enabler)) continue;
         const pin = pinned[`${r.family}|${r.path}`] ?? null;
         if (dllRelation(r, $relationContext, pin) !== "outdated") continue;
         const target = targetVersion(r, $relationContext, pin);
@@ -160,6 +163,42 @@
     }
   }
 
+  let contextMenu = $state<{ game: DetectedGame; x: number; y: number } | null>(null);
+  let contextMenuItems = $derived.by<ContextMenuItem[]>(() => {
+    if (!contextMenu) return [];
+    const isHidden = $hiddenIds.has(contextMenu.game.id);
+    return [
+      { action: "open_folder", label: "Open folder" },
+      { action: "scan", label: "Scan" },
+      { action: "pin", label: "Pin a version…" },
+      { action: "hide", label: isHidden ? "Unhide" : "Hide" },
+    ];
+  });
+
+  function openContextMenu(game: DetectedGame, e: MouseEvent): void {
+    contextMenu = { game, x: e.clientX, y: e.clientY };
+  }
+
+  async function onContextSelect(action: ContextMenuAction): Promise<void> {
+    const game = contextMenu?.game;
+    if (!game) return;
+    switch (action) {
+      case "open_folder":
+        await onOpenFolder(game);
+        break;
+      case "scan":
+        await rescanGame(game.id);
+        showToast("info", `Rescanning ${game.name}`);
+        break;
+      case "pin":
+        drawerGameId.set(game.id);
+        break;
+      case "hide":
+        await onHideToggle(game);
+        break;
+    }
+  }
+
   async function addCustomFolder(): Promise<void> {
     if (!$settings) return;
     try {
@@ -242,6 +281,10 @@
     return set.size;
   });
 
+  // Tidal-style sections: split the actionable list into "Needs update" vs the rest.
+  let needsUpdate = $derived(sortedActionable.filter((g) => $gameStatuses[g.id] === "outdated"));
+  let upToDate = $derived(sortedActionable.filter((g) => $gameStatuses[g.id] !== "outdated"));
+
   let noDllsRevealed = $state(false);
   function toggleNoDllsZone(): void { noDllsRevealed = !noDllsRevealed; }
 
@@ -285,8 +328,7 @@
 
 {#if outdatedTotal > 0}
   <div class="updates-hero-shell">
-    <aside class="updates-hero" role="status" aria-label="Pending updates">
-      <span class="updates-hero-edge" aria-hidden="true"></span>
+    <aside class="updates-hero edge-accent" role="status" aria-label="Pending updates">
       <div class="updates-hero-body">
         <p class="updates-hero-headline">
           <strong>{outdatedTotal}</strong>
@@ -431,39 +473,56 @@
     <button class="btn btn-accent" onclick={() => { searchQuery.set(""); launcherFilter.set("all"); statusFilter.set("all"); }}>Reset filters</button>
   </div>
 {:else}
-  {#if sortedActionable.length > 0}
-    {#if viewMode === "grid"}
-      <div class="grid" data-density={density}>
-        {#each sortedActionable as g, i (g.id)}
-          <div class="grid-cell" style:--stagger="{Math.min(i, 20) * 24}ms">
-            <GameCard
-              game={g}
-              hidden={$hiddenIds.has(g.id)}
-              {onApply}
-              {onOpenFolder}
-              onBlacklist={onHideToggle}
-              onClick={onCardClick}
-            />
+  {#snippet gameSection(title: string, list: DetectedGame[], viewAll: StatusFilter)}
+    {#if list.length > 0}
+      <section class="lib-section">
+        <div class="section-head">
+          <span class="section-title">{title}</span>
+          <span class="section-count">{list.length}</span>
+          {#if $statusFilter === "all"}
+            <button class="section-viewall" onclick={() => statusFilter.set(viewAll)}>View all →</button>
+          {/if}
+        </div>
+        {#if viewMode === "grid"}
+          <div class="grid media-deck" data-density={density}>
+            {#each list as g, i (g.id)}
+              <div class="grid-cell media-card" style:--stagger="{Math.min(i, 20) * 24}ms">
+                <GameCard
+                  game={g}
+                  hidden={$hiddenIds.has(g.id)}
+                  {onApply}
+                  {onOpenFolder}
+                  onBlacklist={onHideToggle}
+                  onClick={onCardClick}
+                  onContextMenu={openContextMenu}
+                />
+              </div>
+            {/each}
           </div>
-        {/each}
-      </div>
-    {:else}
-      <div class="list">
-        {#each sortedActionable as g, i (g.id)}
-          <div class="list-cell" style:--stagger="{Math.min(i, 20) * 12}ms">
-            <GameListRow
-              game={g}
-              hidden={$hiddenIds.has(g.id)}
-              {onApply}
-              {onOpenFolder}
-              onBlacklist={onHideToggle}
-              onClick={onCardClick}
-            />
+        {:else}
+          <div class="list">
+            {#each list as g, i (g.id)}
+              <div class="list-cell" style:--stagger="{Math.min(i, 20) * 12}ms">
+                <GameListRow
+                  game={g}
+                  hidden={$hiddenIds.has(g.id)}
+                  {onApply}
+                  {onOpenFolder}
+                  onBlacklist={onHideToggle}
+                  onClick={onCardClick}
+                  onContextMenu={openContextMenu}
+                />
+              </div>
+            {/each}
           </div>
-        {/each}
-      </div>
+        {/if}
+      </section>
     {/if}
-  {/if}
+  {/snippet}
+
+  {@render gameSection("Needs update", needsUpdate, "outdated")}
+  {@render gameSection("Up to date", upToDate, "up_to_date")}
+
   {#if $libraryZones.noDlls.length > 0}
     <div class="zone-no-dlls">
       <button
@@ -489,6 +548,7 @@
                 {onOpenFolder}
                 onBlacklist={onHideToggle}
                 onClick={onCardClick}
+                onContextMenu={openContextMenu}
               />
             </div>
           {/each}
@@ -498,11 +558,13 @@
   {/if}
 {/if}
 
-{#if $drawerGameId}
-  <GameDetailDrawer
-    gameId={$drawerGameId}
-    onClose={() => drawerGameId.set(null)}
-    onApplyStart={() => applyModalOpen.set(true)}
+{#if contextMenu}
+  <ContextMenu
+    x={contextMenu.x}
+    y={contextMenu.y}
+    items={contextMenuItems}
+    onSelect={(a) => void onContextSelect(a)}
+    onClose={() => (contextMenu = null)}
   />
 {/if}
 
@@ -554,35 +616,9 @@
     letter-spacing: var(--letter-wider);
     color: var(--text-muted);
   }
-  .pills { display: flex; flex-wrap: wrap; gap: 4px; }
-  .pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    height: 32px;
-    padding: 0 13px;
-    border-radius: var(--radius-full);
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    color: var(--text-secondary);
-    font-size: 12.5px;
-    font-weight: 500;
-    transition: background 0.15s var(--ease), border-color 0.15s var(--ease), color 0.15s var(--ease);
-  }
-  .pill:hover { background: var(--bg-elevated); border-color: var(--border-hover); color: var(--text-primary); }
-  .pill.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
   .pill.is-hidden { color: var(--text-muted); }
-  .pill.is-hidden.active { background: rgba(239, 68, 68, 0.10); border-color: var(--danger); color: var(--danger); }
-  .pill-count {
-    font-size: 10px;
-    font-weight: 600;
-    background: var(--bg-elevated);
-    color: var(--text-muted);
-    padding: 1px 6px;
-    border-radius: var(--radius-full);
-  }
-  .pill.active .pill-count { background: var(--accent-glow); color: var(--accent); }
-  .pill.is-hidden.active .pill-count { background: rgba(239, 68, 68, 0.18); color: var(--danger); }
+  .pill.is-hidden.active { background: var(--danger-dim); border-color: var(--danger); color: var(--danger); }
+  .pill.is-hidden.active .pill-count { background: var(--danger-glow); color: var(--danger); }
 
   .updates-hero-shell { container-type: inline-size; margin-bottom: 20px; }
   .updates-hero {
@@ -598,16 +634,6 @@
       linear-gradient(120deg, color-mix(in oklab, var(--accent) 7%, transparent), transparent 48%),
       var(--bg-card);
     overflow: hidden;
-  }
-  .updates-hero-edge {
-    position: absolute;
-    inset: 0 auto 0 0;
-    width: 3px;
-    background: linear-gradient(
-      to bottom,
-      var(--accent),
-      color-mix(in oklab, var(--accent) 30%, transparent)
-    );
   }
   .updates-hero-body { display: flex; flex-direction: column; gap: 9px; min-width: 0; }
   .updates-hero-headline {
@@ -713,36 +739,15 @@
   }
   .sort-select:hover { border-color: var(--border-hover); }
   .sort-select:focus-visible { outline: none; border-color: var(--accent); box-shadow: var(--shadow-ring); }
-  .seg {
-    display: inline-flex;
-    height: 32px;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    padding: 2px;
-    gap: 2px;
-  }
-  .seg-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 0 11px;
-    border-radius: var(--radius-sm);
-    color: var(--text-secondary);
-    font-size: var(--fs-xs);
-    font-weight: 600;
-    transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
-  }
-  .seg-btn:hover { color: var(--text-primary); background: var(--bg-elevated); }
-  .seg-btn.active { background: var(--accent-dim); color: var(--accent); }
-  .seg-btn:focus-visible { outline: none; box-shadow: var(--shadow-ring); }
-
+  .lib-section { margin-bottom: 30px; }
+  .lib-section:last-of-type { margin-bottom: 8px; }
   .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(248px, 1fr));
     gap: 16px;
     padding-bottom: 32px;
   }
+  .lib-section .grid { padding-bottom: 4px; }
   .grid[data-density="compact"] {
     grid-template-columns: repeat(auto-fill, minmax(184px, 1fr));
     gap: 10px;

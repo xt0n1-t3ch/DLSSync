@@ -21,6 +21,7 @@
   } from "../lib/api";
   import type { AppSettings, UpdatePreferences, LauncherOverrides, AdvancedConfig, NetworkConfig, SgdbConfig, AppPathsDto } from "../lib/api";
   import { LAUNCHER_BRANDS, LAUNCHER_BRAND_ORDER, type LauncherBrandKey } from "../lib/launcherLogos";
+  import BrandMark from "../components/BrandMark.svelte";
 
   let { onToggleTheme, currentTheme }: { onToggleTheme: () => void; currentTheme: string } = $props();
   let dlssOverlayLive = $state(false);
@@ -289,7 +290,7 @@
     { key: "update_dlss", label: "DLSS Super Resolution", sub: "Sharper image at higher FPS — NVIDIA AI upscaling.", files: "nvngx_dlss.dll · sl.dlss.dll" },
     { key: "update_dlss_fg", label: "DLSS Frame Generation", sub: "Extra interpolated frames for smoother motion on RTX 40+ GPUs.", files: "nvngx_dlssg.dll · sl.dlss_g.dll" },
     { key: "update_dlss_rr", label: "DLSS Ray Reconstruction", sub: "Cleaner ray-traced reflections, shadows and global illumination.", files: "nvngx_dlssd.dll · sl.dlss_d.dll" },
-    { key: "update_streamline", label: "NVIDIA Streamline runtime", sub: "Shared NVIDIA loader required by DLSS, Reflex and DirectSR.", files: "sl.interposer.dll · sl.common.dll · sl.pcl.dll · sl.nis.dll · sl.directsr.dll" },
+    { key: "update_streamline", label: "NVIDIA Streamline plug-ins (advanced)", sub: "Master switch for every sl.* Streamline DLL. Off by default — they are a version-locked set, so swapping them can crash games (especially with DLSS Enabler). NGX DLLs are unaffected.", files: "sl.interposer.dll · sl.common.dll · sl.dlss.dll · sl.dlss_g.dll · sl.reflex.dll · sl.pcl.dll · sl.directsr.dll" },
     { key: "update_reflex", label: "NVIDIA Reflex", sub: "Lower input latency in supported titles.", files: "sl.reflex.dll" },
     { key: "update_xess", label: "Intel XeSS", sub: "Intel AI upscaling — best on Arc GPUs, works elsewhere.", files: "libxess.dll · libxess_fg.dll · libxell.dll" },
     { key: "update_fsr", label: "AMD FSR", sub: "AMD upscaling and frame generation — runs on any GPU.", files: "amd_fidelityfx_*.dll · ffx_*.dll" },
@@ -812,7 +813,7 @@
 
         <div class="settings-card" style="margin-top: 18px;">
           <header class="card-head">
-            <h3>DLSS Overrides <span class="chip chip-update small-pill">NVIDIA</span></h3>
+            <h3>DLSS Overrides <span class="chip chip-update small-pill"><BrandMark key="nvidia" tone="mono" size={11} /></span></h3>
             <p class="card-sub">DLSS preset and frame-generation overrides moved to the <strong>Drivers</strong> tab, alongside your GPU driver updates. Per-game overrides stay in each game's detail drawer.</p>
           </header>
           <button class="btn btn-primary" style="margin-top: 14px;" onclick={() => currentView.set("drivers")}>Open the Drivers tab</button>
@@ -904,10 +905,11 @@
   .tab-panels { max-width: 920px; min-width: 0; }
   .section-head { margin-bottom: 10px; }
   .section-title-h {
-    font-size: var(--fs-md);
-    font-weight: 600;
+    font-size: var(--fs-lg);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: var(--letter-wide);
     color: var(--text-primary);
-    letter-spacing: var(--letter-tight);
     margin-bottom: 3px;
     display: flex;
     align-items: center;

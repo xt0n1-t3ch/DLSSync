@@ -21,39 +21,128 @@
     LIBRARY_VIEW_MODES,
     LIBRARY_DENSITIES,
     matchCommands,
+    matchedIndices,
+    highlightSegments,
     pushRecentCommand,
     isModifierComboMatch,
     type PaletteCommand,
     type CommandCategory,
   } from "../lib/ux";
   import { getAppPaths, revealPath } from "../lib/api";
+  import Search from "@lucide/svelte/icons/search";
+  import Command from "@lucide/svelte/icons/command";
+  import LayoutGrid from "@lucide/svelte/icons/layout-grid";
+  import LayoutList from "@lucide/svelte/icons/layout-list";
+  import Layers from "@lucide/svelte/icons/layers";
+  import Archive from "@lucide/svelte/icons/archive";
+  import Settings from "@lucide/svelte/icons/settings";
+  import Info from "@lucide/svelte/icons/info";
+  import DownloadCloud from "@lucide/svelte/icons/download-cloud";
+  import RefreshCw from "@lucide/svelte/icons/refresh-cw";
+  import RotateCw from "@lucide/svelte/icons/rotate-cw";
+  import ArrowUpCircle from "@lucide/svelte/icons/arrow-up-circle";
+  import Undo2 from "@lucide/svelte/icons/undo-2";
+  import Folder from "@lucide/svelte/icons/folder";
+  import FolderArchive from "@lucide/svelte/icons/folder-archive";
+  import ScrollText from "@lucide/svelte/icons/scroll-text";
+  import SunMoon from "@lucide/svelte/icons/sun-moon";
+  import Rows3 from "@lucide/svelte/icons/rows-3";
+  import SlidersHorizontal from "@lucide/svelte/icons/sliders-horizontal";
+  import Radar from "@lucide/svelte/icons/radar";
+  import Image from "@lucide/svelte/icons/image";
+  import Wrench from "@lucide/svelte/icons/wrench";
+
+  const ICONS: Record<string, typeof LayoutGrid> = {
+    "layout-grid": LayoutGrid,
+    "layout-list": LayoutList,
+    layers: Layers,
+    archive: Archive,
+    settings: Settings,
+    info: Info,
+    "download-cloud": DownloadCloud,
+    "refresh-cw": RefreshCw,
+    "rotate-cw": RotateCw,
+    "arrow-up-circle": ArrowUpCircle,
+    "undo-2": Undo2,
+    folder: Folder,
+    "folder-archive": FolderArchive,
+    "scroll-text": ScrollText,
+    "sun-moon": SunMoon,
+    "rows-3": Rows3,
+    "sliders-horizontal": SlidersHorizontal,
+    radar: Radar,
+    image: Image,
+    wrench: Wrench,
+  };
 
   let query = $state("");
   let selectedIndex = $state(0);
   let category = $state<"all" | CommandCategory>("all");
   let inputEl: HTMLInputElement | undefined = $state();
+  let resultsEl: HTMLDivElement | undefined = $state();
 
   const categories: readonly ("all" | CommandCategory)[] = ["all", "navigate", "action", "settings"];
+  const RESULT_CATEGORIES: readonly CommandCategory[] = ["navigate", "action", "settings"];
 
   let recentIds = $derived($settings?.ui_prefs.command_palette_recent ?? []);
 
-  let baseCommands = $derived.by(() => {
-    if (!query.trim() && recentIds.length > 0) {
-      const recentSet = new Set(recentIds);
-      const recents = recentIds
-        .map((id) => COMMANDS.find((c) => c.id === id))
-        .filter((c): c is PaletteCommand => c !== undefined);
-      const rest = COMMANDS.filter((c) => !recentSet.has(c.id));
-      return [...recents, ...rest];
+  interface ResultItem {
+    cmd: PaletteCommand;
+    ranges: number[];
+    index: number;
+  }
+  interface ResultGroup {
+    key: string;
+    label: string;
+    items: ResultItem[];
+  }
+
+  let view = $derived.by<{ groups: ResultGroup[]; flat: PaletteCommand[] }>(() => {
+    const q = query.trim();
+    const raw: { key: string; label: string; cmds: { cmd: PaletteCommand; ranges: number[] }[] }[] = [];
+
+    if (!q) {
+      if (category === "all" && recentIds.length > 0) {
+        const recents = recentIds
+          .map((id) => COMMANDS.find((c) => c.id === id))
+          .filter((c): c is PaletteCommand => c !== undefined);
+        if (recents.length > 0) {
+          raw.push({ key: "recent", label: "Recent", cmds: recents.map((cmd) => ({ cmd, ranges: [] })) });
+        }
+      }
+      const exclude = new Set(category === "all" ? recentIds : []);
+      for (const cat of RESULT_CATEGORIES) {
+        if (category !== "all" && category !== cat) continue;
+        const cmds = COMMANDS.filter((c) => c.category === cat && !exclude.has(c.id)).map((cmd) => ({ cmd, ranges: [] as number[] }));
+        if (cmds.length > 0) raw.push({ key: cat, label: COMMAND_CATEGORY_LABELS[cat], cmds });
+      }
+    } else {
+      const pool = category === "all" ? COMMANDS : COMMANDS.filter((c) => c.category === category);
+      const matches = matchCommands(q, pool);
+      for (const cat of RESULT_CATEGORIES) {
+        if (category !== "all" && category !== cat) continue;
+        const cmds = matches
+          .filter((m) => m.command.category === cat)
+          .map((m) => ({ cmd: m.command, ranges: matchedIndices(q, m.command.title) }));
+        if (cmds.length > 0) raw.push({ key: cat, label: COMMAND_CATEGORY_LABELS[cat], cmds });
+      }
     }
-    return COMMANDS;
+
+    const flat: PaletteCommand[] = [];
+    const groups: ResultGroup[] = raw.map((g) => ({
+      key: g.key,
+      label: g.label,
+      items: g.cmds.map(({ cmd, ranges }) => {
+        const item: ResultItem = { cmd, ranges, index: flat.length };
+        flat.push(cmd);
+        return item;
+      }),
+    }));
+    return { groups, flat };
   });
 
-  let filtered = $derived.by(() => {
-    const pool = category === "all" ? baseCommands : baseCommands.filter((c) => c.category === category);
-    const matches = matchCommands(query, pool);
-    return matches.map((m) => m.command);
-  });
+  let groups = $derived(view.groups);
+  let flat = $derived(view.flat);
 
   $effect(() => {
     if ($commandPaletteOpen) {
@@ -64,7 +153,15 @@
   });
 
   $effect(() => {
-    if (selectedIndex >= filtered.length) selectedIndex = Math.max(0, filtered.length - 1);
+    if (selectedIndex >= flat.length) selectedIndex = Math.max(0, flat.length - 1);
+  });
+
+  $effect(() => {
+    if (!$commandPaletteOpen) return;
+    void selectedIndex;
+    void tick().then(() => {
+      resultsEl?.querySelector(".result.active")?.scrollIntoView({ block: "nearest" });
+    });
   });
 
   onMount(() => {
@@ -194,19 +291,19 @@
     }
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      if (filtered.length === 0) return;
-      selectedIndex = (selectedIndex + 1) % filtered.length;
+      if (flat.length === 0) return;
+      selectedIndex = (selectedIndex + 1) % flat.length;
       return;
     }
     if (e.key === "ArrowUp") {
       e.preventDefault();
-      if (filtered.length === 0) return;
-      selectedIndex = (selectedIndex - 1 + filtered.length) % filtered.length;
+      if (flat.length === 0) return;
+      selectedIndex = (selectedIndex - 1 + flat.length) % flat.length;
       return;
     }
     if (e.key === "Enter") {
       e.preventDefault();
-      const cmd = filtered[selectedIndex];
+      const cmd = flat[selectedIndex];
       if (cmd) void runCommand(cmd);
     }
   }
@@ -228,9 +325,7 @@
   >
     <div class="palette" style="max-width: {COMMAND_PALETTE_MAX_WIDTH_PX}px; max-height: {COMMAND_PALETTE_MAX_HEIGHT_PX}px;">
       <div class="palette-search">
-        <svg class="palette-search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-        </svg>
+        <Search class="palette-search-icon" size={18} strokeWidth={2.2} />
         <input
           bind:this={inputEl}
           bind:value={query}
@@ -240,6 +335,7 @@
           spellcheck="false"
           autocomplete="off"
         />
+        <kbd class="palette-search-kbd">Esc</kbd>
       </div>
 
       <div class="palette-categories">
@@ -253,26 +349,50 @@
         <span class="tab-hint">Tab to cycle</span>
       </div>
 
-      <div class="palette-results">
-        {#if filtered.length === 0}
-          <div class="empty">No matching commands</div>
+      <div class="palette-results" bind:this={resultsEl}>
+        {#if flat.length === 0}
+          <div class="palette-empty">
+            <span class="palette-empty-mark" aria-hidden="true"><Command size={20} strokeWidth={2} /></span>
+            <span class="palette-empty-title">No commands match “{query.trim()}”</span>
+            <span class="palette-empty-hint">Try a view name, a vendor, or an action.</span>
+          </div>
         {:else}
-          {#each filtered as cmd, i (cmd.id)}
-            <button
-              class="result"
-              class:active={i === selectedIndex}
-              onclick={() => void runCommand(cmd)}
-              onmouseenter={() => { selectedIndex = i; }}
-            >
-              <span class="result-tag" data-cat={cmd.category}>{COMMAND_CATEGORY_LABELS[cmd.category]}</span>
-              <span class="title">{cmd.title}</span>
-              {#if !query.trim() && recentIds.includes(cmd.id)}
-                <span class="recent-tag">recent</span>
-              {/if}
-              {#if i === selectedIndex}
-                <span class="enter-hint" aria-hidden="true">↵</span>
-              {/if}
-            </button>
+          {#each groups as group (group.key)}
+            <div class="result-group" data-cat={group.key}>
+              <div class="result-group-head">{group.label}</div>
+              {#each group.items as item (item.cmd.id)}
+                {@const Icon = ICONS[item.cmd.icon] ?? Command}
+                <button
+                  class="result"
+                  class:active={item.index === selectedIndex}
+                  data-cat={item.cmd.category}
+                  onclick={() => void runCommand(item.cmd)}
+                  onmouseenter={() => { selectedIndex = item.index; }}
+                >
+                  <span class="result-icon" data-cat={item.cmd.category} aria-hidden="true"><Icon size={16} strokeWidth={2} /></span>
+                  <span class="result-text">
+                    <span class="result-title">
+                      {#each highlightSegments(item.cmd.title, item.ranges) as seg}
+                        {#if seg.hit}<mark class="result-hl">{seg.text}</mark>{:else}{seg.text}{/if}
+                      {/each}
+                    </span>
+                    {#if item.cmd.hint}
+                      <span class="result-hint">{item.cmd.hint}</span>
+                    {/if}
+                  </span>
+                  {#if item.cmd.shortcut}
+                    <span class="result-shortcut" aria-hidden="true">
+                      {#each item.cmd.shortcut as key}
+                        <kbd>{key.toUpperCase()}</kbd>
+                      {/each}
+                    </span>
+                  {/if}
+                  {#if item.index === selectedIndex}
+                    <span class="enter-hint" aria-hidden="true">↵</span>
+                  {/if}
+                </button>
+              {/each}
+            </div>
           {/each}
         {/if}
       </div>
@@ -291,19 +411,19 @@
   .palette-backdrop {
     position: fixed;
     inset: 0;
-    background: var(--bg-overlay);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: transparent;
     z-index: 200;
     display: flex;
     align-items: flex-start;
-    justify-content: center;
-    padding-top: 12vh;
+    justify-content: flex-end;
+    padding: calc(var(--topbar-height) + 6px) 12px 0;
     animation: fadeIn var(--dur-fast) var(--ease-out);
   }
   .palette {
-    width: 92%;
-    background: var(--bg-card);
+    width: min(460px, calc(100vw - 24px));
+    background: var(--glass-strong);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--border);
     border-radius: var(--radius-2xl);
     box-shadow: var(--shadow-lg);
@@ -315,28 +435,40 @@
   .palette-search {
     display: flex;
     align-items: center;
-    gap: 14px;
-    padding: 20px 22px;
+    gap: 12px;
+    padding: 15px 16px;
     color: var(--text-muted);
   }
-  .palette-search-icon { flex-shrink: 0; }
+  .palette-search :global(.palette-search-icon) { flex-shrink: 0; color: var(--text-muted); }
   .palette-search input {
     flex: 1;
+    min-width: 0;
     background: transparent;
     border: none;
     color: var(--text-primary);
-    font-size: 19px;
+    font-size: 16px;
     font-weight: 500;
     letter-spacing: var(--letter-tight);
     padding: 0;
     outline: none;
   }
   .palette-search input::placeholder { color: var(--text-placeholder); font-weight: 400; }
+  .palette-search input::selection { background: var(--accent-soft); color: var(--text-primary); }
+  .palette-search-kbd {
+    flex-shrink: 0;
+    font-size: var(--fs-2xs);
+    font-weight: 600;
+    color: var(--text-muted);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+  }
   .palette-categories {
     display: flex;
     align-items: center;
     gap: 4px;
-    padding: 0 18px 12px;
+    padding: 0 16px 12px;
   }
   .category {
     font-size: var(--fs-xs);
@@ -353,46 +485,94 @@
   .palette-results {
     flex: 1;
     overflow-y: auto;
-    padding: 6px 10px;
+    padding: 6px 8px 8px;
     border-top: 1px solid var(--border);
   }
-  .empty {
-    padding: 32px 16px;
-    text-align: center;
-    color: var(--text-muted);
-    font-size: var(--fs-sm);
-  }
-  .result {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    width: 100%;
-    padding: 11px 14px;
-    border-radius: var(--radius-lg);
-    text-align: left;
-    color: var(--text-secondary);
-    transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
-  }
-  .result.active { background: var(--accent-soft); color: var(--text-primary); }
-  .result-tag {
-    flex-shrink: 0;
-    width: 64px;
+  .result-group { padding: 4px 0; }
+  .result-group-head {
+    padding: 8px 12px 4px;
     font-size: var(--fs-2xs);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: var(--letter-wider);
     color: var(--text-muted);
   }
-  .result-tag[data-cat="navigate"] { color: var(--badge-blue-fg); }
-  .result-tag[data-cat="action"] { color: var(--badge-green-fg); }
-  .result-tag[data-cat="settings"] { color: var(--badge-purple-fg); }
-  .title { flex: 1; font-size: var(--fs-sm); font-weight: 500; }
-  .recent-tag {
-    font-size: 9px;
+  .palette-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 40px 16px;
+    text-align: center;
+  }
+  .palette-empty-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-lg);
+    background: var(--bg-elevated);
     color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: var(--letter-wider);
+    margin-bottom: 4px;
+  }
+  .palette-empty-title { font-size: var(--fs-sm); font-weight: 600; color: var(--text-primary); }
+  .palette-empty-hint { font-size: var(--fs-xs); color: var(--text-muted); }
+  .result {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 9px 12px;
+    border-radius: var(--radius-lg);
+    text-align: left;
+    color: var(--text-secondary);
+    transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+  }
+  .result.active { background: var(--accent-soft); color: var(--text-primary); }
+  .result-icon {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: var(--radius-md);
+    background: var(--bg-elevated);
+    color: var(--text-muted);
+  }
+  .result-icon[data-cat="navigate"] { color: var(--badge-blue-fg); background: color-mix(in oklab, var(--badge-blue-fg) 14%, transparent); }
+  .result-icon[data-cat="action"] { color: var(--badge-green-fg); background: color-mix(in oklab, var(--badge-green-fg) 14%, transparent); }
+  .result-icon[data-cat="settings"] { color: var(--badge-purple-fg); background: color-mix(in oklab, var(--badge-purple-fg) 14%, transparent); }
+  .result-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .result-title { font-size: var(--fs-sm); font-weight: 500; color: inherit; }
+  .result-hl {
+    background: transparent;
+    color: var(--accent);
     font-weight: 700;
+  }
+  .result.active .result-hl { color: var(--accent); }
+  .result-hint {
+    font-size: var(--fs-2xs);
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .result-shortcut { flex-shrink: 0; display: inline-flex; gap: 3px; }
+  .result-shortcut kbd {
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--fs-2xs);
+    font-weight: 600;
+    color: var(--text-muted);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
   }
   .enter-hint {
     flex-shrink: 0;

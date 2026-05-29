@@ -516,7 +516,7 @@
   }}
   tabindex="-1"
 ></div>
-<div class="modal" transition:fly={{ y: 20, duration: 200 }} role="dialog" aria-labelledby="apply-modal-title">
+<div class="modal glass-dialog" transition:fly={{ y: 20, duration: 200 }} role="dialog" aria-labelledby="apply-modal-title">
   <header class="modal-head">
     <div class="head-left">
       <div class="head-eyebrow-row">
@@ -553,7 +553,7 @@
       </div>
     </div>
     <button
-      class="modal-close"
+      class="dialog-close"
       onclick={() => allDone && dismiss()}
       disabled={!allDone}
       title={allDone ? "Close" : "Cancel running applies first"}
@@ -893,20 +893,15 @@
     width: clamp(680px, 60vw, 920px);
     max-width: 96vw;
     max-height: 92vh;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-3xl);
-    box-shadow: var(--shadow-lg);
     display: grid;
     grid-template-rows: auto auto 1fr auto;
     z-index: 201;
-    overflow: hidden;
     isolation: isolate;
   }
   .modal-head {
-    padding: 24px 28px 16px;
+    padding: 24px 56px 16px 28px;
     display: grid;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr;
     gap: 14px;
     align-items: start;
   }
@@ -955,21 +950,8 @@
   .stat-chip.stat-failed .stat-num { color: var(--badge-red-fg); }
   .stat-chip.stat-failed .stat-word { color: var(--badge-red-fg); opacity: 0.75; }
   .head-files-summary { font-size: var(--fs-xs); color: var(--text-muted); font-variant-numeric: tabular-nums; margin-left: 4px; }
-  .modal-close {
-    width: 36px;
-    height: 36px;
-    padding: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--radius-lg);
-    color: var(--text-muted);
-    background: transparent;
-    transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
-  }
-  .modal-close:hover:not(:disabled) { background: var(--bg-card-hover); color: var(--text-primary); }
-  .modal-close:focus-visible { outline: none; box-shadow: var(--shadow-ring); }
-  .modal-close:disabled { opacity: 0.35; cursor: not-allowed; }
+  .dialog-close:disabled { opacity: 0.35; cursor: not-allowed; }
+  .dialog-close:disabled:hover { background: transparent; color: var(--text-muted); }
 
   .progress-track {
     height: 3px;

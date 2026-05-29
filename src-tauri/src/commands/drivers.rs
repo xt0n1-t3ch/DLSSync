@@ -225,10 +225,22 @@ pub async fn install_driver(
         progress_tx: Some(tx),
         ..Default::default()
     };
-    let downloaded = download_to_file(&client, &download_url, &dest, opts)
-        .await
-        .map_err(|e| AppError::Other(e.to_string()))?;
-    let _ = pump.await;
+    let downloaded = match download_to_file(&client, &download_url, &dest, opts).await {
+        Ok(d) => {
+            let _ = pump.await;
+            d
+        }
+        Err(e) => {
+            let _ = pump.await;
+            emit_stage(
+                &app,
+                InstallStage::Failed,
+                &format!("Download failed: {e}"),
+                None,
+            );
+            return Err(AppError::Other(e.to_string()));
+        }
+    };
 
     emit_stage(
         &app,
@@ -238,10 +250,19 @@ pub async fn install_driver(
     );
     let verify_path = downloaded.path.clone();
     let verify_vendor = vendor.clone();
-    tokio::task::spawn_blocking(move || verify_signature(&verify_path, &verify_vendor))
-        .await
-        .map_err(|e| AppError::Other(format!("verify task: {e}")))?
-        .map_err(|e| AppError::Other(e.to_string()))?;
+    if let Err(e) =
+        tokio::task::spawn_blocking(move || verify_signature(&verify_path, &verify_vendor))
+            .await
+            .map_err(|e| AppError::Other(format!("verify task: {e}")))?
+    {
+        emit_stage(
+            &app,
+            InstallStage::Failed,
+            &format!("Signature verification failed: {e}"),
+            None,
+        );
+        return Err(AppError::Other(e.to_string()));
+    }
 
     emit_stage(
         &app,
@@ -256,10 +277,24 @@ pub async fn install_driver(
         None,
     );
     let launch_path = downloaded.path.clone();
-    let exit_code = tokio::task::spawn_blocking(move || launch_installer(&launch_path))
-        .await
-        .map_err(|e| AppError::Other(format!("launch task: {e}")))?
-        .map_err(AppError::Other)?;
+    let exit_code = match tokio::task::spawn_blocking(move || launch_installer(&launch_path)).await
+    {
+        Ok(Ok(code)) => code,
+        Ok(Err(e)) => {
+            emit_stage(
+                &app,
+                InstallStage::Failed,
+                &format!("Launch failed: {e}"),
+                None,
+            );
+            return Err(AppError::Other(e));
+        }
+        Err(e) => {
+            let msg = format!("launch task: {e}");
+            emit_stage(&app, InstallStage::Failed, &msg, None);
+            return Err(AppError::Other(msg));
+        }
+    };
 
     let stage = classify_exit(exit_code);
     let message = describe_exit(exit_code, &vendor);

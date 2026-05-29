@@ -11,9 +11,9 @@
   --bg-app: #000000;
   --bg-sidebar: #000000;
   --bg-topbar: rgba(0, 0, 0, 0.72);
-  --bg-card: #0a0a0a;
-  --bg-card-hover: #171717;
-  --bg-elevated: #141414;
+  --bg-card: #101014;
+  --bg-card-hover: #1c1c22;
+  --bg-elevated: #17171c;
   --bg-input: #0a0a0a;
   --bg-overlay: rgba(0, 0, 0, 0.92);
   --bg-art-fallback: linear-gradient(135deg, #141414 0%, #000000 100%);
@@ -102,6 +102,16 @@
   --radius-3xl: 28px;
   --radius-full: 9999px;
 
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --density: 1;
+
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.6);
   --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.6);
   --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.7);
@@ -149,10 +159,34 @@
 
   --sidebar-width: 232px;
   --sidebar-width-collapsed: 64px;
+  --shell-gap: 12px;
   --topbar-height: 52px;
   --content-max: 1600px;
   --drawer-width: clamp(440px, 38vw, 600px);
   --card-art-aspect: 2 / 1;
+
+  --glass-1: rgba(22, 24, 34, 0.44);
+  --glass-2: rgba(16, 18, 28, 0.38);
+  --glass-3: rgba(12, 14, 22, 0.55);
+  --glass-strong: rgba(18, 20, 30, 0.60);
+  --glass-blur: blur(28px) saturate(180%) brightness(1.08);
+  --glass-blur-bar: blur(20px) saturate(180%) brightness(1.08);
+  --glass-edge: inset 0 1px 0 rgba(255, 255, 255, 0.16), inset 0 -1px 0 rgba(0, 0, 0, 0.18);
+  --dock-height: 64px;
+  --accent-progress: #00d4d4;
+
+  --glass-fallback: var(--bg-elevated);
+  --art-blur: 80px;
+  --art-dim: 0.50;
+  --art-opacity: 0.42;
+  --art-sat: 1.25;
+  --art-edge-left: 23.8%;
+  --art-edge-left-fade: 32.3%;
+  --art-edge-top: 16.9%;
+  --art-edge-top-fade: 25.4%;
+  --ambient-glow-1: hsla(211, 95%, 50%, 0.42);
+  --ambient-glow-2: hsla(174, 80%, 45%, 0.30);
+  --ambient-glow-3: hsla(270, 85%, 60%, 0.32);
 
   font-family: var(--font-sans);
   font-size: var(--fs-base);
@@ -168,13 +202,13 @@
 
 [data-theme="light"] {
   color-scheme: light;
-  --bg-base: #ffffff;
-  --bg-app: #ffffff;
+  --bg-base: #f2f3f5;
+  --bg-app: #f2f3f5;
   --bg-sidebar: #ffffff;
   --bg-topbar: rgba(255, 255, 255, 0.72);
   --bg-card: #ffffff;
-  --bg-card-hover: #f2f4f8;
-  --bg-elevated: #f7f8fb;
+  --bg-card-hover: #f0f2f6;
+  --bg-elevated: #eaedf2;
   --bg-input: #ffffff;
   --bg-overlay: rgba(255, 255, 255, 0.94);
   --bg-art-fallback: linear-gradient(135deg, #e1e5ec 0%, #f4f6f9 100%);
@@ -253,6 +287,25 @@
   --shadow-md: 0 4px 14px rgba(15, 23, 42, 0.06);
   --shadow-lg: 0 16px 40px rgba(15, 23, 42, 0.08);
   --shadow-card-hover: 0 8px 24px rgba(15, 23, 42, 0.08), 0 0 0 1px var(--accent-dim);
+
+  --glass-1: rgba(255, 255, 255, 0.55);
+  --glass-2: rgba(255, 255, 255, 0.48);
+  --glass-3: rgba(255, 255, 255, 0.66);
+  --glass-strong: rgba(252, 253, 255, 0.70);
+  --glass-edge: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  --accent-progress: #0aa2a2;
+
+  --art-blur: 90px;
+  --art-dim: 0.82;
+  --art-opacity: 0.30;
+  --art-sat: 1.15;
+  --art-edge-left: 23.8%;
+  --art-edge-left-fade: 32.3%;
+  --art-edge-top: 16.9%;
+  --art-edge-top-fade: 25.4%;
+  --ambient-glow-1: hsla(211, 100%, 62%, 0.26);
+  --ambient-glow-2: hsla(168, 72%, 52%, 0.20);
+  --ambient-glow-3: hsla(266, 85%, 66%, 0.20);
 }
 
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -623,7 +676,6 @@ input::placeholder, textarea::placeholder { color: var(--text-placeholder); }
   background: var(--bg-card);
   border-radius: var(--radius-2xl);
   padding: 22px 24px;
-  box-shadow: var(--shadow-md);
   border: 1px solid var(--border);
   transition: box-shadow var(--dur-normal) var(--ease), border-color var(--dur-normal) var(--ease), transform var(--dur-normal) var(--ease);
 }
@@ -687,6 +739,215 @@ input::placeholder, textarea::placeholder { color: var(--text-placeholder); }
 
 .aura-stack { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .aura-stack.aura-stack-tight { gap: 6px; }
+
+/* ── Tidal-grade glass + section + media-card utilities ─────────────────────
+   Frosted-glass chrome (NOT the GameDetailDrawer scrim — that stays blur-free).
+   Falls back to a solid surface where backdrop-filter is unsupported. */
+.glass-panel {
+  background: var(--glass-1);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border);
+  box-shadow: var(--glass-edge);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass-panel { background: var(--bg-elevated); }
+}
+
+/* The single floating-dialog material: one blur level, lg shadow, a 3px accent
+   leading stripe and a 32px close affordance. Every modal/flyout/popover shares
+   this — do NOT hand-roll per-component glass surfaces. */
+.glass-dialog {
+  position: relative;
+  overflow: hidden;
+  background: var(--glass-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg), var(--glass-edge);
+}
+.glass-dialog::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: linear-gradient(
+    to bottom,
+    var(--edge-color, var(--accent)),
+    color-mix(in oklab, var(--edge-color, var(--accent)) 30%, transparent)
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass-dialog { background: var(--glass-fallback); }
+}
+.dialog-close {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 2;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  background: transparent;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.dialog-close:hover { background: var(--bg-elevated); color: var(--text-primary); }
+.dialog-close:focus-visible { outline: none; box-shadow: var(--shadow-ring); }
+
+.section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 4px 0 14px;
+}
+.section-head .section-title {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--letter-wide);
+  color: var(--text-primary);
+}
+.section-head .section-count {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.section-head .section-viewall {
+  margin-left: auto;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+.section-head .section-viewall:hover { color: var(--accent); background: var(--accent-dim); }
+
+.tidal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(clamp(200px, 22vw, 280px), 1fr));
+  gap: clamp(12px, 1.4vw, 20px);
+}
+
+/* Media-card hover doctrine: the hovered card lifts + scales; its siblings dim.
+   Apply `.media-deck` to the grid and `.media-card` to each card. */
+.media-deck:hover .media-card { opacity: 0.86; }
+.media-card {
+  transition: opacity var(--dur-normal) var(--ease), transform var(--dur-normal) var(--spring);
+  will-change: transform;
+}
+.media-deck .media-card:hover,
+.media-deck .media-card:focus-visible,
+.media-deck .media-card.is-active {
+  opacity: 1;
+  transform: translateY(-3px) scale(1.018);
+}
+
+/* Tactile micro-interaction language — one shared lift + press. Compose these;
+   do NOT redefine hover/active transforms per component. */
+.hover-lift {
+  transition: transform var(--dur-normal) var(--ease-out), box-shadow var(--dur-normal) var(--ease-out);
+  will-change: transform;
+}
+.hover-lift:hover { transform: translateY(-2px) scale(1.02); }
+.press { transition: transform var(--dur-instant) var(--ease); }
+.press:active { transform: scale(0.98); }
+
+/* ── Design-system coherence layer ──────────────────────────────────────────
+   Shared control + signature primitives, centralized so every view reads as
+   one app. Views must NOT redefine these locally — extend with modifiers. */
+
+/* Accent-edge signature: a 3px leading-edge bar marking a feature/active panel
+   (hero, GPU card, KPI strip…). The host must be position:relative with
+   overflow:hidden + a border-radius so the bar clips to the corner. Override
+   the hue per-instance with --edge-color (defaults to the celeste accent). */
+.edge-accent { position: relative; }
+.edge-accent::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: linear-gradient(
+    to bottom,
+    var(--edge-color, var(--accent)),
+    color-mix(in oklab, var(--edge-color, var(--accent)) 30%, transparent)
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+.edge-accent.is-success { --edge-color: var(--success); }
+.edge-accent.is-warning { --edge-color: var(--warning); }
+.edge-accent.is-danger  { --edge-color: var(--danger); }
+.edge-accent.is-info    { --edge-color: var(--info); }
+
+.pills { display: flex; flex-wrap: wrap; gap: 4px; }
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 13px;
+  border-radius: var(--radius-full);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.pill:hover { background: var(--bg-elevated); border-color: var(--border-hover); color: var(--text-primary); }
+.pill.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+.pill:focus-visible { outline: none; box-shadow: var(--shadow-ring); }
+.pill-count {
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  font-variant-numeric: tabular-nums;
+}
+.pill.active .pill-count { background: var(--accent-glow); color: var(--accent); }
+
+.seg {
+  display: inline-flex;
+  height: 32px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 2px;
+  gap: 2px;
+}
+.seg-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 11px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.seg-btn:hover { color: var(--text-primary); background: var(--bg-elevated); }
+.seg-btn.active { background: var(--accent-dim); color: var(--accent); }
+.seg-btn:focus-visible { outline: none; box-shadow: var(--shadow-ring); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

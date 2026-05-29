@@ -214,8 +214,7 @@
 </script>
 
 <div class="flyout-backdrop" role="presentation" onclick={onClose} onkeydown={handleKey} tabindex="-1"></div>
-<div class="flyout" transition:fly={{ y: -8, duration: 160 }} role="dialog" aria-label={headerTitle} tabindex="-1" onkeydown={handleKey}>
-  <div class="vendor-stripe" style:background={accent}></div>
+<div class="flyout glass-dialog" transition:fly={{ y: -8, duration: 160 }} style:--edge-color={accent} role="dialog" aria-label={headerTitle} tabindex="-1" onkeydown={handleKey}>
   <header class="flyout-head">
     {#if mode === "versions" && catalogKey === "advanced"}
       <button class="flyout-back" onclick={backToModules} aria-label="Back to modules">
@@ -229,7 +228,7 @@
       <span class="title-line">{headerTitle}</span>
       <span class="subtitle-line">{headerSubtitle}</span>
     </div>
-    <button class="flyout-close" onclick={onClose} aria-label="Close">
+    <button class="dialog-close" onclick={onClose} aria-label="Close">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
   </header>
@@ -369,31 +368,20 @@
     transform: translate(-50%, -50%);
     width: min(720px, 94vw);
     max-height: 84vh;
-    background: var(--bg-card);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-lg);
     display: flex;
     flex-direction: column;
     z-index: 221;
-    overflow: hidden;
-  }
-  .vendor-stripe {
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 3px;
-    opacity: 0.9;
   }
   .flyout-head {
-    padding: 18px 20px 14px;
+    padding: 18px 52px 14px 20px;
     border-bottom: 1px solid var(--border);
     display: grid;
-    grid-template-columns: auto 44px 1fr auto;
+    grid-template-columns: auto 44px 1fr;
     gap: 14px;
     align-items: center;
   }
-  .flyout-head:has(.flyout-back) { grid-template-columns: 30px 44px 1fr auto; }
-  .flyout-head:not(:has(.flyout-back)) { grid-template-columns: 44px 1fr auto; }
+  .flyout-head:has(.flyout-back) { grid-template-columns: 30px 44px 1fr; }
+  .flyout-head:not(:has(.flyout-back)) { grid-template-columns: 44px 1fr; }
   .flyout-back {
     width: 28px;
     height: 28px;
@@ -416,17 +404,6 @@
   .flyout-title { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   .title-line { font-size: var(--fs-lg); font-weight: 700; color: var(--text-primary); letter-spacing: var(--letter-tight); }
   .subtitle-line { font-size: var(--fs-sm); color: var(--text-secondary); line-height: 1.4; }
-  .flyout-close {
-    width: 30px;
-    height: 30px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-muted);
-    border-radius: var(--radius-sm);
-    flex-shrink: 0;
-  }
-  .flyout-close:hover { background: var(--bg-elevated); color: var(--text-primary); }
 
   .flyout-toolbar {
     padding: 10px 20px;
