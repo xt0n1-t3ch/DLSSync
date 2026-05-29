@@ -1,6 +1,18 @@
 use crate::DriverVendor;
 use serde::{Deserialize, Serialize};
 
+/// A comparable driver version. Only `packed` is compared (`is_newer_than` =
+/// strict `>`); `display` is the human label and `raw` the source string.
+///
+/// Packing contract, fixed at construction per vendor:
+/// - NVIDIA (`nvidia`): the last 5 marketing digits, e.g. `32.0.15.7216` → `57216`
+///   shown as `572.16`. A shorter digit run is kept as-is (best effort).
+/// - AMD / Intel (`four_part`): the first four dot-separated lanes, each clamped to
+///   `u16::MAX`, packed big-endian (`l0<<48 | l1<<32 | l2<<16 | l3`).
+///
+/// Unparseable or empty input yields `packed == 0` — an `Unknown` that compares
+/// less than every real version. Callers must treat `0` as "version unknown",
+/// not "oldest". Comparison is packed-integer only; there are no semver rules.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DriverVersion {
     pub packed: u64,

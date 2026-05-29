@@ -9,6 +9,8 @@
     showToast,
   } from "../lib/stores";
   import { installDriver, openUrl, type DriverReleaseDto, type GpuVendor } from "../lib/api";
+  import BrandMark from "./BrandMark.svelte";
+  import { BRANDS } from "../lib/brands";
 
   let {
     vendor,
@@ -22,12 +24,7 @@
     onClose: () => void;
   } = $props();
 
-  const VENDOR_LABEL: Record<GpuVendor, string> = {
-    nvidia: "NVIDIA",
-    amd: "AMD",
-    intel: "Intel",
-    other: "GPU",
-  };
+  let vendorName = $derived(vendor === "other" ? "GPU" : BRANDS[vendor].label);
 
   let query = $state("");
   let whqlOnly = $state(false);
@@ -117,23 +114,27 @@
   tabindex="-1"
 ></div>
 <div
-  class="flyout"
+  class="flyout glass-dialog"
   transition:fly={{ y: -8, duration: 160 }}
+  style:--edge-color={accent}
   role="dialog"
-  aria-label={`${VENDOR_LABEL[vendor]} driver history for ${model}`}
+  aria-label={`${vendorName} driver history for ${model}`}
   tabindex="-1"
   onkeydown={handleKey}
 >
-  <div class="vendor-stripe" style:background={accent}></div>
   <header class="flyout-head">
     <span class="vendor-pill" data-vendor={vendor} style:color={accent}>
-      {VENDOR_LABEL[vendor]}
+      {#if vendor === "other"}
+        {vendorName}
+      {:else}
+        <BrandMark key={vendor} tone="mono" size={12} />
+      {/if}
     </span>
     <div class="flyout-title">
       <span class="title-line">{model}</span>
       <span class="subtitle-line">Every driver version known compatible with this GPU</span>
     </div>
-    <button class="flyout-close" onclick={onClose} aria-label="Close">
+    <button class="dialog-close" onclick={onClose} aria-label="Close">
       <svg
         width="14"
         height="14"
@@ -242,27 +243,14 @@
     width: min(720px, 92vw);
     max-height: 84vh;
     z-index: 81;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 30px 70px rgba(0, 0, 0, 0.5);
-  }
-  .vendor-stripe {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    opacity: 0.85;
   }
   .flyout-head {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 16px 18px 14px;
+    padding: 16px 50px 14px 18px;
     border-bottom: 1px solid var(--border);
   }
   .vendor-pill {
@@ -277,16 +265,6 @@
   .flyout-title { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
   .title-line { font-size: 15px; font-weight: 700; color: var(--text-primary); }
   .subtitle-line { font-size: 12px; color: var(--text-muted); }
-  .flyout-close {
-    width: 28px;
-    height: 28px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--radius-sm);
-    color: var(--text-muted);
-  }
-  .flyout-close:hover { color: var(--text-primary); background: var(--bg-elevated); }
 
   .flyout-toolbar {
     display: flex;

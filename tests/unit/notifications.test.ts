@@ -7,6 +7,9 @@ const ALL_KINDS: NotificationKind[] = [
   "apply_cancelled",
   "app_update_available",
   "catalog_update_available",
+  "driver_update_available",
+  "system_driver_update_available",
+  "backup_restored",
   "scan_failed",
   "catalog_refresh_failed",
 ];
@@ -37,6 +40,14 @@ describe("makeNotificationEntry", () => {
     expect(e.apply_id).toBe("ap-1");
     expect(e.game_id).toBe("g-1");
     expect(e.error_class).toBe("lock");
+  });
+
+  it("defaults link to null and carries it when provided", () => {
+    expect(makeNotificationEntry("apply_success", "ok").link).toBeNull();
+    const release = makeNotificationEntry("app_update_available", "DLSSync v1.6.0 available", "Fixed XeSS", {
+      link: "https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.0",
+    });
+    expect(release.link).toBe("https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.0");
   });
 
   it("generates a unique id per call", () => {

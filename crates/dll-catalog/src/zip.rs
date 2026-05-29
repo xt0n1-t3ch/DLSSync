@@ -167,6 +167,7 @@ mod tests {
             channel: "stable".into(),
             is_dev: false,
             min_driver: None,
+            hash_algorithm: "sha256".into(),
         }
     }
 

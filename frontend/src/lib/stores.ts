@@ -8,11 +8,15 @@ import {
   getSettings,
   saveSettings,
   detectDlls,
+  detectDlssEnabler,
   enrichGameArt,
   fetchSteamArt,
   checkDriverUpdates,
   listDriverHistory,
   installDriver,
+  scanSystemDrivers,
+  installSystemDriver,
+  driverInstallContext,
   type DetectedGame,
   type BackupEntry,
   type AppSettings,
@@ -23,8 +27,11 @@ import {
   type DriverInstallProgress,
   type InstallStage,
   type GpuVendor,
+  type SystemDeviceGroup,
+  type SystemDriverUpdate,
+  type SystemDriverProgress,
 } from "./api";
-import { sortDriverReports } from "./drivers";
+import { sortDriverReports, hasDriverUpdate, driverPageUrl } from "./drivers";
 import { vendorLabel, familyLabel, familyShort, type UpdateStatus } from "./labels";
 import { buildShasByVendor, gameStatusFromRecords, type CatalogShasByVendor, type RelationContext } from "./relation";
 import {
@@ -92,6 +99,44 @@ function emitCatalogUpdateNotifications(
   }
 }
 
+const DRIVER_UPDATE_NOTIFICATION_CAP = 4;
+
+function emitDriverUpdateNotifications(reports: DriverStatusReport[]): void {
+  const fresh = reports
+    .filter(hasDriverUpdate)
+    .filter(
+      (r) => !alreadyEmitted("driver_update_available", `${r.device.model} ${r.latest?.version.display ?? ""}`),
+    );
+  for (const report of fresh.slice(0, DRIVER_UPDATE_NOTIFICATION_CAP)) {
+    const version = report.latest?.version.display ?? "latest";
+    const entry = makeNotificationEntry(
+      "driver_update_available",
+      `GPU driver ${version} — ${report.device.model}`,
+      `New ${vendorLabel(report.device.vendor)} driver available`,
+      { link: driverPageUrl(report) },
+    );
+    pushNotification(entry).catch((err) =>
+      console.warn("[dlssync] push driver-update notification failed:", err),
+    );
+  }
+}
+
+function emitSystemDriverUpdateNotification(groups: SystemDeviceGroup[]): void {
+  const count = groups.reduce((total, group) => total + group.updates.length, 0);
+  if (count === 0) return;
+  const noun = `${count} system driver update${count === 1 ? "" : "s"}`;
+  if (alreadyEmitted("system_driver_update_available", noun)) return;
+  const categories = groups.filter((group) => group.updates.length > 0).length;
+  const entry = makeNotificationEntry(
+    "system_driver_update_available",
+    `${noun} available`,
+    `Across ${categories} hardware categor${categories === 1 ? "y" : "ies"}`,
+  );
+  pushNotification(entry).catch((err) =>
+    console.warn("[dlssync] push system-driver notification failed:", err),
+  );
+}
+
 export const currentView: Writable<string> = writable("library");
 
 export const games: Writable<DetectedGame[]> = writable([]);
@@ -125,23 +170,80 @@ export const settings: Writable<AppSettings | null> = writable(null);
 export const gameDlls: Writable<Record<string, DllRecord[]>> = writable({});
 export const gameDllsLoading: Writable<Record<string, boolean>> = writable({});
 export const gameDllErrors: Writable<Record<string, string | null>> = writable({});
+export const gameDlssEnabler: Writable<Record<string, boolean>> = writable({});
 
+export interface ToastAction {
+  label: string;
+  run: () => void;
+}
 export interface Toast {
   id: number;
   kind: "success" | "warning" | "danger" | "info";
   message: string;
+  action?: ToastAction;
+  ttlMs: number;
 }
 export const toasts: Writable<Toast[]> = writable([]);
 let toastSeq = 0;
 
 export function showToast(kind: Toast["kind"], message: string, ttlMs = 4000): void {
   const id = ++toastSeq;
-  toasts.update((arr) => [...arr, { id, kind, message }]);
+  toasts.update((arr) => [...arr, { id, kind, message, ttlMs }]);
   setTimeout(() => dismissToast(id), ttlMs);
+}
+
+/** A quiet toast carrying a single inline action (e.g. Undo). Returns the id so
+ *  the caller can dismiss it early once the action is no longer reversible. */
+export function showActionToast(
+  kind: Toast["kind"],
+  message: string,
+  action: ToastAction,
+  ttlMs = 6000,
+): number {
+  const id = ++toastSeq;
+  toasts.update((arr) => [...arr, { id, kind, message, action, ttlMs }]);
+  setTimeout(() => dismissToast(id), ttlMs);
+  return id;
 }
 
 export function dismissToast(id: number): void {
   toasts.update((arr) => arr.filter((t) => t.id !== id));
+}
+
+/** Run a reversible toggle optimistically: flip UI state now, fire the backend
+ *  call, and surface a quiet Undo toast. The optimistic state is reverted if the
+ *  backend rejects OR the user clicks Undo; on success the toast lingers briefly
+ *  with the Undo affordance, then auto-clears. */
+export async function optimisticToggle(opts: {
+  applyOptimistic: () => void;
+  revert: () => void;
+  commit: () => Promise<void>;
+  message: string;
+  undoLabel?: string;
+}): Promise<void> {
+  opts.applyOptimistic();
+  let reverted = false;
+  const undo = (): void => {
+    if (reverted) return;
+    reverted = true;
+    opts.revert();
+  };
+  const toastId = showActionToast("info", opts.message, {
+    label: opts.undoLabel ?? "Undo",
+    run: () => {
+      undo();
+      dismissToast(toastId);
+    },
+  });
+  try {
+    await opts.commit();
+  } catch (err: unknown) {
+    if (!reverted) {
+      undo();
+      dismissToast(toastId);
+      showToast("danger", `Could not save: ${formatError(err)}`);
+    }
+  }
 }
 
 export const searchQuery: Writable<string> = writable("");
@@ -202,12 +304,20 @@ export const relationContext: Readable<RelationContext> = derived(
 );
 
 export const gameStatuses: Readable<GameStatusMap> = derived(
-  [games, gameDlls, gameDllErrors, relationContext, settings],
-  ([$games, $dlls, $errs, $ctx, $settings]) => {
+  [games, gameDlls, gameDllErrors, relationContext, settings, gameDlssEnabler],
+  ([$games, $dlls, $errs, $ctx, $settings, $enabler]) => {
     const out: GameStatusMap = {};
+    const prefs = $settings?.update_prefs ?? null;
     for (const g of $games) {
       const disabled = $settings?.game_preferences[g.id]?.disabled_families ?? [];
-      out[g.id] = gameStatusFromRecords($dlls[g.id], $ctx, disabled, $errs[g.id] ?? null);
+      out[g.id] = gameStatusFromRecords(
+        $dlls[g.id],
+        $ctx,
+        disabled,
+        $errs[g.id] ?? null,
+        prefs,
+        $enabler[g.id] ?? false,
+      );
     }
     return out;
   },
@@ -286,6 +396,7 @@ export const sidebarCounts: Readable<SidebarCounts> = derived(
 );
 
 export const commandPaletteOpen: Writable<boolean> = writable(false);
+export const notificationsOpen: Writable<boolean> = writable(false);
 export const shortcutOverlayOpen: Writable<boolean> = writable(false);
 export const notificationsUnreadCount: Readable<number> = derived(
   notifications,
@@ -362,6 +473,9 @@ async function scanOne(g: DetectedGame): Promise<void> {
       gameDlls.update((m) => ({ ...m, [g.id]: records }));
       gameDllErrors.update((m) => ({ ...m, [g.id]: null }));
       gameDllsLoading.update((m) => ({ ...m, [g.id]: false }));
+      void detectDlssEnabler(g.install_dir)
+        .then((flag) => gameDlssEnabler.update((m) => ({ ...m, [g.id]: flag })))
+        .catch(() => {});
       return;
     } catch (err) {
       lastErr = err;
@@ -488,6 +602,7 @@ export async function loadDriverUpdates(): Promise<void> {
   try {
     const reports = await checkDriverUpdates();
     driverReports.set(sortDriverReports(reports));
+    emitDriverUpdateNotifications(reports);
   } catch (err: unknown) {
     const message = formatError(err);
     driverCheckError.set(message);
@@ -572,6 +687,161 @@ export async function loadDriverHistory(
     driverHistoryLoading.update((m) => ({ ...m, [model]: false }));
   }
 }
+
+
+export const systemDriverGroups: Writable<SystemDeviceGroup[]> = writable([]);
+export const systemScanInProgress: Writable<boolean> = writable(false);
+export const systemScanError: Writable<string | null> = writable(null);
+export const systemScanRan: Writable<boolean> = writable(false);
+
+export async function loadSystemDrivers(): Promise<void> {
+  systemScanInProgress.set(true);
+  systemScanError.set(null);
+  try {
+    const groups = await scanSystemDrivers();
+    systemDriverGroups.set(groups);
+    systemScanRan.set(true);
+    emitSystemDriverUpdateNotification(groups);
+  } catch (err: unknown) {
+    const message = formatError(err);
+    systemScanError.set(message);
+    showToast("danger", `System driver scan failed: ${message}`);
+  } finally {
+    systemScanInProgress.set(false);
+  }
+}
+
+/** Shared, app-level install state for a single system-driver update. Keyed by
+ *  the WUA `update_id` so the card that launched it shows progress regardless of
+ *  which view is mounted (the app-level listener keeps writing here). */
+export interface SystemDriverInstallState {
+  updateId: string | null;
+  stage: SystemDriverProgress["stage"] | null;
+  message: string;
+  fraction: number | null;
+}
+
+const SYSTEM_DRIVER_IDLE: SystemDriverInstallState = {
+  updateId: null,
+  stage: null,
+  message: "",
+  fraction: null,
+};
+
+/** Human label per install stage (the backend enum is machine-cased). */
+export const DRIVER_INSTALL_STAGE_LABEL: Record<string, string> = {
+  downloading: "Downloading",
+  installing: "Installing",
+  completed: "Done",
+  failed: "Failed",
+};
+
+export const systemDriverInstall: Writable<SystemDriverInstallState> = writable({
+  ...SYSTEM_DRIVER_IDLE,
+});
+
+/** Fold a backend progress event into the shared state. Ignored when no install
+ *  is active so a late event cannot resurrect a cleared card. */
+export function applySystemDriverProgress(p: SystemDriverProgress): void {
+  systemDriverInstall.update((s) =>
+    s.updateId === null ? s : { ...s, stage: p.stage, message: p.message, fraction: p.fraction },
+  );
+}
+
+/** Drive a system-driver install end-to-end. One at a time; on success the
+ *  scan is refreshed so the freshly-installed driver drops off the list. */
+export async function startSystemDriverInstall(
+  update: SystemDriverUpdate,
+  deviceClassLabel?: string,
+): Promise<void> {
+  if (get(systemDriverInstall).updateId) return;
+  systemDriverInstall.set({
+    updateId: update.update_id,
+    stage: "downloading",
+    message: "Starting…",
+    fraction: null,
+  });
+  try {
+    const outcome = await installSystemDriver(
+      update.update_id,
+      driverInstallContext(update, deviceClassLabel ?? update.class),
+    );
+    if (outcome.success) {
+      const reboot = outcome.reboot_required ? " A restart is required to finish." : "";
+      showToast("success", `${update.title} installed.${reboot}`);
+      systemDriverInstall.set({ ...SYSTEM_DRIVER_IDLE });
+      await loadSystemDrivers();
+    } else {
+      showToast("danger", outcome.message);
+      failSystemDriverInstall(update.update_id, outcome.message);
+    }
+  } catch (err: unknown) {
+    const message = `Install failed: ${formatError(err)}`;
+    showToast("danger", message);
+    failSystemDriverInstall(update.update_id, message);
+  }
+}
+
+/** Park the card in a VISIBLE terminal 'failed' state (instead of silently
+ *  snapping back to idle), then auto-clear after a grace period. */
+function failSystemDriverInstall(id: string, message: string): void {
+  systemDriverInstall.set({ updateId: id, stage: "failed", message, fraction: 1 });
+  setTimeout(() => {
+    const s = get(systemDriverInstall);
+    if (s.updateId === id && s.stage === "failed") {
+      systemDriverInstall.set({ ...SYSTEM_DRIVER_IDLE });
+    }
+  }, 8000);
+}
+
+/** Manually clear a finished/failed install card. */
+export function dismissSystemDriverInstall(): void {
+  systemDriverInstall.set({ ...SYSTEM_DRIVER_IDLE });
+}
+
+export interface DockItem {
+  id: string;
+  kind: "apply" | "gpu_driver" | "system_driver";
+  label: string;
+  stage: string;
+  fraction: number | null;
+}
+
+export const dockItems: Readable<DockItem[]> = derived(
+  [activeApplies, driverInstall, systemDriverInstall],
+  ([$applies, $gpu, $sys]) => {
+    const items: DockItem[] = [];
+    for (const a of Object.values($applies)) {
+      if (a.ended_at !== null) continue;
+      items.push({
+        id: a.apply_id,
+        kind: "apply",
+        label: a.game_label ?? a.game_id,
+        stage: a.stage,
+        fraction: a.progress,
+      });
+    }
+    if ($gpu.vendor !== null) {
+      items.push({
+        id: `gpu:${$gpu.vendor}`,
+        kind: "gpu_driver",
+        label: `${$gpu.vendor.toUpperCase()} driver`,
+        stage: $gpu.stage ?? "",
+        fraction: $gpu.fraction,
+      });
+    }
+    if ($sys.updateId !== null) {
+      items.push({
+        id: `sys:${$sys.updateId}`,
+        kind: "system_driver",
+        label: "Component driver",
+        stage: $sys.stage ?? "",
+        fraction: $sys.fraction,
+      });
+    }
+    return items;
+  },
+);
 
 export async function loadSettings(): Promise<void> {
   try {

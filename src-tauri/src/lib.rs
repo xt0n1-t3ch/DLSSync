@@ -41,8 +41,134 @@ fn sweep_stale_staging_dirs(root: &std::path::Path) {
     }
 }
 
+/// Dispatch the two ELEVATED-child modes this process can be relaunched in via
+/// UAC (by the System & Components driver commands). Returns the child exit code,
+/// or `None` for a normal (GUI) launch.
+///
+/// - `--restore-driver <dir>`: re-install an exported DriverStore snapshot
+///   (rollback). Writes an `InstallReport` JSON to `--result`.
+/// - `--wua-install <UpdateID:Rev>`: snapshot the current driver
+///   (`--snapshot-inf`/`--snapshot-dest`, best-effort) then run the
+///   Administrator-only WUA download+install. Writes incremental progress to
+///   `--progress-file` and the `InstallReport` to `--result`.
+///
+/// Either way the GUI is never started.
+#[cfg(windows)]
+fn try_run_wua_install_child() -> Option<i32> {
+    let args: Vec<String> = std::env::args().collect();
+    let arg_after = |flag: &str| -> Option<String> {
+        args.iter()
+            .position(|a| a == flag)
+            .and_then(|i| args.get(i + 1))
+            .cloned()
+    };
+
+    if let Some(dir) = arg_after("--restore-driver") {
+        return Some(run_driver_restore_child(&dir, arg_after("--result")));
+    }
+    let update_id = arg_after("--wua-install")?;
+    Some(run_wua_install_child(
+        &update_id,
+        arg_after("--result"),
+        arg_after("--progress-file"),
+        arg_after("--snapshot-inf"),
+        arg_after("--snapshot-dest"),
+    ))
+}
+
+#[cfg(windows)]
+fn run_driver_restore_child(dir: &str, result_path: Option<String>) -> i32 {
+    use system_drivers::InstallReport;
+    let (report, exit) =
+        match system_drivers::driver_snapshot::restore_driver(std::path::Path::new(dir)) {
+            Ok(()) => (
+                InstallReport {
+                    success: true,
+                    reboot_required: true,
+                    result_code: 0,
+                    message: "Driver rolled back from its pre-update snapshot.".to_string(),
+                },
+                0,
+            ),
+            Err(e) => (
+                InstallReport {
+                    success: false,
+                    reboot_required: false,
+                    result_code: -1,
+                    message: format!("Rollback failed: {e}"),
+                },
+                2,
+            ),
+        };
+    if let Some(path) = result_path {
+        if let Ok(json) = serde_json::to_string(&report) {
+            let _ = std::fs::write(&path, json);
+        }
+    }
+    exit
+}
+
+#[cfg(windows)]
+fn run_wua_install_child(
+    update_id: &str,
+    result_path: Option<String>,
+    progress_path: Option<String>,
+    snapshot_inf: Option<String>,
+    snapshot_dest: Option<String>,
+) -> i32 {
+    use system_drivers::{InstallProgress, InstallReport, UpdateSource, WuaSource};
+
+    if let (Some(inf), Some(dest)) = (snapshot_inf.as_deref(), snapshot_dest.as_deref()) {
+        let _ = system_drivers::driver_snapshot::export_driver(inf, std::path::Path::new(dest));
+        let _ = system_drivers::driver_snapshot::create_restore_point(
+            "DLSSync — before System & Components driver update",
+        );
+    }
+
+    let mut on_progress = |p: InstallProgress| {
+        if let Some(path) = progress_path.as_deref() {
+            if let Ok(json) = serde_json::to_string(&p) {
+                let _ = std::fs::write(path, json);
+            }
+        }
+    };
+    let (report, exit) = match WuaSource.install(update_id, &mut on_progress) {
+        Ok(r) if r.success => (r, 0),
+        Ok(r) => (r, 2),
+        Err(e) => {
+            let msg = e.to_string();
+            let lower = msg.to_ascii_lowercase();
+            let exit = if msg.contains("80240044") || lower.contains("access denied") {
+                3
+            } else {
+                2
+            };
+            (
+                InstallReport {
+                    success: false,
+                    reboot_required: false,
+                    result_code: -1,
+                    message: format!("Install failed: {msg}"),
+                },
+                exit,
+            )
+        }
+    };
+    if let Some(path) = result_path {
+        if let Ok(json) = serde_json::to_string(&report) {
+            let _ = std::fs::write(&path, json);
+        }
+    }
+    exit
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(windows)]
+    if let Some(code) = try_run_wua_install_child() {
+        std::process::exit(code);
+    }
+
     let _log_guard = logging::init();
     tracing::info!(version = env!("CARGO_PKG_VERSION"), "DLSSync starting");
 
@@ -187,6 +313,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::scan::scan_libraries,
             commands::scan::detect_dlls,
+            commands::scan::detect_dlss_enabler,
             commands::scan::enrich_game_art,
             commands::scan::fetch_steam_art,
             commands::shell::open_path,
@@ -223,11 +350,15 @@ pub fn run() {
             commands::drivers::check_driver_updates,
             commands::drivers::list_driver_history,
             commands::drivers::install_driver,
+            commands::system_drivers::scan_system_drivers,
+            commands::system_drivers::install_system_driver,
+            commands::system_drivers::restore_system_driver,
+            commands::system_drivers::system_driver_versions,
             commands::anticheat::detect_anticheat,
             commands::dlss_profile::dlss_overrides_supported,
             commands::dlss_profile::apply_dlss_override,
             commands::dlss_profile::reset_dlss_override,
-            commands::dlss_profile::read_dlss_override,
+            commands::dlss_profile::read_dlss_override_config,
             commands::dlss_profile::find_game_executable,
             commands::runtime::runtime_mode,
             commands::runtime::open_devtools,

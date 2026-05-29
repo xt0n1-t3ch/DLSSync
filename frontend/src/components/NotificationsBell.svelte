@@ -11,6 +11,7 @@
   } from "../lib/notifications";
   import { currentView } from "../lib/stores";
   import { formatDurationSecs } from "../lib/formatHuman";
+  import { EXTERNAL_URLS } from "../lib/ux";
 
   let { open, onClose }: { open: boolean; onClose: () => void } = $props();
   let panelEl: HTMLDivElement | undefined = $state();
@@ -26,6 +27,7 @@
     const onClickOutside = (e: MouseEvent): void => {
       if (!open) return;
       const target = e.target as Node | null;
+      if (target instanceof Element && target.closest("[data-notifications-toggle]")) return;
       if (panelEl && target && !panelEl.contains(target)) {
         onClose();
       }
@@ -54,6 +56,39 @@
     } else if (entry.kind === "catalog_update_available") {
       currentView.set("catalog");
       onClose();
+    } else if (entry.kind === "driver_update_available" || entry.kind === "system_driver_update_available") {
+      currentView.set("drivers");
+      onClose();
+    } else if (entry.kind === "backup_restored") {
+      currentView.set("backups");
+      onClose();
+    }
+  }
+
+  function linkActions(entry: NotificationEntry): { label: string; url: string }[] {
+    const actions: { label: string; url: string }[] = [];
+    if (entry.link) {
+      const label =
+        entry.kind === "app_update_available"
+          ? "GitHub release"
+          : entry.kind === "driver_update_available" || entry.kind === "system_driver_update_available"
+            ? "Vendor page"
+            : "Open";
+      actions.push({ label, url: entry.link });
+    }
+    if (entry.kind === "app_update_available") {
+      actions.push({ label: "Nexus Mods", url: EXTERNAL_URLS.nexusMod });
+    }
+    return actions;
+  }
+
+  async function openExternal(url: string, ev: Event): Promise<void> {
+    ev.stopPropagation();
+    try {
+      const { open } = await import("@tauri-apps/plugin-shell");
+      await open(url);
+    } catch (err) {
+      console.warn("[dlssync] open external link failed:", err);
     }
   }
 
@@ -88,6 +123,9 @@
       case "apply_cancelled": return "↺";
       case "app_update_available": return "↑";
       case "catalog_update_available": return "★";
+      case "driver_update_available":
+      case "system_driver_update_available": return "⬇";
+      case "backup_restored": return "↺";
       case "scan_failed":
       case "catalog_refresh_failed": return "!";
       default: return "•";
@@ -101,6 +139,9 @@
       case "apply_cancelled": return "orange";
       case "app_update_available": return "blue";
       case "catalog_update_available": return "purple";
+      case "driver_update_available": return "green";
+      case "system_driver_update_available": return "purple";
+      case "backup_restored": return "green";
       case "scan_failed":
       case "catalog_refresh_failed": return "orange";
       default: return "blue";
@@ -114,6 +155,9 @@
       case "apply_cancelled": return "Update cancelled";
       case "app_update_available": return "App update available";
       case "catalog_update_available": return "New catalog version";
+      case "driver_update_available": return "GPU driver update";
+      case "system_driver_update_available": return "System driver update";
+      case "backup_restored": return "Backup restored";
       case "scan_failed": return "Library scan failed";
       case "catalog_refresh_failed": return "Catalog refresh failed";
       default: return "Notification";
@@ -122,7 +166,7 @@
 </script>
 
 {#if open}
-  <div class="bell-panel" role="dialog" aria-label="Notifications" bind:this={panelEl}>
+  <div class="bell-panel glass-dialog" role="dialog" aria-label="Notifications" bind:this={panelEl}>
     <header class="bell-panel-header">
       <span class="bell-panel-title">Notifications</span>
       <span class="bell-panel-count" aria-label="{entries.length} entries">{entries.length}</span>
@@ -140,32 +184,48 @@
             {#if entry.read_at == null}
               <span class="bell-unread-stripe" aria-hidden="true"></span>
             {/if}
-            <button
-              type="button"
-              class="bell-item-main"
-              onclick={() => handleItemClick(entry)}
-              aria-label="{kindLabel(entry.kind)}: {entry.title}"
-            >
-              <span class="aura-badge bell-item-badge" data-tint={tintForKind(entry.kind)} aria-hidden="true">
-                {kindIcon(entry.kind)}
-              </span>
-              <span class="bell-item-text">
-                <span class="bell-item-title">{entry.title}</span>
-                {#if entry.body}
-                  <span class="bell-item-body">{entry.body}</span>
-                {/if}
-                <span class="bell-item-time">{relativeTime(entry.created_at)}</span>
-              </span>
-            </button>
-            <button
-              type="button"
-              class="bell-item-dismiss"
-              title="Dismiss"
-              aria-label="Dismiss notification"
-              onclick={(ev) => handleDismiss(entry, ev)}
-            >
-              ×
-            </button>
+            <div class="bell-item-row">
+              <button
+                type="button"
+                class="bell-item-main"
+                onclick={() => handleItemClick(entry)}
+                aria-label="{kindLabel(entry.kind)}: {entry.title}"
+              >
+                <span class="aura-badge bell-item-badge" data-tint={tintForKind(entry.kind)} aria-hidden="true">
+                  {kindIcon(entry.kind)}
+                </span>
+                <span class="bell-item-text">
+                  <span class="bell-item-title">{entry.title}</span>
+                  {#if entry.body}
+                    <span class="bell-item-body">{entry.body}</span>
+                  {/if}
+                  <span class="bell-item-time">{relativeTime(entry.created_at)}</span>
+                </span>
+              </button>
+              <button
+                type="button"
+                class="bell-item-dismiss"
+                title="Dismiss"
+                aria-label="Dismiss notification"
+                onclick={(ev) => handleDismiss(entry, ev)}
+              >
+                ×
+              </button>
+            </div>
+            {#if linkActions(entry).length > 0}
+              <div class="bell-item-actions">
+                {#each linkActions(entry) as action}
+                  <button
+                    type="button"
+                    class="bell-item-link"
+                    onclick={(ev) => openExternal(action.url, ev)}
+                  >
+                    {action.label}
+                    <span class="bell-item-link-icon" aria-hidden="true">↗</span>
+                  </button>
+                {/each}
+              </div>
+            {/if}
           </div>
         {/each}
       {/if}
@@ -182,19 +242,23 @@
 
 <style>
   .bell-panel {
-    position: absolute;
-    top: calc(100% + 8px);
-    right: 0;
+    position: fixed;
+    top: calc(var(--topbar-height) + 6px);
+    right: 12px;
     width: 380px;
-    max-height: 480px;
+    max-width: calc(100vw - 24px);
+    max-height: min(480px, calc(100vh - var(--topbar-height) - 24px));
     display: flex;
     flex-direction: column;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
     border-radius: var(--radius-2xl);
     box-shadow: var(--shadow-lg);
-    z-index: 60;
-    overflow: hidden;
+    z-index: 200;
+  }
+  @media (max-width: 460px) {
+    .bell-panel {
+      left: 12px;
+      width: auto;
+    }
   }
   .bell-panel-header {
     display: flex;
@@ -231,13 +295,17 @@
   .bell-item {
     position: relative;
     display: flex;
-    align-items: stretch;
-    gap: 2px;
+    flex-direction: column;
     border-radius: var(--radius-lg);
     transition: background var(--dur-fast) var(--ease);
   }
   .bell-item:hover {
     background: var(--bg-card-hover);
+  }
+  .bell-item-row {
+    display: flex;
+    align-items: stretch;
+    gap: 2px;
   }
   .bell-unread-stripe {
     position: absolute;
@@ -322,6 +390,38 @@
   .bell-item-dismiss:focus-visible {
     outline: none;
     box-shadow: var(--shadow-ring);
+  }
+  .bell-item-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0 10px 10px 58px;
+  }
+  .bell-item-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-dim);
+    border: 1px solid transparent;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+  }
+  .bell-item-link:hover {
+    background: var(--accent);
+    color: var(--accent-fg);
+  }
+  .bell-item-link:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-ring);
+  }
+  .bell-item-link-icon {
+    font-size: 10px;
+    opacity: 0.8;
   }
   .bell-panel-footer {
     border-top: 1px solid var(--border);

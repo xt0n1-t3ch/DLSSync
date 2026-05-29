@@ -3,10 +3,11 @@
   import {
     applyDlssOverride,
     resetDlssOverride,
-    readDlssOverride,
+    readDlssOverrideConfig,
     openUrl,
     type OverrideScope,
     type DlssOverrideConfig,
+    type DlssOverrideSource,
     type DlssPreset,
     type FrameGenMode,
     type FrameGenCount,
@@ -51,6 +52,16 @@
   let config = $state<DlssOverrideConfig>(emptyDlssConfig());
   let busy = $state(false);
   let activeCount = $state(0);
+  let source = $state<DlssOverrideSource>("none");
+  let sourceLabel = $derived(
+    source === "none"
+      ? null
+      : source === "per_game"
+        ? "From NVIDIA driver"
+        : scope.scope === "global"
+          ? "Set in NVIDIA driver"
+          : "Inherited from Global default",
+  );
 
   let dlss4Ok = $derived(driverPacked === 0 || dlss4Available(driverPacked));
   let dynamicOk = $derived(driverPacked === 0 || dynamicMfgAvailable(driverPacked));
@@ -61,10 +72,13 @@
 
   async function refresh(): Promise<void> {
     try {
-      const values = await readDlssOverride(scope);
-      activeCount = values.filter((v) => v.value != null && v.value !== 0).length;
+      const readback = await readDlssOverrideConfig(scope);
+      config = readback.config;
+      activeCount = readback.active_count;
+      source = readback.source;
     } catch {
       activeCount = 0;
+      source = "none";
     }
   }
 
@@ -81,8 +95,15 @@
   async function apply(): Promise<void> {
     busy = true;
     try {
-      await applyDlssOverride(scope, config);
-      showToast("success", "DLSS override applied — restart the game to take effect.");
+      const outcome = await applyDlssOverride(scope, config);
+      if (outcome.needs_elevation) {
+        showToast(
+          "warning",
+          "Super Resolution applied. Frame-generation overrides need administrator — relaunch DLSSync as administrator to apply them.",
+        );
+      } else {
+        showToast("success", "DLSS override applied — restart the game to take effect.");
+      }
       await refresh();
     } catch (err) {
       showToast("danger", `Apply failed: ${err}`);
@@ -110,6 +131,10 @@
   <div class="dlss-head">
     <h4>DLSS Overrides{scope.scope === "global" ? " — Global default" : ""}</h4>
     {#if activeCount > 0}<span class="dlss-active">{activeCount} active</span>{/if}
+    {#if sourceLabel}<span class="dlss-source">{sourceLabel}</span>{/if}
+    <button class="dlss-refresh" onclick={refresh} title="Re-read the current values from the NVIDIA driver">
+      Refresh from driver
+    </button>
   </div>
 
   {#if !dlss4Ok}
@@ -237,6 +262,27 @@
     background: var(--update-dim, var(--accent-dim));
     color: var(--update, var(--accent));
   }
+  .dlss-source {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
+  }
+  .dlss-refresh {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    white-space: nowrap;
+    transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+  }
+  .dlss-refresh:hover { color: var(--accent); background: var(--accent-dim); }
+  .dlss-refresh:focus-visible { outline: none; box-shadow: var(--shadow-ring); }
   .dlss-warn {
     font-size: 12px;
     color: var(--warning, #d6a032);

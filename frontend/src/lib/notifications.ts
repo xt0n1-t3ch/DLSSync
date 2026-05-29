@@ -10,6 +10,9 @@ export type NotificationKind =
   | "apply_cancelled"
   | "app_update_available"
   | "catalog_update_available"
+  | "driver_update_available"
+  | "system_driver_update_available"
+  | "backup_restored"
   | "scan_failed"
   | "catalog_refresh_failed";
 
@@ -17,7 +20,7 @@ export function makeNotificationEntry(
   kind: NotificationKind,
   title: string,
   body: string | null = null,
-  extras?: Partial<Pick<NotificationEntry, "apply_id" | "game_id" | "error_class">>,
+  extras?: Partial<Pick<NotificationEntry, "apply_id" | "game_id" | "error_class" | "link">>,
 ): NotificationEntry {
   return {
     id: crypto.randomUUID(),
@@ -30,6 +33,7 @@ export function makeNotificationEntry(
     apply_id: extras?.apply_id ?? null,
     game_id: extras?.game_id ?? null,
     error_class: extras?.error_class ?? null,
+    link: extras?.link ?? null,
   };
 }
 
@@ -44,6 +48,7 @@ export interface NotificationEntry {
   apply_id: string | null;
   game_id: string | null;
   error_class: string | null;
+  link: string | null;
 }
 
 export interface ListFilter {

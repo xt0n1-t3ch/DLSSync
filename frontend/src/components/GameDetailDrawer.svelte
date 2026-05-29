@@ -1,10 +1,11 @@
 <script lang="ts">
-  import { fly, fade } from "svelte/transition";
-  import { cubicOut, backIn } from "svelte/easing";
+  import { onDestroy } from "svelte";
+  import { setActiveArt, clearActiveArt } from "../lib/artContext";
   import { EXTERNAL_URLS } from "../lib/ux";
   import {
     games,
     gameDlls,
+    gameDlssEnabler,
     gameDllsLoading,
     gameDllErrors,
     catalogLatestByKey,
@@ -12,11 +13,12 @@
     settings,
     persistSettings,
     showToast,
+    optimisticToggle,
     rescanGame,
     driverReports,
   } from "../lib/stores";
-  import { dllRelation, targetVersion } from "../lib/relation";
-  import { addBlacklistEntry, removeBlacklistEntry, findGameExecutable, detectAnticheat, type DllRecord, type AntiCheatReport } from "../lib/api";
+  import { dllRelation, targetVersion, recordUpdatable } from "../lib/relation";
+  import { addBlacklistEntry, removeBlacklistEntry, findGameExecutable, detectAnticheat, saveSettings, type AppSettings, type DllRecord, type AntiCheatReport } from "../lib/api";
   import { hasAntiCheat, statusNote, warningMessage, severity } from "../lib/anticheat";
   import DlssOverridePanel from "./DlssOverridePanel.svelte";
   import { dispatchApply, type ApplyTarget } from "../lib/applyController";
@@ -41,6 +43,7 @@
   } from "../lib/labels";
   import VersionPickerPopover from "./VersionPickerPopover.svelte";
   import FeatureIcon from "./FeatureIcon.svelte";
+  import ContextMenu, { type ContextMenuAction } from "./ContextMenu.svelte";
 
   let { gameId, onClose, onApplyStart }: {
     gameId: string;
@@ -49,7 +52,16 @@
   } = $props();
 
   let game = $derived($games.find((g) => g.id === gameId));
+  $effect(() => {
+    if (game?.image_url) setActiveArt(game.image_url);
+  });
+
+  onDestroy(() => {
+    clearActiveArt();
+  });
+
   let records: DllRecord[] = $derived($gameDlls[gameId] ?? []);
+  let dlssEnabler = $derived($gameDlssEnabler[gameId] ?? false);
   let loading = $derived($gameDllsLoading[gameId] ?? false);
   let scanError = $derived($gameDllErrors[gameId] ?? null);
   let imgErrored = $state(false);
@@ -128,6 +140,7 @@
   }
 
   function isOutdated(r: DllRecord): boolean {
+    if (!recordUpdatable(r, $settings?.update_prefs ?? null, dlssEnabler)) return false;
     return relation(r) === "outdated";
   }
 
@@ -147,18 +160,26 @@
 
   async function toggleFeatureDisabled(recs: DllRecord[]): Promise<void> {
     if (!$settings) return;
+    const before: AppSettings = $settings;
     const families: Set<string> = new Set(recs.map((r) => r.family));
-    const allDisabled = [...families].every((f) => disabledFamilies.includes(f));
-    const prefs = { ...$settings.game_preferences };
+    const wasAllDisabled = [...families].every((f) => disabledFamilies.includes(f));
+    const prefs = { ...before.game_preferences };
     const cur = prefs[gameId] ?? { disabled_families: [], pinned_versions: {} };
     let next = [...cur.disabled_families];
-    if (allDisabled) {
+    if (wasAllDisabled) {
       next = next.filter((f) => !families.has(f));
     } else {
       for (const f of families) if (!next.includes(f)) next.push(f);
     }
     prefs[gameId] = { ...cur, disabled_families: next };
-    await persistSettings({ ...$settings, game_preferences: prefs });
+    const after: AppSettings = { ...before, game_preferences: prefs };
+    const featureName = recs.length > 0 ? familyShort(recs[0].family) : "Feature";
+    await optimisticToggle({
+      applyOptimistic: () => settings.set(after),
+      revert: () => settings.set(before),
+      commit: () => saveSettings(after),
+      message: `${featureName} ${wasAllDisabled ? "enabled" : "disabled"} for ${game?.name ?? "this game"}`,
+    });
   }
 
   async function setPin(key: string, version: string | null): Promise<void> {
@@ -229,9 +250,10 @@
       const primary = pickPrimary(fid, recs);
       const anyOutdated = recs.some((r) => relation(r) === "outdated");
       const anyAhead = recs.some((r) => relation(r) === "ahead");
-      const allUpToDate = recs.length > 0 && recs.some((r) => relation(r) === "same");
+      const inCatalog = recs.filter((r) => relation(r) !== "no-target");
+      const allUpToDate = inCatalog.length > 0 && inCatalog.every((r) => relation(r) === "same");
       const allDisabled = recs.every((r) => disabledFamilies.includes(r.family));
-      let label = "No catalog";
+      let label = "Not in catalog";
       let tone: FeatureBucket["statusTone"] = "neutral";
       if (allDisabled) { label = "Disabled"; tone = "neutral"; }
       else if (anyOutdated) { label = recs.length > 1 ? "Updates ready" : "Update ready"; tone = "update"; }
@@ -349,6 +371,37 @@
     }
   }
 
+  let rowMenu = $state<{ x: number; y: number; primaryKey: string } | null>(null);
+  const rowMenuItems = [
+    { action: "open_folder" as ContextMenuAction, label: "Open folder" },
+    { action: "scan" as ContextMenuAction, label: "Rescan" },
+    { action: "pin" as ContextMenuAction, label: "Pin a version…" },
+    { action: "hide" as ContextMenuAction, label: "Hide game" },
+  ];
+
+  function openRowMenu(primaryKey: string, e: MouseEvent): void {
+    e.preventDefault();
+    rowMenu = { x: e.clientX, y: e.clientY, primaryKey };
+  }
+
+  async function onRowMenuSelect(action: ContextMenuAction): Promise<void> {
+    const key = rowMenu?.primaryKey ?? null;
+    switch (action) {
+      case "open_folder":
+        await openFolder();
+        break;
+      case "scan":
+        await doRescan();
+        break;
+      case "pin":
+        if (key) pickerOpenFor = key;
+        break;
+      case "hide":
+        await toggleHidden();
+        break;
+    }
+  }
+
   async function openFolder(): Promise<void> {
     if (!game) return;
     try {
@@ -402,9 +455,12 @@
 <svelte:window onkeydown={(e) => { if (game && e.key === "Escape") onClose(); }} />
 
 {#if game}
-  <div class="drawer-scrim" role="presentation" onclick={onClose} transition:fade={{ duration: 180 }}></div>
-  <aside class="drawer" in:fly={{ x: 480, duration: 220, easing: cubicOut }} out:fly={{ x: 480, duration: 280, easing: backIn }}>
-    <header class="drawer-head" style:--launcher-accent={accent}>
+  <div class="detail-view" style:--launcher-accent={accent} aria-label={game.name}>
+    <button class="detail-back" onclick={onClose} title="Back to Library (Esc)">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+      Back to Library
+    </button>
+    <header class="detail-hero">
       <div class="drawer-art">
         {#if game.image_url && !imgErrored}
           <img src={game.image_url} alt={game.name} onerror={() => (imgErrored = true)} />
@@ -413,9 +469,6 @@
         {/if}
         <div class="drawer-art-overlay"></div>
       </div>
-      <button class="drawer-close" onclick={onClose} title="Close (Esc)" aria-label="Close">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
       <div class="drawer-meta">
         <span class="launcher-chip" style:background={accent}>{launcherLabel(game.launcher)}</span>
         <h2 class="drawer-title">{game.name}</h2>
@@ -451,7 +504,7 @@
 
     <div class="drawer-body">
       {#if acActive}
-        <div class="warning-banner" class:is-danger={acSeverity === "danger"} role="alert">
+        <div class="warning-banner edge-accent" class:is-warning={acSeverity !== "danger"} class:is-danger={acSeverity === "danger"} role="alert">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
           <span>{warningMessage(acReport!)}{#if acStatus} {acStatus}{/if}</span>
           <button
@@ -464,6 +517,13 @@
               } catch (err) { showToast("warning", `Open link failed: ${String(err)}`); }
             }}
           >Learn more</button>
+        </div>
+      {/if}
+
+      {#if dlssEnabler}
+        <div class="warning-banner edge-accent is-warning" role="status">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <span>DLSS Enabler detected — it manages this game's NVIDIA Streamline set, so DLSSync leaves the <code>sl.*</code> plug-ins untouched. NGX DLLs still update normally.</span>
         </div>
       {/if}
 
@@ -534,7 +594,7 @@
               {@const primaryLatest = latestFor(b.primary)}
               {@const primaryPinned = pinnedVersions[primaryKey]}
               {@const primaryAside = primaryRel === "ahead" || (primaryRel === "same" && primaryTarget != null && primaryTarget !== (b.primary.current_version ?? ""))}
-              <li class="feature-row" class:is-update={b.anyOutdated && !b.allDisabled} class:disabled={b.allDisabled}>
+              <li class="feature-row" class:is-update={b.anyOutdated && !b.allDisabled} class:disabled={b.allDisabled} oncontextmenu={(e) => openRowMenu(primaryKey, e)}>
                 <label class="feature-check" title={selState === "all" ? "Deselect all in this feature" : "Select all updates in this feature"}>
                   <input
                     type="checkbox"
@@ -658,7 +718,7 @@
                           {:else if rel === "same"}
                             <span class="chip chip-success small-chip">Current</span>
                           {:else}
-                            <span class="chip chip-neutral small-chip">No catalog</span>
+                            <span class="chip chip-neutral small-chip">Not in catalog</span>
                           {/if}
                         </div>
                         {#if pickerOpenFor === k}
@@ -749,7 +809,7 @@
                       {:else if rel === "same"}
                         <span class="chip chip-success small-chip">Current</span>
                       {:else}
-                        <span class="chip chip-neutral small-chip">No catalog</span>
+                        <span class="chip chip-neutral small-chip">Not in catalog</span>
                       {/if}
                     </div>
                     {#if pickerOpenFor === k}
@@ -776,7 +836,7 @@
           <button type="button" class="advanced-head" onclick={toggleDlss} aria-expanded={dlssExpanded}>
             <span class="advanced-titles">
               <span class="advanced-name">
-                <span class="advanced-dot" style="background: #76b900;"></span>
+                <span class="advanced-dot" style="background: var(--vendor-nvidia);"></span>
                 DLSS Overrides
                 <span class="chip chip-neutral small-chip count">NVIDIA</span>
               </span>
@@ -825,58 +885,49 @@
         Apply selected ({selectedCount})
       </button>
     </footer>
-  </aside>
+  </div>
+  {#if rowMenu}
+    <ContextMenu
+      x={rowMenu.x}
+      y={rowMenu.y}
+      items={rowMenuItems}
+      onSelect={(a) => void onRowMenuSelect(a)}
+      onClose={() => (rowMenu = null)}
+    />
+  {/if}
 {/if}
 
 <style>
-  .drawer-scrim { display: none; }
-  @media (max-width: 1300px) {
-    .drawer-scrim {
-      display: block;
-      position: fixed;
-      inset: 0;
-      background:
-        radial-gradient(circle at 70% 30%, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.82) 75%);
-      z-index: 150;
-    }
-    @media (prefers-reduced-transparency: reduce) {
-      .drawer-scrim {
-        background: rgba(0, 0, 0, 0.82);
-      }
-    }
-  }
-  .drawer {
-    position: fixed;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    width: var(--drawer-width);
-    background: var(--bg-card);
-    border-left: 1px solid var(--border-strong);
-    box-shadow: -12px 0 40px rgba(0, 0, 0, 0.45);
+  .detail-view {
     display: flex;
     flex-direction: column;
-    z-index: 151;
+  }
+  .detail-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    align-self: flex-start;
+    margin-bottom: 14px;
+    padding: 7px 13px 7px 10px;
+    border-radius: var(--radius-full);
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+  }
+  .detail-back:hover { color: var(--text-primary); background: var(--bg-card-hover); border-color: var(--border-hover); }
+  .detail-back:focus-visible { outline: none; box-shadow: var(--shadow-ring); }
+
+  .detail-hero {
+    position: relative;
+    border-radius: var(--radius-xl);
     overflow: hidden;
+    border: 1px solid var(--border);
   }
-  .drawer::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      rgba(255, 255, 255, 0.4),
-      transparent
-    );
-    pointer-events: none;
-    z-index: 3;
-  }
-  .drawer-head { position: relative; }
-  .drawer-art { width: 100%; aspect-ratio: 16 / 9; overflow: hidden; position: relative; }
+  .drawer-art { width: 100%; height: clamp(180px, 26vh, 260px); overflow: hidden; position: relative; }
   .drawer-art::before {
     content: "";
     position: absolute;
@@ -907,22 +958,6 @@
     background: linear-gradient(180deg, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.95) 100%);
     pointer-events: none;
   }
-  .drawer-close {
-    position: absolute;
-    top: 14px;
-    right: 14px;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(8px);
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 4;
-  }
-  .drawer-close:hover { background: rgba(0, 0, 0, 0.85); }
   .drawer-meta {
     position: absolute;
     bottom: 0;
@@ -954,16 +989,16 @@
   .drawer-path { font-size: 11px; color: rgba(255,255,255,0.78); }
 
   .drawer-body {
-    flex: 1;
-    overflow-y: auto;
-    padding: 18px 22px 24px;
+    padding: 18px 2px 24px;
   }
 
   .warning-banner {
+    position: relative;
+    overflow: hidden;
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 12px 14px;
+    padding: 12px 14px 12px 16px;
     border-radius: var(--radius-md);
     background: var(--warning-dim);
     border: 1px solid var(--warning);
@@ -1006,16 +1041,18 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 16px;
-    border-bottom: 1px solid var(--border);
+    margin-top: 14px;
+    padding: 10px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
     font-size: var(--fs-sm);
     color: var(--text-secondary);
     background: var(--bg-elevated);
     font-variant-numeric: tabular-nums;
   }
-  .status-ribbon.is-update { color: var(--update); background: var(--update-dim); border-bottom-color: var(--update-glow); }
-  .status-ribbon.is-success { color: var(--success); background: var(--success-dim); border-bottom-color: var(--success-glow); }
-  .status-ribbon.is-danger { color: var(--danger); background: var(--danger-dim); border-bottom-color: var(--danger-glow); }
+  .status-ribbon.is-update { color: var(--update); background: var(--update-dim); border-color: var(--update-glow); }
+  .status-ribbon.is-success { color: var(--success); background: var(--success-dim); border-color: var(--success-glow); }
+  .status-ribbon.is-danger { color: var(--danger); background: var(--danger-dim); border-color: var(--danger-glow); }
   .status-ribbon.is-muted { color: var(--text-muted); }
   .ribbon-dot {
     width: 7px;
@@ -1332,14 +1369,20 @@
   .dlss-drawer-body { padding: 0 14px 14px; display: flex; flex-direction: column; gap: 10px; }
 
   .drawer-foot {
-    padding: 12px 22px;
-    border-top: 1px solid var(--border);
-    background: var(--bg-input);
+    position: sticky;
+    bottom: 16px;
+    margin-top: 20px;
+    padding: 12px 14px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-lg);
+    background: var(--bg-elevated);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
     display: flex;
     gap: 8px;
     align-items: center;
     flex-wrap: wrap;
     container-type: inline-size;
+    z-index: 4;
   }
   .foot-spacer { flex: 1 1 0; min-width: 0; }
   .ahead-chip { padding: 3px 8px; flex-shrink: 0; }

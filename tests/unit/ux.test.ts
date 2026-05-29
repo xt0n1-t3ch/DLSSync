@@ -5,6 +5,10 @@ import {
   pushRecentCommand,
   isModifierComboMatch,
   vendorForFamily,
+  githubReleaseTagUrl,
+  matchedIndices,
+  highlightSegments,
+  EXTERNAL_URLS,
   COMMAND_PALETTE_RECENT_MAX,
   COMMAND_CATEGORY_LABELS,
 } from "@/lib/ux";
@@ -104,6 +108,43 @@ describe("vendorForFamily", () => {
   });
 });
 
+describe("release + external URLs", () => {
+  it("githubReleaseTagUrl builds a tag URL and strips a leading v", () => {
+    expect(githubReleaseTagUrl("1.6.0")).toBe("https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.0");
+    expect(githubReleaseTagUrl("v1.6.0")).toBe("https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.0");
+    expect(githubReleaseTagUrl("  V2.0.1 ")).toBe("https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v2.0.1");
+  });
+
+  it("exposes the GitHub releases-latest and Nexus mod links", () => {
+    expect(EXTERNAL_URLS.releasesLatest).toBe("https://github.com/xt0n1-t3ch/DLSSync/releases/latest");
+    expect(EXTERNAL_URLS.nexusMod).toBe("https://www.nexusmods.com/site/mods/1922");
+  });
+});
+
+describe("matchedIndices + highlightSegments (fuzzy highlight)", () => {
+  it("returns a contiguous span for a substring match", () => {
+    expect(matchedIndices("catalog", "Go to Catalog")).toEqual([6, 7, 8, 9, 10, 11, 12]);
+  });
+  it("returns subsequence positions when not contiguous", () => {
+    expect(matchedIndices("gtl", "Go to Library")).toEqual([0, 3, 6]);
+  });
+  it("returns [] when the query is not a subsequence of the text", () => {
+    expect(matchedIndices("zzz", "Go to Library")).toEqual([]);
+    expect(matchedIndices("", "anything")).toEqual([]);
+  });
+  it("splits text into hit / non-hit segments preserving original order and casing", () => {
+    const segs = highlightSegments("Go to Catalog", [6, 7, 8, 9, 10, 11, 12]);
+    expect(segs).toEqual([
+      { text: "Go to ", hit: false },
+      { text: "Catalog", hit: true },
+    ]);
+    expect(segs.map((s) => s.text).join("")).toBe("Go to Catalog");
+  });
+  it("no indices yields a single non-hit segment", () => {
+    expect(highlightSegments("Plain", [])).toEqual([{ text: "Plain", hit: false }]);
+  });
+});
+
 describe("command catalog integrity", () => {
   it("command ids are unique", () => {
     const ids = COMMANDS.map((c) => c.id);
@@ -112,6 +153,12 @@ describe("command catalog integrity", () => {
   it("every command has a category with a label", () => {
     for (const c of COMMANDS) {
       expect(COMMAND_CATEGORY_LABELS[c.category]).toBeTruthy();
+    }
+  });
+  it("every command declares a non-empty icon key", () => {
+    for (const c of COMMANDS) {
+      expect(typeof c.icon).toBe("string");
+      expect(c.icon.length).toBeGreaterThan(0);
     }
   });
 });

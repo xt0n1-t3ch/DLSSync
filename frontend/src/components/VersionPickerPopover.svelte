@@ -157,7 +157,7 @@
 </script>
 
 <div class="picker-backdrop" role="presentation" onclick={onClose} onkeydown={handleKey} tabindex="-1"></div>
-<div class="picker" transition:fly={{ y: -6, duration: 140 }} onkeydown={handleKey} role="dialog" aria-label="Pick version" tabindex="-1">
+<div class="picker glass-dialog" transition:fly={{ y: -6, duration: 140 }} onkeydown={handleKey} role="dialog" aria-label="Pick version" tabindex="-1">
   <header class="picker-head">
     <div class="picker-glyph" aria-hidden="true">
       <FeatureIcon id={icon} size={20} />
@@ -167,7 +167,7 @@
       <span class="subtitle-line">{subtitle}</span>
       <span class="file-line mono">{filename}</span>
     </div>
-    <button class="picker-close" onclick={onClose} aria-label="Close">
+    <button class="dialog-close" onclick={onClose} aria-label="Close">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
   </header>
@@ -373,20 +373,15 @@
     transform: translate(-50%, -50%);
     width: min(600px, 92vw);
     max-height: 84vh;
-    background: var(--bg-card);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-lg);
     display: flex;
     flex-direction: column;
     z-index: 221;
-    overflow: hidden;
   }
   .picker-head {
-    padding: 16px 18px;
+    padding: 16px 48px 16px 18px;
     border-bottom: 1px solid var(--border);
     display: grid;
-    grid-template-columns: 40px 1fr auto;
+    grid-template-columns: 40px 1fr;
     gap: 12px;
     align-items: flex-start;
   }
@@ -404,17 +399,6 @@
   .title-line { font-size: 15px; font-weight: 700; color: var(--text-primary); letter-spacing: var(--letter-tight); }
   .subtitle-line { font-size: 11.5px; color: var(--text-secondary); line-height: 1.4; }
   .file-line { font-size: 10px; color: var(--text-muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .picker-close {
-    width: 28px;
-    height: 28px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-muted);
-    border-radius: var(--radius-sm);
-    flex-shrink: 0;
-  }
-  .picker-close:hover { background: var(--bg-elevated); color: var(--text-primary); }
 
   .rank {
     padding: 12px 18px;

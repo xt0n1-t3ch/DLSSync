@@ -27,6 +27,11 @@ pub const STAGE_COMPLETE: &str = "complete";
 pub const STAGE_FAILED: &str = "failed";
 pub const STAGE_CANCELLED: &str = "cancelled";
 
+/// How many parent directories above the DLL being replaced the apply guard
+/// searches for a DLSS Enabler marker. Streamline plugins sit in deeply nested
+/// engine plugin folders while the enabler DLL lives near the game root.
+const STREAMLINE_ENABLER_ANCESTOR_HOPS: usize = 8;
+
 #[derive(Debug, Deserialize, Clone)]
 pub struct ApplyRequest {
     pub apply_id: String,
@@ -275,6 +280,15 @@ async fn apply_single_item(
             format!("dll not found: {}", dll_path.display()),
         ));
     }
+
+    if let Some(reason) = streamline_guard(state, &dll_path, &request.target_version) {
+        ctx.fail(
+            "Streamline plugin skipped",
+            reason.clone(),
+            Some("streamline_locked"),
+        );
+        return Ok(failure_outcome(request, &group_id, reason));
+    }
     if let Err(reason) = ensure_writable(&dll_path) {
         let class = if reason.contains("locked") {
             "lock"
@@ -498,6 +512,10 @@ async fn apply_single_item(
         created_at,
         restored_at: None,
         size_bytes: std::fs::metadata(&backup_path).ok().map(|m| m.len()),
+        backup_type: "dll".to_string(),
+        device_class: None,
+        hardware_id: None,
+        driver_provider: None,
     };
     if let Err(e) = state
         .backups
@@ -520,29 +538,65 @@ async fn apply_single_item(
         }
     }
     if let Err(e) = atomic_replace(&staged_dll, &dll_path) {
-        ctx.fail("Replace failed", e.to_string(), Some("other"));
+        let os = e.raw_os_error().unwrap_or(0);
+        let (class, msg) = if os == 32 || os == 33 {
+            (
+                "lock",
+                format!(
+                    "{filename} is locked — the game may still be running. Close it and retry."
+                ),
+            )
+        } else {
+            ("other", format!("atomic replace failed: {e}"))
+        };
         if let Err(roll) = std::fs::copy(&backup_path, &dll_path) {
             tracing::error!(error = %roll, "rollback after replace failure also failed");
         }
-        return Ok(failure_outcome(
-            request,
-            &group_id,
-            format!("atomic replace failed: {e}"),
-        ));
+        ctx.fail("Replace failed", msg.clone(), Some(class));
+        return Ok(failure_outcome(request, &group_id, msg));
     }
     ctx.stage(STAGE_REPLACE, "Installed", None, None);
     drop(staging);
 
-    ctx.stage(STAGE_VERIFY_POST, "Reading new DLL version", None, None);
-    let new_version = tokio::task::spawn_blocking({
+    let post_algo = dll_catalog::HashAlgo::from_hex_len(&release.sha256)
+        .unwrap_or(dll_catalog::HashAlgo::Sha256);
+    let installed_hash = tokio::task::spawn_blocking({
         let dll_path = dll_path.clone();
-        move || pe_version::read_dll_version(&dll_path).ok()
+        move || dll_catalog::hash_file_with(&dll_path, post_algo)
     })
     .await
     .ok()
-    .flatten()
-    .map(|v| v.file_version)
-    .unwrap_or_else(|| release.version.clone());
+    .and_then(|r| r.ok());
+    if !installed_hash
+        .as_deref()
+        .is_some_and(|h| h.eq_ignore_ascii_case(&release.sha256))
+    {
+        if let Err(roll) = std::fs::copy(&backup_path, &dll_path) {
+            tracing::error!(error = %roll, "rollback after post-swap hash mismatch also failed");
+        }
+        let got = installed_hash.unwrap_or_else(|| "unreadable".to_string());
+        let err = format!(
+            "post-swap integrity check failed for {filename}: expected {} got {} — rolled back to \
+             the previous DLL",
+            release.sha256, got
+        );
+        ctx.fail("Post-swap verify failed", err.clone(), Some("hash"));
+        return Ok(failure_outcome(request, &group_id, err));
+    }
+
+    ctx.stage(STAGE_VERIFY_POST, "Reading new DLL version", None, None);
+    let new_version = match tokio::time::timeout(
+        Duration::from_secs(5),
+        tokio::task::spawn_blocking({
+            let dll_path = dll_path.clone();
+            move || pe_version::read_dll_version(&dll_path).ok()
+        }),
+    )
+    .await
+    {
+        Ok(Ok(Some(v))) => v.file_version,
+        _ => release.version.clone(),
+    };
     ctx.stage(
         STAGE_VERIFY_POST,
         &format!("Installed version: {new_version}"),
@@ -734,7 +788,102 @@ pub fn classify_error(message: &str) -> &'static str {
     if lower.contains("backup") {
         return "backup";
     }
+    if lower.contains("streamline plugin")
+        || lower.contains("injector mod")
+        || lower.contains("version-locked")
+    {
+        return "streamline_locked";
+    }
     "other"
+}
+
+/// First numeric dotted segment of a version string (the SDK major), or `None`.
+fn version_major(version: &str) -> Option<u16> {
+    version
+        .split('.')
+        .next()
+        .map(|p| {
+            p.chars()
+                .take_while(|c| c.is_ascii_digit())
+                .collect::<String>()
+        })
+        .filter(|p| !p.is_empty())
+        .and_then(|p| p.parse().ok())
+}
+
+/// Authoritative crash-safety gate for the NVIDIA Streamline version-locked set.
+/// Returns `Some(reason)` when an `sl.*` plugin must NOT be swapped: an injector
+/// mod manages the set, the user has not opted in, or the target crosses the
+/// installed Streamline MAJOR (v1↔v2 is the real cause of the launch crashes —
+/// older games ship SL 1.x and break when newer 2.x plugins are swapped in).
+/// NGX DLLs (`nvngx_*.dll`) are never gated — the driver loads them
+/// independently and they are safe to swap on their own.
+fn streamline_guard(
+    state: &StateHandles,
+    dll_path: &std::path::Path,
+    target_version: &str,
+) -> Option<String> {
+    let filename = dll_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or_default();
+    if !dll_scanner::is_streamline_plugin(filename) {
+        return None;
+    }
+    let enabler_present =
+        dll_scanner::dlss_enabler_present_near(dll_path, STREAMLINE_ENABLER_ANCESTOR_HOPS);
+    let allow_streamline = state.settings.read().update_prefs.update_streamline;
+    let installed_major = pe_version::read_dll_version(dll_path)
+        .ok()
+        .and_then(|v| version_major(&v.file_version));
+    let target_major = version_major(target_version);
+    streamline_block_reason(
+        filename,
+        enabler_present,
+        allow_streamline,
+        installed_major,
+        target_major,
+    )
+}
+
+/// Pure decision for the Streamline guard, split out so it is testable without a
+/// live `StateHandles`. `None` = safe to swap.
+fn streamline_block_reason(
+    filename: &str,
+    enabler_present: bool,
+    allow_streamline: bool,
+    installed_major: Option<u16>,
+    target_major: Option<u16>,
+) -> Option<String> {
+    if !dll_scanner::is_streamline_plugin(filename) {
+        return None;
+    }
+    if enabler_present {
+        return Some(format!(
+            "{filename} is an NVIDIA Streamline plugin and an injector mod (DLSS Enabler / \
+             OptiScaler / dlssg-to-fsr3) manages the Streamline set for this game — swapping it \
+             mismatches the set and crashes the game on launch (kFeatureReflex context is \
+             missing). Skipped to keep the game working."
+        ));
+    }
+    if !allow_streamline {
+        return Some(format!(
+            "{filename} is an NVIDIA Streamline plugin (sl.*). Updating it without the matching \
+             sl.interposer.dll can crash the game on launch. Enable 'Update NVIDIA Streamline \
+             runtime' in Settings → Advanced to override."
+        ));
+    }
+    if let (Some(installed), Some(target)) = (installed_major, target_major) {
+        if installed != target {
+            return Some(format!(
+                "{filename} is NVIDIA Streamline v{installed}.x in this game but the catalog \
+                 version is v{target}.x. Streamline is version-locked by major release — swapping \
+                 across majors (v{installed} to v{target}) crashes the game on launch. Skipped; \
+                 only same-major Streamline updates are applied."
+            ));
+        }
+    }
+    None
 }
 
 fn ensure_writable(path: &std::path::Path) -> Result<(), String> {
@@ -901,5 +1050,55 @@ mod tests {
         let a = group_id_for("https://example.test/a.zip");
         let b = group_id_for("https://example.test/b.zip");
         assert_ne!(a, b);
+    }
+
+    #[test]
+    fn streamline_guard_allows_ngx_dll_regardless_of_prefs() {
+        assert!(streamline_block_reason("nvngx_dlss.dll", false, false, None, None).is_none());
+        assert!(
+            streamline_block_reason("nvngx_dlssg.dll", true, false, Some(1), Some(2)).is_none()
+        );
+        assert!(streamline_block_reason("libxess.dll", true, false, None, None).is_none());
+    }
+
+    #[test]
+    fn streamline_guard_blocks_plugin_when_streamline_opt_in_off() {
+        let reason = streamline_block_reason("sl.dlss_g.dll", false, false, None, None).unwrap();
+        assert!(reason.contains("Streamline"));
+        assert!(reason.contains("Settings"));
+        assert_eq!(classify_error(&reason), "streamline_locked");
+    }
+
+    #[test]
+    fn streamline_guard_allows_same_major_plugin_when_opted_in_and_no_enabler() {
+        assert!(streamline_block_reason("sl.dlss_g.dll", false, true, Some(2), Some(2)).is_none());
+        assert!(streamline_block_reason("sl.reflex.dll", false, true, None, None).is_none());
+    }
+
+    #[test]
+    fn streamline_guard_blocks_plugin_when_dlss_enabler_present_even_if_opted_in() {
+        let reason =
+            streamline_block_reason("sl.reflex.dll", true, true, Some(2), Some(2)).unwrap();
+        assert!(reason.contains("DLSS Enabler"));
+        assert!(reason.contains("kFeatureReflex"));
+        assert_eq!(classify_error(&reason), "streamline_locked");
+    }
+
+    #[test]
+    fn streamline_guard_blocks_cross_major_swap_even_when_opted_in() {
+        let reason =
+            streamline_block_reason("sl.interposer.dll", false, true, Some(1), Some(2)).unwrap();
+        assert!(reason.contains("version-locked"));
+        assert!(reason.contains("v1"));
+        assert!(reason.contains("v2"));
+        assert_eq!(classify_error(&reason), "streamline_locked");
+    }
+
+    #[test]
+    fn version_major_parses_first_numeric_segment() {
+        assert_eq!(version_major("2.11.1"), Some(2));
+        assert_eq!(version_major("1.5.0.0"), Some(1));
+        assert_eq!(version_major("310.6.0.0"), Some(310));
+        assert_eq!(version_major(""), None);
     }
 }

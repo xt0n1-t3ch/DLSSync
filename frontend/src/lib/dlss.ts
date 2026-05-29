@@ -86,6 +86,48 @@ export const SR_PRESET_OPTIONS: Option<DlssPreset>[] = [
       "Legacy CNN variant for slower-paced games — more temporally stable but more ghosting.",
     sourceUrl: SRC.presetTable,
   },
+  {
+    value: "n",
+    label: "Preset N — Transformer",
+    description: "DLSS transformer preset N. Shown so a profile set in the NVIDIA app or Profile Inspector is respected.",
+    sourceUrl: SRC.dlss45,
+  },
+  {
+    value: "o",
+    label: "Preset O — Transformer",
+    description: "DLSS transformer preset O. Shown so a profile set in the NVIDIA app or Profile Inspector is respected.",
+    sourceUrl: SRC.dlss45,
+  },
+  {
+    value: "a",
+    label: "Preset A — CNN (legacy)",
+    description: "Legacy CNN preset. Prefer a transformer preset on RTX unless a game misbehaves.",
+    sourceUrl: SRC.presetTable,
+  },
+  {
+    value: "b",
+    label: "Preset B — CNN (legacy)",
+    description: "Legacy CNN preset. Prefer a transformer preset on RTX unless a game misbehaves.",
+    sourceUrl: SRC.presetTable,
+  },
+  {
+    value: "g",
+    label: "Preset G — CNN (legacy)",
+    description: "Legacy CNN preset. Prefer a transformer preset on RTX unless a game misbehaves.",
+    sourceUrl: SRC.presetTable,
+  },
+  {
+    value: "h",
+    label: "Preset H — CNN (legacy)",
+    description: "Legacy CNN preset. Prefer a transformer preset on RTX unless a game misbehaves.",
+    sourceUrl: SRC.presetTable,
+  },
+  {
+    value: "i",
+    label: "Preset I — CNN (legacy)",
+    description: "Legacy CNN preset. Prefer a transformer preset on RTX unless a game misbehaves.",
+    sourceUrl: SRC.presetTable,
+  },
 ];
 
 export const FG_MODE_OPTIONS: Option<FrameGenMode>[] = [

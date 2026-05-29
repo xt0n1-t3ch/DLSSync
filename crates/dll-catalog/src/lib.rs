@@ -180,10 +180,16 @@ pub struct Release {
     pub is_dev: bool,
     #[serde(default)]
     pub min_driver: Option<String>,
+    #[serde(default = "default_hash_algorithm")]
+    pub hash_algorithm: String,
 }
 
 fn default_channel() -> String {
     "stable".to_string()
+}
+
+fn default_hash_algorithm() -> String {
+    "sha256".to_string()
 }
 
 pub const DEFAULT_MANIFEST_URL: &str =
@@ -344,6 +350,7 @@ mod tests {
             channel: "stable".into(),
             is_dev: false,
             min_driver: None,
+            hash_algorithm: "sha256".into(),
         }
     }
 

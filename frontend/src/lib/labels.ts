@@ -21,6 +21,19 @@ export function vendorAccent(key: string): string {
   return VENDOR_ACCENTS[key] ?? DEFAULT_VENDOR_ACCENT;
 }
 
+export const VENDOR_ACCENT_VARS: Record<string, string> = {
+  nvidia: "var(--vendor-nvidia)",
+  amd: "var(--vendor-amd)",
+  intel: "var(--vendor-intel)",
+  microsoft: "var(--vendor-microsoft)",
+};
+
+export const DEFAULT_VENDOR_ACCENT_VAR = "var(--neutral)";
+
+export function vendorAccentVar(key: string): string {
+  return VENDOR_ACCENT_VARS[key] ?? DEFAULT_VENDOR_ACCENT_VAR;
+}
+
 export interface VendorPortal {
   label: string;
   url: string;
@@ -59,7 +72,9 @@ export const FAMILY_LABELS: Record<string, string> = {
   fsr_upscaler_vk: "FSR Vulkan",
   fsr_fg: "FSR Frame Generation",
   fsr_loader: "FSR Loader",
+  fsr_denoiser: "FSR Denoiser",
   direct_storage: "DirectStorage",
+  direct_storage_core: "DirectStorage Core",
 };
 
 export const FAMILY_SHORT: Record<string, string> = {
@@ -80,7 +95,9 @@ export const FAMILY_SHORT: Record<string, string> = {
   fsr_upscaler_vk: "FSR VK",
   fsr_fg: "FSR FG",
   fsr_loader: "FSR Loader",
+  fsr_denoiser: "FSR Denoiser",
   direct_storage: "DirectStorage",
+  direct_storage_core: "DS Core",
 };
 
 export const FAMILY_TO_VENDOR: Record<string, string> = {
@@ -101,7 +118,9 @@ export const FAMILY_TO_VENDOR: Record<string, string> = {
   fsr_upscaler_vk: "amd",
   fsr_fg: "amd",
   fsr_loader: "amd",
+  fsr_denoiser: "amd",
   direct_storage: "microsoft",
+  direct_storage_core: "microsoft",
 };
 
 export const FAMILY_TO_CATALOG_KEY: Record<string, string> = {
@@ -122,7 +141,9 @@ export const FAMILY_TO_CATALOG_KEY: Record<string, string> = {
   fsr_upscaler_vk: "fsr_upscaler",
   fsr_loader: "fsr_upscaler",
   fsr_fg: "fsr_fg",
+  fsr_denoiser: "fsr_denoiser",
   direct_storage: "direct_storage",
+  direct_storage_core: "direct_storage_core",
 };
 
 export const LAUNCHER_LABELS: Record<LauncherKind, string> = {
@@ -205,6 +226,13 @@ export const GROUP_ACCENT: Record<FamilyGroup, string> = {
   advanced: "#94a3b8",
 };
 
+export const GROUP_ACCENT_VAR: Record<FamilyGroup, string> = {
+  dlss: "var(--vendor-nvidia)",
+  fsr: "var(--vendor-amd)",
+  xess: "var(--vendor-intel)",
+  advanced: "var(--neutral)",
+};
+
 export const FAMILY_TO_GROUP: Record<string, FamilyGroup> = {
   dlss_sr: "dlss",
   dlss_fg: "dlss",
@@ -213,6 +241,7 @@ export const FAMILY_TO_GROUP: Record<string, FamilyGroup> = {
   fsr_upscaler_vk: "fsr",
   fsr_fg: "fsr",
   fsr_loader: "fsr",
+  fsr_denoiser: "fsr",
   xess_sr: "xess",
   xess_sr_dx11: "xess",
   xess_fg: "xess",

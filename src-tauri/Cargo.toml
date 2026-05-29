@@ -56,6 +56,7 @@ backup-store = { path = "../crates/backup-store" }
 notifications-store = { path = "../crates/notifications-store" }
 driver-catalog = { path = "../crates/driver-catalog" }
 driver-install = { path = "../crates/driver-install" }
+system-drivers = { path = "../crates/system-drivers" }
 nvapi-drs = { path = "../crates/nvapi-drs" }
 anticheat-detect = { path = "../crates/anticheat-detect" }
 

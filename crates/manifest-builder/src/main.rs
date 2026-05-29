@@ -26,7 +26,7 @@ struct Cli {
     #[arg(
         long,
         value_delimiter = ',',
-        default_value = "dlss_swapper,streamline,reflex,directstorage,anticheat"
+        default_value = "dlss_swapper,streamline,xess,fsr,reflex,directstorage,anticheat"
     )]
     sources: Vec<String>,
     /// Emit only the distilled anti-cheat snapshot (for the binary's embedded dataset) to this path.
@@ -59,7 +59,6 @@ struct SwapperManifest {
 #[derive(Debug, Deserialize)]
 struct SwapperEntry {
     version: String,
-    version_number: u64,
     #[serde(default)]
     internal_name: Option<String>,
     md5_hash: String,
@@ -663,7 +662,7 @@ fn merge_swapper(
     filename: &str,
     entries: &[SwapperEntry],
 ) {
-    let mut releases: Vec<Release> = entries
+    let releases: Vec<Release> = entries
         .iter()
         .map(|e| {
             let released_at = e
@@ -681,9 +680,10 @@ fn merge_swapper(
                 .unwrap_or(false);
             Release {
                 version: e.version.clone(),
-                version_packed: e.version_number,
+                version_packed: pack_version(&e.version),
                 filename: filename.to_string(),
                 sha256: e.md5_hash.clone().to_lowercase(),
+                hash_algorithm: "md5".to_string(),
                 size_bytes: e.file_size.unwrap_or(0),
                 signed: e.is_signature_valid.unwrap_or(false),
                 released_at,
@@ -712,19 +712,44 @@ fn merge_swapper(
             }
         })
         .collect();
-    releases.sort_by_key(|a| a.version_packed);
-    let latest = releases
+    upsert_family(vendors, vendor, family, releases);
+}
+
+/// Union new releases into a (vendor, family) entry instead of replacing it, so a
+/// second upstream source for the same family (e.g. FidelityFX-SDK on top of
+/// dlss-swapper FSR) extends the history rather than clobbering it. Releases are
+/// deduped by (version, filename) and `latest` is recomputed from the uniformly
+/// packed version across the merged set.
+fn upsert_family(
+    vendors: &mut BTreeMap<String, BTreeMap<String, FamilyEntry>>,
+    vendor: &str,
+    family: &str,
+    mut new_releases: Vec<Release>,
+) {
+    let fam = vendors
+        .entry(vendor.to_string())
+        .or_default()
+        .entry(family.to_string())
+        .or_insert_with(|| FamilyEntry {
+            latest: String::new(),
+            releases: Vec::new(),
+        });
+    fam.releases.append(&mut new_releases);
+    fam.releases.sort_by(|a, b| {
+        a.version_packed
+            .cmp(&b.version_packed)
+            .then_with(|| a.filename.cmp(&b.filename))
+    });
+    fam.releases
+        .dedup_by(|a, b| a.version == b.version && a.filename == b.filename);
+    fam.latest = fam
+        .releases
         .iter()
         .rev()
         .find(|r| r.channel == "stable")
-        .or_else(|| releases.last())
+        .or_else(|| fam.releases.last())
         .map(|r| r.version.clone())
         .unwrap_or_default();
-    let entry = FamilyEntry { latest, releases };
-    vendors
-        .entry(vendor.to_string())
-        .or_default()
-        .insert(family.to_string(), entry);
 }
 
 async fn ingest_github_zip_releases<F>(
@@ -783,6 +808,7 @@ where
                 version_packed,
                 filename: ext.filename.clone(),
                 sha256: ext.sha256,
+                hash_algorithm: "sha256".to_string(),
                 size_bytes: ext.size,
                 signed: ext.signed_hint,
                 released_at,
@@ -800,22 +826,8 @@ where
                 .push(release);
         }
     }
-    for ((vendor, family), mut list) in by_target {
-        list.sort_by_key(|a| a.version_packed);
-        let latest = list
-            .iter()
-            .rev()
-            .find(|r| r.channel == "stable")
-            .or_else(|| list.last())
-            .map(|r| r.version.clone())
-            .unwrap_or_default();
-        vendors.entry(vendor).or_default().insert(
-            family,
-            FamilyEntry {
-                latest,
-                releases: list,
-            },
-        );
+    for ((vendor, family), list) in by_target {
+        upsert_family(vendors, &vendor, &family, list);
     }
     Ok(())
 }
@@ -840,7 +852,8 @@ fn extract_dlls_from_zip(bytes: &[u8], rules: &[FilenameRule]) -> Result<Vec<Ext
     let cursor = std::io::Cursor::new(bytes);
     let mut zip = zip::ZipArchive::new(cursor)?;
     let mut out = Vec::new();
-    let mut seen: std::collections::HashSet<(&'static str, &'static str)> = Default::default();
+    let mut seen: std::collections::HashSet<(&'static str, &'static str, &'static str)> =
+        Default::default();
     for i in 0..zip.len() {
         let mut entry = zip.by_index(i)?;
         if !entry.is_file() {
@@ -855,7 +868,7 @@ fn extract_dlls_from_zip(bytes: &[u8], rules: &[FilenameRule]) -> Result<Vec<Ext
         let Some(rule) = rules.iter().find(|r| r.filename == base) else {
             continue;
         };
-        if !seen.insert((rule.vendor, rule.family)) {
+        if !seen.insert((rule.vendor, rule.family, rule.filename)) {
             continue;
         }
         let mut buf = Vec::with_capacity(entry.size() as usize);
@@ -895,7 +908,11 @@ fn pack_version(s: &str) -> u64 {
                 .take_while(|c| c.is_ascii_digit())
                 .collect::<String>()
         })
-        .map(|p| p.parse().unwrap_or(0))
+        .map(|p| {
+            p.parse::<u64>()
+                .map(|n| n.min(u16::MAX as u64) as u16)
+                .unwrap_or(0)
+        })
         .collect();
     let major = parts.first().copied().unwrap_or(0) as u64;
     let minor = parts.get(1).copied().unwrap_or(0) as u64;
@@ -946,11 +963,18 @@ const DS_RULES: &[FilenameRule] = &[
     },
 ];
 
+/// DirectStorage versions from the NuGet flat-container API. Uses its OWN
+/// unauthenticated client because the shared client carries a GitHub bearer for
+/// the release sources, and NuGet's Azure backend rejects any request that
+/// presents one with HTTP 403.
 async fn ingest_directstorage_nuget(
-    client: &reqwest::Client,
+    _shared: &reqwest::Client,
     vendors: &mut BTreeMap<String, BTreeMap<String, FamilyEntry>>,
 ) -> Result<()> {
     tracing::info!("fetching DirectStorage NuGet index");
+    let client = reqwest::Client::builder()
+        .user_agent("dlssync-manifest-builder/0.1 (+https://github.com/xt0n1-t3ch/DLSSync)")
+        .build()?;
     let idx_url = format!("https://api.nuget.org/v3-flatcontainer/{DS_PKG}/index.json");
     let index: NugetIndex = client
         .get(&idx_url)
@@ -979,7 +1003,7 @@ async fn ingest_directstorage_nuget(
         let pkg_url =
             format!("https://api.nuget.org/v3-flatcontainer/{DS_PKG}/{ver}/{DS_PKG}.{ver}.nupkg");
         tracing::info!(version = %ver, "downloading DirectStorage nupkg");
-        let bytes = match download_bytes(client, &pkg_url).await {
+        let bytes = match download_bytes(&client, &pkg_url).await {
             Ok(b) => b,
             Err(e) => {
                 tracing::warn!(version = %ver, "nupkg fetch failed: {e:#}");
@@ -1009,6 +1033,7 @@ async fn ingest_directstorage_nuget(
                 version_packed,
                 filename: ext.filename.clone(),
                 sha256: ext.sha256,
+                hash_algorithm: "sha256".to_string(),
                 size_bytes: ext.size,
                 signed: ext.signed_hint,
                 released_at,
@@ -1026,22 +1051,8 @@ async fn ingest_directstorage_nuget(
                 .push(release);
         }
     }
-    for ((vendor, family), mut list) in by_target {
-        list.sort_by_key(|a| a.version_packed);
-        let latest = list
-            .iter()
-            .rev()
-            .find(|r| r.channel == "stable")
-            .or_else(|| list.last())
-            .map(|r| r.version.clone())
-            .unwrap_or_default();
-        vendors.entry(vendor).or_default().insert(
-            family,
-            FamilyEntry {
-                latest,
-                releases: list,
-            },
-        );
+    for ((vendor, family), list) in by_target {
+        upsert_family(vendors, &vendor, &family, list);
     }
     Ok(())
 }
@@ -1132,5 +1143,64 @@ mod tests {
         assert_eq!(vendor_subject("amd"), "Advanced Micro Devices, Inc.");
         assert_eq!(vendor_subject("intel"), "Intel Corporation");
         assert_eq!(vendor_subject("nvidia"), "NVIDIA Corporation");
+    }
+
+    fn rel(ver: &str, file: &str) -> Release {
+        Release {
+            version: ver.to_string(),
+            version_packed: pack_version(ver),
+            filename: file.to_string(),
+            sha256: "x".into(),
+            hash_algorithm: "sha256".into(),
+            size_bytes: 0,
+            signed: false,
+            released_at: Utc::now(),
+            source: "t".into(),
+            cdn_url: "https://x/y".into(),
+            release_notes: None,
+            signature_subject: None,
+            channel: "stable".into(),
+            is_dev: false,
+            min_driver: None,
+        }
+    }
+
+    #[test]
+    fn upsert_family_unions_sources_without_clobbering_history() {
+        let mut vendors: BTreeMap<String, BTreeMap<String, FamilyEntry>> = BTreeMap::new();
+        upsert_family(
+            &mut vendors,
+            "amd",
+            "fsr_upscaler",
+            vec![
+                rel("3.1.0", "amd_fidelityfx_dx12.dll"),
+                rel("3.1.1", "amd_fidelityfx_dx12.dll"),
+                rel("3.1.2", "amd_fidelityfx_dx12.dll"),
+            ],
+        );
+        upsert_family(
+            &mut vendors,
+            "amd",
+            "fsr_upscaler",
+            vec![rel("2.0.0", "amd_fidelityfx_upscaler_dx12.dll")],
+        );
+        let fam = &vendors["amd"]["fsr_upscaler"];
+        assert_eq!(
+            fam.releases.len(),
+            4,
+            "second source must extend, not clobber, the first"
+        );
+        assert_eq!(
+            fam.latest, "3.1.2",
+            "uniform packing keeps the genuinely newest version as latest across sources"
+        );
+    }
+
+    #[test]
+    fn upsert_family_dedupes_same_version_and_filename() {
+        let mut vendors: BTreeMap<String, BTreeMap<String, FamilyEntry>> = BTreeMap::new();
+        upsert_family(&mut vendors, "amd", "fsr_fg", vec![rel("1.1.2", "a.dll")]);
+        upsert_family(&mut vendors, "amd", "fsr_fg", vec![rel("1.1.2", "a.dll")]);
+        assert_eq!(vendors["amd"]["fsr_fg"].releases.len(), 1);
     }
 }

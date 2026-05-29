@@ -23,6 +23,9 @@ pub enum NotificationKind {
     ApplyCancelled,
     AppUpdateAvailable,
     CatalogUpdateAvailable,
+    DriverUpdateAvailable,
+    SystemDriverUpdateAvailable,
+    BackupRestored,
     ScanFailed,
     CatalogRefreshFailed,
 }
@@ -35,6 +38,9 @@ impl NotificationKind {
             Self::ApplyCancelled => "apply_cancelled",
             Self::AppUpdateAvailable => "app_update_available",
             Self::CatalogUpdateAvailable => "catalog_update_available",
+            Self::DriverUpdateAvailable => "driver_update_available",
+            Self::SystemDriverUpdateAvailable => "system_driver_update_available",
+            Self::BackupRestored => "backup_restored",
             Self::ScanFailed => "scan_failed",
             Self::CatalogRefreshFailed => "catalog_refresh_failed",
         }
@@ -47,6 +53,9 @@ impl NotificationKind {
             "apply_cancelled" => Ok(Self::ApplyCancelled),
             "app_update_available" => Ok(Self::AppUpdateAvailable),
             "catalog_update_available" => Ok(Self::CatalogUpdateAvailable),
+            "driver_update_available" => Ok(Self::DriverUpdateAvailable),
+            "system_driver_update_available" => Ok(Self::SystemDriverUpdateAvailable),
+            "backup_restored" => Ok(Self::BackupRestored),
             "scan_failed" => Ok(Self::ScanFailed),
             "catalog_refresh_failed" => Ok(Self::CatalogRefreshFailed),
             _ => Err(rusqlite::Error::InvalidQuery),
@@ -66,6 +75,8 @@ pub struct NotificationEntry {
     pub apply_id: Option<String>,
     pub game_id: Option<String>,
     pub error_class: Option<String>,
+    #[serde(default)]
+    pub link: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -105,11 +116,13 @@ impl NotificationsStore {
                 dismissed_at  TEXT,
                 apply_id      TEXT,
                 game_id       TEXT,
-                error_class   TEXT
+                error_class   TEXT,
+                link          TEXT
             );
             CREATE INDEX IF NOT EXISTS idx_notif_created ON notifications(created_at DESC);
             CREATE INDEX IF NOT EXISTS idx_notif_unread  ON notifications(read_at) WHERE read_at IS NULL;",
         )?;
+        ensure_column(&conn, "link")?;
         Ok(())
     }
 
@@ -118,8 +131,8 @@ impl NotificationsStore {
         conn.execute(
             "INSERT INTO notifications
                 (id, kind, title, body, created_at, read_at, dismissed_at,
-                 apply_id, game_id, error_class)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                 apply_id, game_id, error_class, link)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             rusqlite::params![
                 entry.id,
                 entry.kind.as_str(),
@@ -131,6 +144,7 @@ impl NotificationsStore {
                 entry.apply_id,
                 entry.game_id,
                 entry.error_class,
+                entry.link,
             ],
         )?;
         self.evict_to_cap_with(&conn)
@@ -164,13 +178,13 @@ impl NotificationsStore {
         let limit = filter.limit.unwrap_or(DEFAULT_LIST_LIMIT) as i64;
         let sql = if include_dismissed {
             "SELECT id, kind, title, body, created_at, read_at, dismissed_at,
-                    apply_id, game_id, error_class
+                    apply_id, game_id, error_class, link
              FROM notifications
              ORDER BY created_at DESC
              LIMIT ?1"
         } else {
             "SELECT id, kind, title, body, created_at, read_at, dismissed_at,
-                    apply_id, game_id, error_class
+                    apply_id, game_id, error_class, link
              FROM notifications
              WHERE dismissed_at IS NULL
              ORDER BY created_at DESC
@@ -270,6 +284,7 @@ fn row_to_entry(row: &rusqlite::Row<'_>) -> Result<NotificationEntry, rusqlite::
         apply_id: row.get(7)?,
         game_id: row.get(8)?,
         error_class: row.get(9)?,
+        link: row.get(10)?,
     })
 }
 
@@ -277,6 +292,20 @@ fn parse_iso(value: &str) -> Result<chrono::DateTime<chrono::Utc>, rusqlite::Err
     chrono::DateTime::parse_from_rfc3339(value)
         .map(|d| d.with_timezone(&chrono::Utc))
         .map_err(|_| rusqlite::Error::InvalidQuery)
+}
+
+fn ensure_column(conn: &rusqlite::Connection, column: &str) -> Result<(), NotificationsError> {
+    let mut stmt = conn.prepare("PRAGMA table_info(notifications)")?;
+    let existing: Vec<String> = stmt
+        .query_map([], |row| row.get::<_, String>(1))?
+        .filter_map(Result::ok)
+        .collect();
+    if !existing.iter().any(|name| name == column) {
+        conn.execute_batch(&format!(
+            "ALTER TABLE notifications ADD COLUMN {column} TEXT"
+        ))?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -302,6 +331,7 @@ mod tests {
             apply_id: Some(format!("apply-{title}")),
             game_id: Some(format!("steam-{title}")),
             error_class: None,
+            link: None,
         }
     }
 
@@ -352,6 +382,9 @@ mod tests {
             NotificationKind::ApplyCancelled,
             NotificationKind::AppUpdateAvailable,
             NotificationKind::CatalogUpdateAvailable,
+            NotificationKind::DriverUpdateAvailable,
+            NotificationKind::SystemDriverUpdateAvailable,
+            NotificationKind::BackupRestored,
             NotificationKind::ScanFailed,
             NotificationKind::CatalogRefreshFailed,
         ];
@@ -385,6 +418,62 @@ mod tests {
         let mut expected = signals.to_vec();
         expected.sort_by_key(|k| k.as_str());
         assert_eq!(returned, expected);
+    }
+
+    #[test]
+    fn insert_and_list_preserves_link() {
+        let dir = tempdir().unwrap();
+        let store = fresh_store(&dir);
+        let mut e = make_entry(NotificationKind::AppUpdateAvailable, "release");
+        e.link = Some("https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.5.0".into());
+        store.insert(&e).unwrap();
+        let listed = store.list(&ListFilter::default()).unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(
+            listed[0].link.as_deref(),
+            Some("https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.5.0")
+        );
+    }
+
+    #[test]
+    fn legacy_db_without_link_column_migrates_and_reads_none() {
+        let dir = tempdir().unwrap();
+        let db_path = dir.path().join("Cache").join("notifications.db");
+        std::fs::create_dir_all(db_path.parent().unwrap()).unwrap();
+        let legacy = rusqlite::Connection::open(&db_path).unwrap();
+        legacy
+            .execute_batch(
+                "CREATE TABLE notifications (
+                    id TEXT PRIMARY KEY, kind TEXT NOT NULL, title TEXT NOT NULL, body TEXT,
+                    created_at TEXT NOT NULL, read_at TEXT, dismissed_at TEXT,
+                    apply_id TEXT, game_id TEXT, error_class TEXT
+                );",
+            )
+            .unwrap();
+        legacy
+            .execute(
+                "INSERT INTO notifications (id, kind, title, created_at)
+                 VALUES ('legacy-1', 'apply_success', 'old', ?1)",
+                rusqlite::params![chrono::Utc::now().to_rfc3339()],
+            )
+            .unwrap();
+        drop(legacy);
+
+        let store = NotificationsStore::open(db_path).unwrap();
+        let listed = store.list(&ListFilter::default()).unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].id, "legacy-1");
+        assert_eq!(listed[0].link, None);
+
+        let mut fresh = make_entry(NotificationKind::DriverUpdateAvailable, "post-migration");
+        fresh.link = Some("https://www.nexusmods.com/site/mods/1922".into());
+        store.insert(&fresh).unwrap();
+        let after = store.list(&ListFilter::default()).unwrap();
+        let migrated = after.iter().find(|e| e.id == fresh.id).unwrap();
+        assert_eq!(
+            migrated.link.as_deref(),
+            Some("https://www.nexusmods.com/site/mods/1922")
+        );
     }
 
     #[test]

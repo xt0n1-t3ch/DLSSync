@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import type { DlssPreset } from "@/lib/api";
 import {
   SR_PRESET_OPTIONS,
   FG_MODE_OPTIONS,
@@ -20,10 +21,19 @@ describe("dlss override option tables", () => {
     expect(FG_COUNT_OPTIONS.map((o) => o.value)).toEqual(["app_controlled", "x2", "x3", "x4"]);
   });
 
-  it("labels presets, falling back to the upper-cased value", () => {
+  it("labels the full A-O preset range so any externally-set preset is shown", () => {
     expect(presetLabel("k")).toContain("Preset K");
     expect(presetLabel("recommended")).toContain("Recommended");
-    expect(presetLabel("a")).toBe("A");
+    expect(presetLabel("a")).toContain("Preset A");
+    expect(presetLabel("m")).toContain("Preset M");
+    expect(presetLabel("o")).toContain("Preset O");
+    for (const letter of ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o"] as DlssPreset[]) {
+      expect(SR_PRESET_OPTIONS.some((o) => o.value === letter)).toBe(true);
+    }
+  });
+
+  it("falls back to the upper-cased value for an unrecognized preset", () => {
+    expect(presetLabel("z" as DlssPreset)).toBe("Z");
   });
 });
 

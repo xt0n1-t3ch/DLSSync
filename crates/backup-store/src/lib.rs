@@ -25,6 +25,24 @@ pub struct BackupEntry {
     pub restored_at: Option<chrono::DateTime<chrono::Utc>>,
     #[serde(default)]
     pub size_bytes: Option<u64>,
+    /// "dll" (a game DLL swap) or "driver_package" (a System & Components driver
+    /// snapshot). Legacy rows migrate to "dll".
+    #[serde(default = "default_backup_type")]
+    pub backup_type: String,
+    /// Device class for a driver_package backup (Audio/Network/…), for the
+    /// filterable System Drivers section in the Backups view.
+    #[serde(default)]
+    pub device_class: Option<String>,
+    /// Hardware id the driver_package backup belongs to.
+    #[serde(default)]
+    pub hardware_id: Option<String>,
+    /// Driver provider for a driver_package backup (Realtek, Intel, …).
+    #[serde(default)]
+    pub driver_provider: Option<String>,
+}
+
+fn default_backup_type() -> String {
+    "dll".to_string()
 }
 
 pub struct BackupStore {
@@ -65,6 +83,14 @@ impl BackupStore {
             CREATE INDEX IF NOT EXISTS idx_backups_game ON backups(game_id);
             CREATE INDEX IF NOT EXISTS idx_backups_created ON backups(created_at DESC);",
         )?;
+        ensure_column(&conn, "backup_type", "TEXT NOT NULL DEFAULT 'dll'")?;
+        ensure_column(&conn, "device_class", "TEXT")?;
+        ensure_column(&conn, "hardware_id", "TEXT")?;
+        ensure_column(&conn, "driver_provider", "TEXT")?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_backups_type ON backups(backup_type)",
+            [],
+        )?;
         Ok(())
     }
 
@@ -86,8 +112,9 @@ impl BackupStore {
         conn.execute(
             "INSERT INTO backups
                 (id, game_id, dll_family, dll_filename, original_path, backup_path,
-                 previous_version, previous_sha256, created_at, restored_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                 previous_version, previous_sha256, created_at, restored_at,
+                 backup_type, device_class, hardware_id, driver_provider)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
             rusqlite::params![
                 entry.id,
                 entry.game_id,
@@ -99,6 +126,10 @@ impl BackupStore {
                 entry.previous_sha256,
                 entry.created_at.to_rfc3339(),
                 entry.restored_at.map(|d| d.to_rfc3339()),
+                entry.backup_type,
+                entry.device_class,
+                entry.hardware_id,
+                entry.driver_provider,
             ],
         )?;
         Ok(())
@@ -108,7 +139,8 @@ impl BackupStore {
         let conn = self.conn()?;
         let mut stmt = conn.prepare(
             "SELECT id, game_id, dll_family, dll_filename, original_path, backup_path,
-                    previous_version, previous_sha256, created_at, restored_at
+                    previous_version, previous_sha256, created_at, restored_at,
+                    backup_type, device_class, hardware_id, driver_provider
              FROM backups WHERE id = ?1",
         )?;
         let mut rows = stmt.query([id])?;
@@ -140,7 +172,8 @@ impl BackupStore {
         let conn = self.conn()?;
         let mut stmt = conn.prepare(
             "SELECT id, game_id, dll_family, dll_filename, original_path, backup_path,
-                    previous_version, previous_sha256, created_at, restored_at
+                    previous_version, previous_sha256, created_at, restored_at,
+                    backup_type, device_class, hardware_id, driver_provider
              FROM backups ORDER BY created_at DESC",
         )?;
         let rows = stmt.query_map([], |row| Ok(row_to_entry(row)))?;
@@ -234,6 +267,10 @@ fn row_to_entry(row: &rusqlite::Row<'_>) -> Result<BackupEntry, rusqlite::Error>
         created_at: parse_iso(&created)?,
         restored_at: restored.as_deref().map(parse_iso).transpose()?,
         size_bytes: None,
+        backup_type: row.get(10)?,
+        device_class: row.get(11)?,
+        hardware_id: row.get(12)?,
+        driver_provider: row.get(13)?,
     })
 }
 
@@ -245,6 +282,31 @@ fn parse_iso(s: &str) -> Result<chrono::DateTime<chrono::Utc>, rusqlite::Error> 
 
 fn path_str(p: &Path) -> String {
     p.to_string_lossy().into_owned()
+}
+
+/// PRAGMA-guarded additive migration: add `column` to the `backups` table when an
+/// older install's DB predates it. Mirrors the notifications-store `link` column
+/// migration so existing backups upgrade in place.
+fn ensure_column(conn: &rusqlite::Connection, column: &str, decl: &str) -> Result<(), BackupError> {
+    let mut present = false;
+    {
+        let mut stmt = conn.prepare("PRAGMA table_info(backups)")?;
+        let mut rows = stmt.query([])?;
+        while let Some(row) = rows.next()? {
+            let name: String = row.get(1)?;
+            if name.eq_ignore_ascii_case(column) {
+                present = true;
+                break;
+            }
+        }
+    }
+    if !present {
+        conn.execute(
+            &format!("ALTER TABLE backups ADD COLUMN {column} {decl}"),
+            [],
+        )?;
+    }
+    Ok(())
 }
 
 pub fn sanitize_folder_name(raw: &str) -> String {
@@ -342,7 +404,77 @@ mod tests {
             created_at: stamp,
             restored_at: None,
             size_bytes: None,
+            backup_type: "dll".into(),
+            device_class: None,
+            hardware_id: None,
+            driver_provider: None,
         }
+    }
+
+    #[test]
+    fn driver_package_backup_round_trips() {
+        let dir = tempdir().unwrap();
+        let store = fresh_store(&dir);
+        let bp = store.root_dir.join("driver-backups").join("oem42");
+        std::fs::create_dir_all(&bp).unwrap();
+        let entry = BackupEntry {
+            id: uuid::Uuid::new_v4().to_string(),
+            game_id: r"PCI\VEN_10EC&DEV_0256".into(),
+            dll_family: "Audio".into(),
+            dll_filename: "oem42.inf".into(),
+            original_path: PathBuf::from(r"PCI\VEN_10EC&DEV_0256"),
+            backup_path: bp,
+            previous_version: Some("6.0.1.1".into()),
+            previous_sha256: None,
+            created_at: chrono::Utc::now(),
+            restored_at: None,
+            size_bytes: None,
+            backup_type: "driver_package".into(),
+            device_class: Some("Audio".into()),
+            hardware_id: Some(r"PCI\VEN_10EC&DEV_0256".into()),
+            driver_provider: Some("Realtek".into()),
+        };
+        store.insert(&entry).unwrap();
+        let listed = store.list().unwrap();
+        let drv = listed
+            .iter()
+            .find(|e| e.backup_type == "driver_package")
+            .expect("driver_package backup");
+        assert_eq!(drv.device_class.as_deref(), Some("Audio"));
+        assert_eq!(drv.hardware_id.as_deref(), Some(r"PCI\VEN_10EC&DEV_0256"));
+        assert_eq!(drv.driver_provider.as_deref(), Some("Realtek"));
+    }
+
+    #[test]
+    fn legacy_db_without_new_columns_migrates_and_defaults_backup_type() {
+        let dir = tempdir().unwrap();
+        let db = dir.path().join("Backups").join("backups.db");
+        let root = dir.path().join("Backups");
+        std::fs::create_dir_all(&root).unwrap();
+        {
+            let conn = rusqlite::Connection::open(&db).unwrap();
+            conn.execute_batch(
+                "CREATE TABLE backups (
+                    id TEXT PRIMARY KEY, game_id TEXT NOT NULL, dll_family TEXT NOT NULL,
+                    dll_filename TEXT NOT NULL, original_path TEXT NOT NULL,
+                    backup_path TEXT NOT NULL, previous_version TEXT, previous_sha256 TEXT,
+                    created_at TEXT NOT NULL, restored_at TEXT
+                );",
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO backups VALUES ('legacy','steam-1','dlss_sr','nvngx_dlss.dll',
+                  'C:\\Games\\Foo\\nvngx_dlss.dll','C:\\b\\nvngx_dlss.dll','1.0','abc',
+                  '2026-01-01T00:00:00Z',NULL)",
+                [],
+            )
+            .unwrap();
+        }
+        let store = BackupStore::open(db, root).unwrap();
+        let listed = store.list().unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].backup_type, "dll");
+        assert_eq!(listed[0].device_class, None);
     }
 
     #[test]
@@ -475,7 +607,10 @@ mod tests {
         let conn =
             rusqlite::Connection::open(dir.path().join("Backups").join("backups.db")).unwrap();
         conn.execute(
-            "INSERT INTO backups VALUES ('legacy', 'steam-1', 'dlss_sr', 'b.dll',
+            "INSERT INTO backups
+                (id, game_id, dll_family, dll_filename, original_path, backup_path,
+                 previous_version, previous_sha256, created_at, restored_at)
+             VALUES ('legacy', 'steam-1', 'dlss_sr', 'b.dll',
               'C:\\Games\\Foo\\b.dll',
               'C:\\old\\backups\\steam-1\\stamp\\b.dll',
               '1.0', 'abc', '2026-01-01T00:00:00Z', NULL)",

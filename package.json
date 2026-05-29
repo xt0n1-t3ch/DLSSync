@@ -1,10 +1,11 @@
 {
   "name": "dlssync",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "private": true,
   "scripts": {
     "dev": "tauri dev",
     "build": "tauri build",
+    "prebuild:kill": "node scripts/kill-dlssync.mjs",
     "check": "pnpm --filter dlssync-frontend check",
     "lint:rust": "cargo clippy --workspace --all-targets -- -D warnings",
     "fmt:rust": "cargo fmt --all",

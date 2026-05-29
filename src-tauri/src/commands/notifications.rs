@@ -92,6 +92,7 @@ mod tests {
             apply_id: Some(format!("apply-{title}")),
             game_id: Some(format!("steam-{title}")),
             error_class: None,
+            link: None,
         }
     }
 

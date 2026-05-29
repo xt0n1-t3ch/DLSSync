@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <sub><b>New in v1.5:</b> a GPU driver updater for NVIDIA, AMD and Intel with full per-card version history and signature-verified installs; DLSS preset and frame-generation overrides through the NVIDIA driver profile, global or per game; a per-game anti-cheat and anti-tamper warning (Denuvo, Easy Anti-Cheat, BattlEye, VMProtect and more) before any swap; broader FSR and XeSS coverage; and a redesigned Library, Drivers tab and game drawer. See <a href="CHANGELOG.md#150---2026-05-27">CHANGELOG</a>.</sub>
+  <sub><b>New in v1.5.2:</b> the DLL catalog is complete again — DirectStorage and the full AMD and Intel upscaler history are back; DLSS no longer swaps NVIDIA's version-locked Streamline runtime that could crash games like Starfield; and the System &amp; Components driver updater installs without hanging, snapshots each driver before updating so you can roll it back, and shows older and latest versions per component. See <a href="CHANGELOG.md#152---2026-05-29">CHANGELOG</a>.</sub>
 </p>
 
 <p align="center">
@@ -166,7 +166,13 @@ The DLL-sync path has no driver, no kernel-mode hook, no in-process injection �
   </a>
 </p>
 
-The installer is a per-user NSIS bundle. It installs to `%LOCALAPPDATA%\DLSSync\` without an admin prompt and registers an Add or Remove Programs entry for clean uninstall. Subsequent versions install themselves silently via the in-app update banner.
+Each release ships three formats:
+
+- **`*-setup.exe` (NSIS, recommended)** — per-user install to `%LOCALAPPDATA%\DLSSync\`, no admin prompt, Add/Remove Programs entry, and silent in-app auto-update.
+- **`*.msi` (Windows Installer)** — a standard MSI for users and IT who prefer `msiexec` / Group Policy deployment (per-machine; smoke-installed in CI on every release).
+- **`*-portable.zip`** — no installer; lowest friction.
+
+**First run — the "unknown publisher" prompt.** DLSSync is not yet code-signed, so Windows SmartScreen may show *"Windows protected your PC"* once per version. This is **not** a virus warning — it appears for any new publisher without an established reputation. Click **More info → Run anyway**. Full, sourced explanation (and the real fixes we keep on file) in [docs/signing-reality.md](docs/signing-reality.md).
 
 CLI alternative:
 

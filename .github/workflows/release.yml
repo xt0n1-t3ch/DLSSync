@@ -99,9 +99,26 @@ jobs:
           Write-Host "::group::target/release/bundle/nsis"
           Get-ChildItem -Path target/release/bundle/nsis -ErrorAction SilentlyContinue | Format-Table Name,Length -AutoSize
           Write-Host "::endgroup::"
+          Write-Host "::group::target/release/bundle/msi"
+          Get-ChildItem -Path target/release/bundle/msi -ErrorAction SilentlyContinue | Format-Table Name,Length -AutoSize
+          Write-Host "::endgroup::"
           Write-Host "::group::target/release (top level)"
           Get-ChildItem -Path target/release -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -like '*.exe' -or $_.Name -like '*.sig' } | Format-Table Name,Length -AutoSize
           Write-Host "::endgroup::"
+
+      - name: Smoke-install MSI (silent install + uninstall)
+        shell: pwsh
+        run: |
+          $msi = Get-ChildItem -Path target/release/bundle/msi -Filter "*.msi" -File -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $msi) { throw "No .msi produced by tauri build" }
+          $log = Join-Path $env:RUNNER_TEMP "msi-install.log"
+          Write-Host "Installing $($msi.Name) silently…"
+          $p = Start-Process msiexec.exe -ArgumentList "/i `"$($msi.FullName)`" /quiet /norestart /l*v `"$log`"" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { Get-Content $log -Tail 40 -ErrorAction SilentlyContinue; throw "MSI install failed (exit $($p.ExitCode))" }
+          Write-Host "Install OK. Uninstalling…"
+          $u = Start-Process msiexec.exe -ArgumentList "/x `"$($msi.FullName)`" /quiet /norestart" -Wait -PassThru
+          if ($u.ExitCode -ne 0) { throw "MSI uninstall failed (exit $($u.ExitCode))" }
+          Write-Host "MSI smoke-install + uninstall succeeded."
 
       - name: Build portable archive
         shell: pwsh
@@ -141,6 +158,7 @@ jobs:
             target/release/bundle/nsis/*.exe
             target/release/bundle/nsis/*.exe.sig
             target/release/bundle/nsis/*-portable.zip
+            target/release/bundle/msi/*.msi
           if-no-files-found: error
           retention-days: 7
 
@@ -208,9 +226,11 @@ jobs:
           exe=$(find release -name "*-setup.exe" -type f | head -n1)
           sig=$(find release -name "*-setup.exe.sig" -type f | head -n1)
           portable=$(find release -name "*-portable.zip" -type f | head -n1)
+          msi=$(find release -name "*.msi" -type f | head -n1)
           echo "exe=$exe" >> $GITHUB_OUTPUT
           echo "sig=$sig" >> $GITHUB_OUTPUT
           echo "portable=$portable" >> $GITHUB_OUTPUT
+          echo "msi=$msi" >> $GITHUB_OUTPUT
           echo "exe_name=$(basename "$exe")" >> $GITHUB_OUTPUT
 
       - name: Install git-cliff
@@ -293,4 +313,5 @@ jobs:
             release/*-setup.exe
             release/*-setup.exe.sig
             release/*-portable.zip
+            release/*.msi
             release/latest.json

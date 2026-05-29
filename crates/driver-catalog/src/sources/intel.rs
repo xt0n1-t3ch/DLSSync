@@ -19,6 +19,24 @@ fn parse_iso_date(raw: &str) -> Option<chrono::DateTime<chrono::Utc>> {
         .map(|d| d.with_timezone(&chrono::Utc))
 }
 
+/// Intel's `DisplayReleaseDate` is normally RFC3339 (`2026-05-15T00:00:00Z`), but
+/// a catalog entry occasionally carries a bare `YYYY-MM-DD`. Accept both so a real
+/// graphics driver is never dropped purely over a date-format quirk.
+fn parse_release_date(raw: &str) -> Option<chrono::DateTime<chrono::Utc>> {
+    use chrono::{NaiveDate, TimeZone, Utc};
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    if let Some(dt) = parse_iso_date(trimmed) {
+        return Some(dt);
+    }
+    NaiveDate::parse_from_str(trimmed, "%Y-%m-%d")
+        .ok()
+        .and_then(|date| date.and_hms_opt(0, 0, 0))
+        .map(|naive| Utc.from_utc_datetime(&naive))
+}
+
 /// `VEN_8086&DEV_XXXX` exactly as Intel writes it in `Components[].DetectionValues`.
 fn intel_hardware_id(device_id: u16) -> String {
     format!("VEN_{:04X}&DEV_{device_id:04X}", c::PCI_VENDOR_ID)
@@ -56,7 +74,7 @@ fn entry_to_release(entry: &serde_json::Value) -> Option<DriverRelease> {
     if !token.chars().next().is_some_and(|ch| ch.is_ascii_digit()) {
         return None;
     }
-    let date = parse_iso_date(entry["DisplayReleaseDate"].as_str().unwrap_or_default())?;
+    let date = parse_release_date(entry["DisplayReleaseDate"].as_str().unwrap_or_default());
     let file0 = entry["Files"].as_array().and_then(|f| f.first());
     let download_url = file0
         .and_then(|f| f["Url"].as_str())
@@ -79,7 +97,7 @@ fn entry_to_release(entry: &serde_json::Value) -> Option<DriverRelease> {
         download_url,
         size_bytes: file0.and_then(|f| f["Size"].as_u64()).unwrap_or(0),
         signature_subject: c::PUBLISHER_SUBJECT.to_string(),
-        released_at: Some(date),
+        released_at: date,
         release_notes_url: entry["Url"]
             .as_str()
             .filter(|s| !s.is_empty())
@@ -303,5 +321,36 @@ mod tests {
         assert!(resolve_release("[]", 0xE20B).unwrap().is_none());
         assert!(resolve_release("not json", 0xE20B).is_err());
         assert!(resolve_history("not json", 0xE20B, 5).is_err());
+    }
+
+    #[test]
+    fn graphics_entry_with_alt_or_missing_date_is_still_resolved() {
+        let json = r#"[
+            {"GroupId":"1","Version":"32.0.101.9999","DisplayReleaseDate":"2026-06-01","Url":"https://intel/1","Files":[{"Url":"https://dl/9999.exe","Size":5}],"Components":[{"Category":"Graphics","DetectionValues":["VEN_8086&DEV_E20B"]}]},
+            {"GroupId":"2","Version":"32.0.101.0001","DisplayReleaseDate":"","Url":null,"Files":[{"Url":"https://dl/0001.exe","Size":3}],"Components":[{"Category":"Graphics","DetectionValues":["VEN_8086&DEV_E20B"]}]}
+        ]"#;
+        let releases = resolve_history(json, 0xE20B, 50).unwrap();
+        let versions: Vec<_> = releases
+            .iter()
+            .map(|r| r.version.display.as_str())
+            .collect();
+        assert!(
+            versions.contains(&"32.0.101.9999"),
+            "date-only entry must resolve"
+        );
+        assert!(
+            versions.contains(&"32.0.101.0001"),
+            "missing-date entry must not be silently dropped"
+        );
+        let dated = releases
+            .iter()
+            .find(|r| r.version.display == "32.0.101.9999")
+            .unwrap();
+        assert!(dated.released_at.is_some(), "YYYY-MM-DD must parse");
+        let undated = releases
+            .iter()
+            .find(|r| r.version.display == "32.0.101.0001")
+            .unwrap();
+        assert!(undated.released_at.is_none());
     }
 }

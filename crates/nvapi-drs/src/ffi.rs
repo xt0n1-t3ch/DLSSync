@@ -8,6 +8,7 @@ use windows_sys::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryW};
 
 type Status = i32;
 const NVAPI_OK: Status = 0;
+const NVAPI_INVALID_USER_PRIVILEGE: Status = -137;
 type NvHandle = *mut c_void;
 
 const ID_INITIALIZE: u32 = 0x0150_E828;
@@ -262,23 +263,41 @@ impl Drs {
         }
     }
 
-    unsafe fn find_or_create_app(&self, exe_path: &str) -> Result<NvHandle, String> {
+    /// Read-only profile resolution: never creates a profile. A per-game profile
+    /// that does not exist yet resolves to `None` so a READ stays side-effect-free
+    /// (opening the override UI must not inject a phantom app profile).
+    unsafe fn profile_for_read(&self, scope: &OverrideScope) -> Result<Option<NvHandle>, String> {
+        match scope {
+            OverrideScope::Global => Ok(Some(self.base_profile()?)),
+            OverrideScope::PerGame { executable_path } => self.find_app(executable_path),
+        }
+    }
+
+    unsafe fn find_app(&self, exe_path: &str) -> Result<Option<NvHandle>, String> {
         let name = exe_basename(exe_path);
         let name_wide = wide(&name);
-
-        let mut existing_profile: NvHandle = null_mut();
-        let mut existing_app: NvdrsApplicationV4 = zeroed();
-        existing_app.version = struct_version::<NvdrsApplicationV4>(NVDRS_APPLICATION_VER_NUMBER);
+        let mut profile: NvHandle = null_mut();
+        let mut app: NvdrsApplicationV4 = zeroed();
+        app.version = struct_version::<NvdrsApplicationV4>(NVDRS_APPLICATION_VER_NUMBER);
         let status = (self.fns.find_application_by_name)(
             self.session,
             name_wide.as_ptr(),
-            &mut existing_profile,
-            &mut existing_app,
+            &mut profile,
+            &mut app,
         );
-        if status == NVAPI_OK && !existing_profile.is_null() {
-            return Ok(existing_profile);
+        if status == NVAPI_OK && !profile.is_null() {
+            Ok(Some(profile))
+        } else {
+            Ok(None)
+        }
+    }
+
+    unsafe fn find_or_create_app(&self, exe_path: &str) -> Result<NvHandle, String> {
+        if let Some(profile) = self.find_app(exe_path)? {
+            return Ok(profile);
         }
 
+        let name = exe_basename(exe_path);
         let mut profile_info: NvdrsProfile = zeroed();
         profile_info.version = struct_version::<NvdrsProfile>(NVDRS_PROFILE_VER_NUMBER);
         wide_into(&mut profile_info.profile_name, &name);
@@ -299,24 +318,25 @@ impl Drs {
         Ok(profile)
     }
 
-    unsafe fn set_dword(&self, profile: NvHandle, id: u32, value: u32) -> Result<(), String> {
+    unsafe fn set_dword(&self, profile: NvHandle, id: u32, value: u32) -> Result<(), Status> {
         let mut setting: NvdrsSetting = zeroed();
         setting.version = struct_version::<NvdrsSetting>(NVDRS_SETTING_VER_NUMBER);
         setting.setting_id = id;
         setting.setting_type = NVDRS_DWORD_TYPE;
         setting.current_value.u32_value = value;
         let status = (self.fns.set_setting)(self.session, profile, &setting);
-        if status != NVAPI_OK {
-            return Err(format!("NvAPI_DRS_SetSetting(0x{id:08X}) -> {status}"));
+        if status == NVAPI_OK {
+            Ok(())
+        } else {
+            Err(status)
         }
-        Ok(())
     }
 
     unsafe fn get_dword(&self, profile: NvHandle, id: u32) -> Option<u32> {
         let mut setting: NvdrsSetting = zeroed();
         setting.version = struct_version::<NvdrsSetting>(NVDRS_SETTING_VER_NUMBER);
         let status = (self.fns.get_setting)(self.session, profile, id, &mut setting);
-        if status == NVAPI_OK {
+        if status == NVAPI_OK && setting.setting_type == NVDRS_DWORD_TYPE {
             Some(setting.current_value.u32_value)
         } else {
             None
@@ -367,20 +387,36 @@ pub fn roundtrip_dword(setting_id: u32, value: u32) -> Result<u32, String> {
     let drs = Drs::open()?;
     unsafe {
         let profile = drs.base_profile()?;
-        drs.set_dword(profile, setting_id, value)?;
+        drs.set_dword(profile, setting_id, value)
+            .map_err(|status| format!("NvAPI_DRS_SetSetting(0x{setting_id:08X}) -> {status}"))?;
         drs.get_dword(profile, setting_id)
             .ok_or_else(|| "GetSetting returned no value after SetSetting".to_string())
     }
 }
 
-pub fn apply_overrides(scope: &OverrideScope, settings: &[DrsSetting]) -> Result<(), String> {
+/// Applies every setting it can and returns the ids the driver refused for lack of
+/// privilege (`NVAPI_INVALID_USER_PRIVILEGE`) instead of aborting the whole batch —
+/// e.g. frame-generation DRS settings require an elevated process, while DLSS
+/// Super-Resolution settings do not. Any OTHER NVAPI failure still aborts.
+pub fn apply_overrides(scope: &OverrideScope, settings: &[DrsSetting]) -> Result<Vec<u32>, String> {
     let drs = Drs::open()?;
     unsafe {
         let profile = drs.profile_for(scope)?;
+        let mut needs_elevation = Vec::new();
         for setting in settings {
-            drs.set_dword(profile, setting.id, setting.value)?;
+            match drs.set_dword(profile, setting.id, setting.value) {
+                Ok(()) => {}
+                Err(NVAPI_INVALID_USER_PRIVILEGE) => needs_elevation.push(setting.id),
+                Err(status) => {
+                    return Err(format!(
+                        "NvAPI_DRS_SetSetting(0x{:08X}) -> {status}",
+                        setting.id
+                    ));
+                }
+            }
         }
-        drs.save()
+        drs.save()?;
+        Ok(needs_elevation)
     }
 }
 
@@ -390,7 +426,9 @@ pub fn read_overrides(
 ) -> Result<Vec<(u32, Option<u32>)>, String> {
     let drs = Drs::open()?;
     unsafe {
-        let profile = drs.profile_for(scope)?;
+        let Some(profile) = drs.profile_for_read(scope)? else {
+            return Ok(ids.iter().map(|&id| (id, None)).collect());
+        };
         Ok(ids
             .iter()
             .map(|&id| (id, drs.get_dword(profile, id)))
@@ -401,7 +439,9 @@ pub fn read_overrides(
 pub fn reset_overrides(scope: &OverrideScope, ids: &[u32]) -> Result<(), String> {
     let drs = Drs::open()?;
     unsafe {
-        let profile = drs.profile_for(scope)?;
+        let Some(profile) = drs.profile_for_read(scope)? else {
+            return Ok(());
+        };
         for &id in ids {
             let _ = (drs.fns.restore_default_setting)(drs.session, profile, id);
         }

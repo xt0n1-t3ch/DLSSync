@@ -8,23 +8,25 @@
     featureIconId,
     featureVendor,
     FEATURE_ORDER,
-    VENDOR_ACCENTS,
-    GROUP_ACCENT,
+    vendorAccentVar,
+    GROUP_ACCENT_VAR,
     type UpdateStatus,
     type FeatureSlot,
   } from "../lib/labels";
   import { gameDlls, gameDllsLoading, gameStatuses, relationContext } from "../lib/stores";
   import { dllRelation } from "../lib/relation";
   import { launcherIcon } from "../lib/launcherIcons";
+  import { setActiveArt } from "../lib/artContext";
   import FeatureIcon from "./FeatureIcon.svelte";
 
-  let { game, hidden = false, onApply, onOpenFolder, onBlacklist, onClick }: {
+  let { game, hidden = false, onApply, onOpenFolder, onBlacklist, onClick, onContextMenu }: {
     game: DetectedGame;
     hidden?: boolean;
     onApply: (g: DetectedGame) => void;
     onOpenFolder: (g: DetectedGame) => void;
     onBlacklist: (g: DetectedGame) => void;
     onClick: (g: DetectedGame) => void;
+    onContextMenu?: (g: DetectedGame, e: MouseEvent) => void;
   } = $props();
 
   function handleCardKey(e: KeyboardEvent): void {
@@ -66,7 +68,7 @@
           outdated: out,
           count: 1,
           vendorAccent:
-            f === "advanced" ? GROUP_ACCENT.advanced : VENDOR_ACCENTS[featureVendor(f)] ?? GROUP_ACCENT.advanced,
+            f === "advanced" ? GROUP_ACCENT_VAR.advanced : vendorAccentVar(featureVendor(f)),
           short: f === "advanced" ? "Other" : featureShort(f),
           iconId: featureIconId(f),
         });
@@ -104,7 +106,10 @@
   role="button"
   tabindex="0"
   onclick={() => onClick(game)}
+  oncontextmenu={onContextMenu ? (e) => { e.preventDefault(); onContextMenu(game, e); } : undefined}
   onkeydown={handleCardKey}
+  onmouseenter={() => setActiveArt(game.image_url)}
+  onfocus={() => setActiveArt(game.image_url)}
 >
   <div class="art" style:--launcher-accent={accent}>
     {#if game.image_url && !imgErrored}
@@ -451,9 +456,9 @@
     font-size: 10.5px;
     font-weight: 600;
     border-radius: var(--radius-sm);
-    background: var(--bg-elevated);
+    background: color-mix(in oklab, var(--chip-accent, var(--accent)) 8%, var(--bg-elevated));
     color: var(--text-secondary);
-    border: 1px solid var(--border);
+    border: 1px solid color-mix(in oklab, var(--chip-accent, var(--accent)) 28%, var(--border));
     letter-spacing: 0.01em;
   }
   .feature-chip.outdated {

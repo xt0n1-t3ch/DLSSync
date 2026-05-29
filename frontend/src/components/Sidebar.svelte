@@ -1,11 +1,24 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { fly } from "svelte/transition";
   import {
     currentView,
     settings,
     persistSettings,
     sidebarCounts,
   } from "../lib/stores";
+
+  const STAGGER_STEP_MS = 28;
+  const prefersReducedMotion =
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function labelStagger(index: number): { x: number; duration: number; delay: number } {
+    return {
+      x: -8,
+      duration: prefersReducedMotion ? 0 : 180,
+      delay: prefersReducedMotion ? 0 : index * STAGGER_STEP_MS,
+    };
+  }
 
   let appVersion = $state("dev");
   onMount(async () => {
@@ -69,7 +82,7 @@
 
   <nav class="sidebar-nav">
     {#if !collapsed}<div class="nav-label">Library</div>{/if}
-    {#each librarySection as item}
+    {#each librarySection as item, i}
       {@const count = counterValue(item)}
       <button class="nav-pill" class:active={$currentView === item.id} title={item.title} onclick={() => switchView(item.id)}>
         {#if item.icon === "library"}
@@ -81,7 +94,7 @@
         {:else if item.icon === "drivers"}
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
         {/if}
-        {#if !collapsed}<span class="nav-label-text">{item.title}</span>{/if}
+        {#if !collapsed}<span class="nav-label-text" in:fly={labelStagger(i)}>{item.title}</span>{/if}
         {#if count > 0}
           <span class="nav-counter" class:is-collapsed={collapsed} class:is-update={item.counterKey === "library"} aria-label={`${count} ${item.counterKey === "library" ? "outdated" : "restorable"}`}>
             {count > 99 ? "99+" : count}
@@ -91,14 +104,14 @@
     {/each}
 
     {#if !collapsed}<div class="nav-label">General</div>{/if}
-    {#each settingsSection as item}
+    {#each settingsSection as item, i}
       <button class="nav-pill" class:active={$currentView === item.id} title={item.title} onclick={() => switchView(item.id)}>
         {#if item.icon === "settings"}
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         {:else}
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
         {/if}
-        {#if !collapsed}<span class="nav-label-text">{item.title}</span>{/if}
+        {#if !collapsed}<span class="nav-label-text" in:fly={labelStagger(librarySection.length + i)}>{item.title}</span>{/if}
       </button>
     {/each}
   </nav>
@@ -115,17 +128,22 @@
 
 <style>
   .sidebar {
-    position: fixed;
-    left: 0;
-    top: 0;
-    bottom: 0;
+    position: relative;
+    flex-shrink: 0;
     width: var(--sidebar-width);
-    background: var(--bg-sidebar);
+    height: 100%;
+    background: var(--glass-1);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
     border-right: 1px solid var(--border);
+    box-shadow: var(--glass-edge);
     display: flex;
     flex-direction: column;
-    z-index: 100;
+    z-index: 2;
     transition: width var(--dur-normal) var(--ease);
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .sidebar { background: var(--glass-fallback); }
   }
   .sidebar.collapsed {
     width: var(--sidebar-width-collapsed);
@@ -186,11 +204,12 @@
     color: var(--text-secondary);
     font-size: 14px;
     font-weight: 500;
-    transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+    transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--spring);
   }
   .sidebar.collapsed .nav-pill { width: 44px; height: 44px; justify-content: center; padding: 0; }
   .nav-pill :global(svg) { width: 20px; height: 20px; flex-shrink: 0; }
-  .nav-pill:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+  .nav-pill:hover { background: var(--bg-card-hover); color: var(--text-primary); transform: translateX(2px); }
+  .nav-pill:active { transform: translateX(2px) scale(0.99); }
   .nav-pill.active {
     background: var(--accent);
     color: var(--accent-fg);

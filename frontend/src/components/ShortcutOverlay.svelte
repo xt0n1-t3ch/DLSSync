@@ -120,7 +120,9 @@
     width: min(840px, 100%);
     max-height: 80vh;
     overflow-y: auto;
-    background: var(--bg-card);
+    background: var(--glass-strong);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-lg);
