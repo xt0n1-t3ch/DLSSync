@@ -310,8 +310,8 @@ jobs:
           generate_release_notes: false
           body: ${{ steps.notes.outputs.body }}
           files: |
-            release/*-setup.exe
-            release/*-setup.exe.sig
-            release/*-portable.zip
-            release/*.msi
+            release/**/*-setup.exe
+            release/**/*-setup.exe.sig
+            release/**/*-portable.zip
+            release/**/*.msi
             release/latest.json
