@@ -22,6 +22,7 @@
   } from "../lib/api";
   import { vendorLabel, vendorAccent } from "../lib/labels";
   import { EXTERNAL_URLS } from "../lib/ux";
+  import { fetchStarCount, shareDlssync } from "../lib/community";
   import changelogRaw from "../../../CHANGELOG.md?raw";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import Bug from "@lucide/svelte/icons/bug";
@@ -36,7 +37,10 @@
   import FileText from "@lucide/svelte/icons/file-text";
   import ExternalLink from "@lucide/svelte/icons/external-link";
   import Database from "@lucide/svelte/icons/database";
+  import Star from "@lucide/svelte/icons/star";
+  import Share2 from "@lucide/svelte/icons/share-2";
   import BrandMark from "../components/BrandMark.svelte";
+  import NexusLogo from "../components/NexusLogo.svelte";
 
   let version = $state("dev");
   let appPaths = $state<AppPathsDto | null>(null);
@@ -44,6 +48,7 @@
   let systemInfoFailed = $state(false);
   let updateChecking = $state(false);
   let updateMessage = $state<{ kind: "info" | "success" | "warning" | "danger"; text: string } | null>(null);
+  let starCount = $state<number | null>(null);
 
   type ReleaseHighlights = { version: string; bullets: string[] };
   const releaseHighlights = parseLatestRelease(changelogRaw);
@@ -98,7 +103,18 @@
       systemInfo = null;
       systemInfoFailed = true;
     }
+    try {
+      starCount = await fetchStarCount();
+    } catch {
+      starCount = null;
+    }
   });
+
+  async function shareApp(): Promise<void> {
+    const result = await shareDlssync();
+    if (result === "copied") showToast("success", "Link copied - share DLSSync with a friend");
+    else if (result === "failed") showToast("warning", "Could not copy the link");
+  }
 
   function fmtBytes(n: number | null | undefined): string {
     if (n == null || n === 0) return "—";
@@ -238,6 +254,10 @@
     <button class="btn btn-ghost kofi-btn" onclick={() => openExternal(EXTERNAL_URLS.kofi)} title="Ko-fi — quick one-time tip">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 8h1a4 4 0 0 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg>
       Ko-fi
+    </button>
+    <button class="btn btn-ghost nexus-btn" onclick={() => openExternal(EXTERNAL_URLS.nexusMod)} title="DLSSync on Nexus Mods — endorse it to boost visibility">
+      <NexusLogo size={15} />
+      Nexus
     </button>
     <button class="btn btn-ghost" onclick={reportBug} disabled={reporting} title="Open a pre-filled GitHub issue with app version, OS, and recent logs attached">
       {#if reporting}
@@ -527,6 +547,28 @@
         <span class="author-link-text">xt0n1.com</span>
       </button>
     </div>
+  </div>
+</section>
+
+<section class="support-section" in:fade={{ duration: 240, delay: 300 }}>
+  <header class="section-head-row">
+    <h3 class="section-heading-h">Help DLSSync grow</h3>
+    <p class="section-sub">DLSSync is free, with zero telemetry and no paid tier. The fastest way to support it is a star, an endorsement, or a share — each one helps other gamers find it.</p>
+  </header>
+  <div class="support-grid">
+    <button class="support-cta is-star" onclick={() => openExternal(EXTERNAL_URLS.homepage)} title="Star DLSSync on GitHub">
+      <Star size={16} fill="currentColor" />
+      <span class="support-cta-label">Star on GitHub</span>
+      {#if starCount !== null}<span class="support-cta-count mono">{starCount.toLocaleString()}</span>{/if}
+    </button>
+    <button class="support-cta is-endorse" onclick={() => openExternal(EXTERNAL_URLS.nexusMod)} title="Endorse DLSSync on Nexus Mods">
+      <NexusLogo size={18} />
+      <span class="support-cta-label">Endorse on Nexus</span>
+    </button>
+    <button class="support-cta" onclick={shareApp} title="Copy a shareable link">
+      <Share2 size={16} />
+      <span class="support-cta-label">Share with a friend</span>
+    </button>
   </div>
 </section>
 
@@ -1032,6 +1074,44 @@
     padding: 0;
   }
   .foot-link:hover { text-decoration: underline; }
+
+  .support-section { margin-bottom: 14px; }
+  .support-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+  }
+  .support-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+  }
+  .support-cta:hover {
+    color: var(--text-primary);
+    background: var(--bg-card-hover);
+    transform: translateY(-2px);
+  }
+  .support-cta.is-star :global(svg) { color: var(--gh-star); }
+  .support-cta.is-star:hover { border-color: var(--gh-star); }
+  .support-cta.is-endorse:hover { border-color: var(--nexus); }
+  .support-cta :global(svg) { color: var(--text-muted); flex-shrink: 0; transition: color var(--dur-fast) var(--ease); }
+  .support-cta-label { font-size: var(--fs-sm); font-weight: 600; }
+  .support-cta-count {
+    margin-left: auto;
+    font-size: var(--fs-xs);
+    color: var(--accent);
+    background: var(--accent-dim);
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    font-variant-numeric: tabular-nums;
+  }
 
   .spin { width: 12px; height: 12px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; }
   @keyframes spin { to { transform: rotate(360deg); } }

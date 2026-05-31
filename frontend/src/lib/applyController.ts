@@ -17,6 +17,7 @@ import {
   type Toast,
 } from "./stores";
 import { familyVendor, familyCatalogKey, launcherLabel } from "./labels";
+import { notifyApplySuccess } from "./community";
 import type { LauncherKind } from "./api";
 
 export interface ApplyTarget {
@@ -53,6 +54,7 @@ export async function dispatchApply(
   try {
     const result = await applyUpdateBatch({ items: requests });
     annotateOutcomes(result);
+    notifyApplySuccess(result.outcomes.filter((o) => o.success).length);
     return result;
   } catch (err: unknown) {
     const msg = formatError(err);
@@ -146,6 +148,7 @@ export async function dispatchStreamlineSet(
     if (result.success) {
       annotateOutcomes({ outcomes: result.applied });
       toast("success", `Streamline set updated (${count} file${plural})`);
+      notifyApplySuccess(result.applied.length);
     } else {
       const rolledBack = result.rolled_back ? " — rolled back to the previous set" : "";
       failAllTrackers(trackers, `${result.error ?? "Streamline set failed"}${rolledBack}`);

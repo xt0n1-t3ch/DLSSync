@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from "svelte";
   import { get } from "svelte/store";
   import { fly, slide } from "svelte/transition";
-  import { showToast } from "../lib/stores";
+  import { showToast, updateBannerActive } from "../lib/stores";
   import {
     notifications,
     pushNotification,
@@ -71,6 +71,11 @@
   onDestroy(() => {
     if (timer) clearInterval(timer);
     window.removeEventListener("dlssync:check-updates", handleExternalCheck);
+    updateBannerActive.set(false);
+  });
+
+  $effect(() => {
+    updateBannerActive.set(stage !== "idle" && available !== null);
   });
 
   function devFakeUpdate(): UpdateInfo | null {

@@ -21,6 +21,7 @@
   } from "../lib/api";
   import type { AppSettings, UpdatePreferences, LauncherOverrides, AdvancedConfig, NetworkConfig, SgdbConfig, AppPathsDto } from "../lib/api";
   import { LAUNCHER_BRANDS, LAUNCHER_BRAND_ORDER, type LauncherBrandKey } from "../lib/launcherLogos";
+  import { resetNudgeSession } from "../lib/community";
   import BrandMark from "../components/BrandMark.svelte";
 
   let { onToggleTheme, currentTheme }: { onToggleTheme: () => void; currentTheme: string } = $props();
@@ -48,6 +49,12 @@
     activeTab = id;
     if (!$settings || $settings.ui_prefs.settings_active_tab === id) return;
     await persistSettings({ ...$settings, ui_prefs: { ...$settings.ui_prefs, settings_active_tab: id } });
+  }
+
+  async function setShowSupportNudge(on: boolean): Promise<void> {
+    if (!$settings) return;
+    if (on) resetNudgeSession();
+    await persistSettings({ ...$settings, ui_prefs: { ...$settings.ui_prefs, show_support_nudge: on } });
   }
 
   const TABS: { id: TabId; label: string; icon: string }[] = [
@@ -428,6 +435,27 @@
               </label>
             </div>
           {/each}
+        </div>
+
+        <header class="section-head" style="margin-top: 20px;">
+          <h2 class="section-title-h">Support card</h2>
+          <p class="section-help">A small card that occasionally invites you to star, endorse or share DLSSync after a successful update. It never blocks anything.</p>
+        </header>
+        <div class="card">
+          <div class="row">
+            <div class="row-text">
+              <div class="row-label">Show the support card</div>
+              <div class="row-sub">A gentle nudge bottom-left after an update lands. Turn it off here any time, or re-enable it later.</div>
+            </div>
+            <label class="toggle">
+              <input
+                type="checkbox"
+                checked={$settings.ui_prefs.show_support_nudge}
+                onchange={(e) => void setShowSupportNudge((e.target as HTMLInputElement).checked)}
+              />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
         </div>
       </section>
 

@@ -8,6 +8,7 @@
   import CommandPalette from "./components/CommandPalette.svelte";
   import NotificationsBell from "./components/NotificationsBell.svelte";
   import ShortcutOverlay from "./components/ShortcutOverlay.svelte";
+  import SupportNudge from "./components/SupportNudge.svelte";
   import ApplyProgressModal from "./components/ApplyProgressModal.svelte";
   import ActivityDock from "./components/ActivityDock.svelte";
   import Library from "./views/Library.svelte";
@@ -145,6 +146,7 @@
 <CommandPalette />
 <NotificationsBell open={$notificationsOpen} onClose={() => notificationsOpen.set(false)} />
 <ShortcutOverlay />
+<SupportNudge />
 {#if $applyModalOpen}
   <ApplyProgressModal onClose={() => applyModalOpen.set(false)} />
 {/if}
