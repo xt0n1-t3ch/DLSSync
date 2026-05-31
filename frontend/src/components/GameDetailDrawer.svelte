@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
   import { setActiveArt, clearActiveArt } from "../lib/artContext";
-  import { EXTERNAL_URLS, ENABLER_MANAGED_LABEL, ENABLER_MANAGED_NOTE } from "../lib/ux";
+  import { EXTERNAL_URLS, ENABLER_MANAGED_LABEL, ENABLER_MANAGED_NOTE, STREAMLINE_OVERRIDE_NOTE } from "../lib/ux";
   import {
     games,
     gameDlls,
@@ -921,7 +921,7 @@
         <button
           class="btn btn-ghost"
           onclick={applyStreamlineSetAction}
-          title="Update the matched NVIDIA Streamline plug-in set together as one atomic transaction (all files, or none)"
+          title={`Update the matched NVIDIA Streamline plug-in set together as one atomic transaction (all files, or none). ${STREAMLINE_OVERRIDE_NOTE}`}
         >
           Update Streamline set{streamlineSetTarget ? ` → v${streamlineSetTarget}` : ""} ({streamlineSetMembers.length})
         </button>

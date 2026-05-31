@@ -242,6 +242,12 @@ export const ENABLER_MANAGED_LABEL = "Managed by Enabler";
 export const ENABLER_MANAGED_NOTE =
   "This game's Streamline set is managed by DLSS Enabler — DLSSync leaves the sl.* plug-ins untouched.";
 
+/** Shown next to the "Update Streamline set" action. Swapping the shared sl.* set
+ *  can change how NVIDIA App global overrides apply, so the user knows what to expect
+ *  and how to revert. */
+export const STREAMLINE_OVERRIDE_NOTE =
+  "Updating Streamline replaces the shared sl.* plug-in set. Per-game DLSS overrides keep working; NVIDIA App global preset and ratio overrides may need to be set again. If a game misbehaves, restore the previous set from Backups.";
+
 export const VENDOR_TOKEN_BY_FAMILY: Record<string, string> = {
   dlss_sr: "var(--vendor-nvidia)",
   dlss_fg: "var(--vendor-nvidia)",
