@@ -95,6 +95,15 @@ function compareVersionString(a: string, b: string): number {
   return 0;
 }
 
+/** Leading numeric segment of a version string (the SDK major), or `null`.
+ * Mirrors the backend `apply.rs::version_major`. */
+export function versionMajor(version: string): number | null {
+  const digits = (version.split(".")[0] ?? "").match(/^\d+/)?.[0];
+  if (!digits) return null;
+  const n = parseInt(digits, 10);
+  return Number.isNaN(n) ? null : n;
+}
+
 export function dllRelation(r: DllRecord, ctx: RelationContext, pinnedVersion: string | null = null): DllRelation {
   const target = targetVersion(r, ctx, pinnedVersion);
   if (!target) return "no-target";
@@ -110,6 +119,12 @@ export function dllRelation(r: DllRecord, ctx: RelationContext, pinnedVersion: s
     return "same";
   }
   if (!r.current_version) return "no-target";
+  // A Streamline plug-in stamped with a different major than the catalog target is
+  // driver/OTA-managed (NGX 310.x build), not the GitHub SDK 2.x build — leave it
+  // alone: swapping it crosses the version-locked set and can break NVIDIA App global overrides.
+  if (isStreamlinePlugin(filename) && versionMajor(r.current_version) !== versionMajor(target)) {
+    return "same";
+  }
   const c = compareVersionString(r.current_version, target);
   if (c < 0) return "outdated";
   if (c > 0) return "ahead";

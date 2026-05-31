@@ -9,6 +9,7 @@ import {
   isStreamlinePlugin,
   recordUpdatable,
   gameStatusFromRecords,
+  versionMajor,
   type RelationContext,
 } from "@/lib/relation";
 
@@ -163,14 +164,15 @@ describe("gameStatusFromRecords", () => {
   });
 
   it("a Streamline plugin outdated only is up_to_date when the Streamline switch is off", () => {
-    const records = [rec({ family: "dlss_sr", path: "C:\\g\\sl.dlss.dll", current_version: "1.0.0.0" })];
-    expect(gameStatusFromRecords(records, outdatedCtx, [], null, prefs({ update_streamline: false }))).toBe("up_to_date");
-    expect(gameStatusFromRecords(records, outdatedCtx, [], null, prefs({ update_streamline: true }))).toBe("outdated");
+    const records = [rec({ family: "dlss_sr", path: "C:\\g\\sl.dlss.dll", current_version: "2.0.0.0" })];
+    const slCtx = ctx({ latestByKey: { dlss_sr: "2.5.0.0" } });
+    expect(gameStatusFromRecords(records, slCtx, [], null, prefs({ update_streamline: false }))).toBe("up_to_date");
+    expect(gameStatusFromRecords(records, slCtx, [], null, prefs({ update_streamline: true }))).toBe("outdated");
   });
 
   it("a Streamline plugin is never offered when DLSS Enabler manages the set", () => {
-    const records = [rec({ family: "reflex", path: "C:\\g\\sl.reflex.dll", current_version: "1.0.0.0" })];
-    const reflexCtx = ctx({ latestByKey: { reflex: "2.0.0.0" } });
+    const records = [rec({ family: "reflex", path: "C:\\g\\sl.reflex.dll", current_version: "2.0.0.0" })];
+    const reflexCtx = ctx({ latestByKey: { reflex: "2.5.0.0" } });
     expect(gameStatusFromRecords(records, reflexCtx, [], null, prefs({ update_streamline: true }), true)).toBe("up_to_date");
     expect(gameStatusFromRecords(records, reflexCtx, [], null, prefs({ update_streamline: true }), false)).toBe("outdated");
   });
@@ -257,6 +259,57 @@ describe("Nexus Subnautica 2 report (Kronprinz77, 2026-05-30) — end-to-end reg
     const enabler = true;
     const ngx = rec({ family: "dlss_fg", path: "C:\\Subnautica 2\\nvngx_dlssg.dll", current_version: "310.1.0.0" });
     expect(recordUpdatable(ngx, prefs({ update_dlss_fg: true }), enabler)).toBe(true);
+  });
+});
+
+describe("versionMajor", () => {
+  it("reads the leading numeric segment, null on non-numeric/empty", () => {
+    expect(versionMajor("310.6.0.0")).toBe(310);
+    expect(versionMajor("2.11.1.0")).toBe(2);
+    expect(versionMajor("2")).toBe(2);
+    expect(versionMajor("")).toBeNull();
+    expect(versionMajor("dev")).toBeNull();
+  });
+});
+
+describe("scheme-aware Streamline offer (v1.6.1)", () => {
+  // (a) A driver/OTA-managed sl.dlss_g stamped 310.x must NOT be offered the catalog
+  // 2.x build — swapping it risks the user's NVIDIA App global overrides (the Cyberpunk case).
+  it("leaves a 310.x-stamped sl.dlss_g alone against a 2.x catalog", () => {
+    const slFg = rec({ family: "sl_dlss_fg", path: "C:\\g\\sl.dlss_g.dll", current_version: "310.6.0.0" });
+    const c = ctx({ latestByKey: { sl_dlss_fg: "2.11.1.0", dlss_fg: "310.6.0.0" } });
+    expect(dllRelation(slFg, c)).toBe("same");
+    expect(isOutdated(slFg, c)).toBe(false);
+    expect(gameStatusFromRecords([slFg], c, [], null, prefs({ update_streamline: true }))).toBe("up_to_date");
+  });
+
+  // (b) PRESERVE the Nexus user's case: a 2.x file older than the 2.x catalog is still offered.
+  it("still offers a 2.x sl.dlss_g older than the 2.x catalog (the Nexus 2.7.30 case)", () => {
+    const slFg = rec({ family: "sl_dlss_fg", path: "C:\\g\\sl.dlss_g.dll", current_version: "2.7.30.0" });
+    const c = ctx({ latestByKey: { sl_dlss_fg: "2.11.1.0", dlss_fg: "310.6.0.0" } });
+    expect(dllRelation(slFg, c)).toBe("outdated");
+    expect(gameStatusFromRecords([slFg], c, [], null, prefs({ update_streamline: true }))).toBe("outdated");
+  });
+
+  // (c) Cross-major future SDK (3.x) must not be offered to a 2.x install (version-locked set).
+  it("does not offer a 3.x catalog to a 2.x sl plug-in", () => {
+    const slFg = rec({ family: "sl_dlss_fg", path: "C:\\g\\sl.dlss_g.dll", current_version: "2.11.1.0" });
+    const c = ctx({ latestByKey: { sl_dlss_fg: "3.0.0.0" } });
+    expect(dllRelation(slFg, c)).toBe("same");
+  });
+
+  // (d) Non-Streamline families keep the raw version comparison untouched.
+  it("non-Streamline nvngx still compares versions normally", () => {
+    const ngx = rec({ family: "dlss_sr", path: "C:\\g\\nvngx_dlss.dll", current_version: "310.5.0.0" });
+    const c = ctx({ latestByKey: { dlss_sr: "310.6.0.0" } });
+    expect(dllRelation(ngx, c)).toBe("outdated");
+  });
+
+  // (e) Garbage version on a Streamline plug-in nulls the major → no false offer.
+  it("a garbage version on a Streamline plug-in is left alone, never offered", () => {
+    const slFg = rec({ family: "sl_dlss_fg", path: "C:\\g\\sl.dlss_g.dll", current_version: "dev" });
+    const c = ctx({ latestByKey: { sl_dlss_fg: "2.11.1.0" } });
+    expect(dllRelation(slFg, c)).toBe("same");
   });
 });
 
