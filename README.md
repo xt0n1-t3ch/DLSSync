@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <sub><b>New in v1.5.2:</b> the DLL catalog is complete again — DirectStorage and the full AMD and Intel upscaler history are back; DLSS no longer swaps NVIDIA's version-locked Streamline runtime that could crash games like Starfield; and the System &amp; Components driver updater installs without hanging, snapshots each driver before updating so you can roll it back, and shows older and latest versions per component. See <a href="CHANGELOG.md#152---2026-05-29">CHANGELOG</a>.</sub>
+  <sub><b>New in v1.6.0:</b> DLSSync updates NVIDIA's Streamline plug-ins as a matched set. A game's <code>sl.dlss*</code> plug-ins and their <code>sl.interposer</code>/<code>sl.common</code>/<code>sl.pcl</code> runtime move to one official SDK version in a single atomic step — every file, or none, since a partial swap crashes the game on launch. The binaries come from NVIDIA's own signed SDK, verified by Authenticode; DLSSync hosts nothing. The old bogus cross-version "update" offer for <code>sl.dlss_g.dll</code> is gone too. See <a href="CHANGELOG.md#160---2026-05-30">CHANGELOG</a>.</sub>
 </p>
 
 <p align="center">

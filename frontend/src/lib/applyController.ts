@@ -2,10 +2,12 @@ import { get } from "svelte/store";
 import {
   applyUpdateBatch,
   applyUpdate,
+  applyStreamlineSet,
   cancelApply as cancelApplyApi,
   cancelAllApplies as cancelAllAppliesApi,
   type ApplyRequest,
   type ApplyBatchResult,
+  type StreamlineSetResult,
   type DllRecord,
 } from "./api";
 import {
@@ -39,11 +41,36 @@ export async function dispatchApply(
     (opts.toast ?? DEFAULT_TOAST)("warning", "Nothing selected");
     return null;
   }
+  const { trackers, requests } = prepareApply(targets);
+  activeApplies.set(trackers);
+  opts.showModal?.();
+  const toast = opts.toast ?? DEFAULT_TOAST;
+  const uniqueGames = new Set(targets.map((t) => t.game_id)).size;
+  toast(
+    "info",
+    `Queued ${targets.length} update${targets.length === 1 ? "" : "s"} across ${uniqueGames} game${uniqueGames === 1 ? "" : "s"}`,
+  );
+  try {
+    const result = await applyUpdateBatch({ items: requests });
+    annotateOutcomes(result);
+    return result;
+  } catch (err: unknown) {
+    const msg = formatError(err);
+    failAllTrackers(trackers, msg);
+    toast("danger", `Batch apply failed: ${msg}`);
+    return null;
+  }
+}
+
+function prepareApply(targets: ApplyTarget[]): {
+  trackers: Record<string, ApplyTracker>;
+  requests: ApplyRequest[];
+} {
   const trackers: Record<string, ApplyTracker> = {};
   const requests: ApplyRequest[] = [];
   for (const t of targets) {
     const apply_id = crypto.randomUUID();
-    const tracker: ApplyTracker = {
+    trackers[apply_id] = {
       apply_id,
       group_id: "",
       game_id: t.game_id,
@@ -64,7 +91,6 @@ export async function dispatchApply(
       started_at: Date.now(),
       ended_at: null,
     };
-    trackers[apply_id] = tracker;
     requests.push({
       apply_id,
       game_id: t.game_id,
@@ -75,37 +101,61 @@ export async function dispatchApply(
       target_version: t.target_version,
     });
   }
+  return { trackers, requests };
+}
+
+function failAllTrackers(trackers: Record<string, ApplyTracker>, msg: string): void {
+  activeApplies.update((m) => {
+    const next = { ...m };
+    for (const id of Object.keys(trackers)) {
+      const cur = next[id];
+      if (!cur) continue;
+      next[id] = {
+        ...cur,
+        stage: "failed",
+        failed_at_stage: cur.failed_at_stage ?? cur.stage,
+        error: msg,
+        message: msg,
+        ended_at: Date.now(),
+      };
+    }
+    return next;
+  });
+}
+
+/// Apply an NVIDIA Streamline plugin set as one atomic transaction (all-or-nothing
+/// in the backend). Reuses the per-member tracker/modal plumbing so the progress
+/// modal shows each file, but the whole set succeeds or rolls back together.
+export async function dispatchStreamlineSet(
+  targets: ApplyTarget[],
+  opts: DispatchOptions = {},
+): Promise<StreamlineSetResult | null> {
+  const toast = opts.toast ?? DEFAULT_TOAST;
+  if (targets.length === 0) {
+    toast("warning", "No Streamline updates available");
+    return null;
+  }
+  const { trackers, requests } = prepareApply(targets);
   activeApplies.set(trackers);
   opts.showModal?.();
-  const toast = opts.toast ?? DEFAULT_TOAST;
-  const uniqueGames = new Set(targets.map((t) => t.game_id)).size;
-  toast(
-    "info",
-    `Queued ${targets.length} update${targets.length === 1 ? "" : "s"} across ${uniqueGames} game${uniqueGames === 1 ? "" : "s"}`,
-  );
+  const count = targets.length;
+  const plural = count === 1 ? "" : "s";
+  toast("info", `Updating Streamline set (${count} file${plural})…`);
   try {
-    const result = await applyUpdateBatch({ items: requests });
-    annotateOutcomes(result);
+    const result = await applyStreamlineSet(requests);
+    if (result.success) {
+      annotateOutcomes({ outcomes: result.applied });
+      toast("success", `Streamline set updated (${count} file${plural})`);
+    } else {
+      const rolledBack = result.rolled_back ? " — rolled back to the previous set" : "";
+      failAllTrackers(trackers, `${result.error ?? "Streamline set failed"}${rolledBack}`);
+      toast("danger", `Streamline set update failed: ${result.error ?? "unknown"}${rolledBack}`);
+    }
     return result;
   } catch (err: unknown) {
     const msg = formatError(err);
-    activeApplies.update((m) => {
-      const next = { ...m };
-      for (const id of Object.keys(trackers)) {
-        const cur = next[id];
-        if (!cur) continue;
-        next[id] = {
-          ...cur,
-          stage: "failed",
-          failed_at_stage: cur.failed_at_stage ?? cur.stage,
-          error: msg,
-          message: msg,
-          ended_at: Date.now(),
-        };
-      }
-      return next;
-    });
-    toast("danger", `Batch apply failed: ${msg}`);
+    failAllTrackers(trackers, msg);
+    toast("danger", `Streamline set apply failed: ${msg}`);
     return null;
   }
 }

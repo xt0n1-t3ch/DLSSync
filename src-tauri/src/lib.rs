@@ -326,6 +326,7 @@ pub fn run() {
             commands::apply::apply_update_batch,
             commands::apply::cancel_apply,
             commands::apply::cancel_all_applies,
+            commands::streamline_set::apply_streamline_set,
             commands::backup::list_backups,
             commands::backup::restore_backup,
             commands::backup::delete_backup,

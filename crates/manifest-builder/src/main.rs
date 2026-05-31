@@ -110,6 +110,21 @@ struct FilenameRule {
 
 const STREAMLINE_RULES: &[FilenameRule] = &[
     FilenameRule {
+        filename: "sl.dlss.dll",
+        vendor: "nvidia",
+        family: "sl_dlss_sr",
+    },
+    FilenameRule {
+        filename: "sl.dlss_g.dll",
+        vendor: "nvidia",
+        family: "sl_dlss_fg",
+    },
+    FilenameRule {
+        filename: "sl.dlss_d.dll",
+        vendor: "nvidia",
+        family: "sl_dlss_rr",
+    },
+    FilenameRule {
         filename: "sl.interposer.dll",
         vendor: "nvidia",
         family: "streamline",
@@ -709,6 +724,7 @@ fn merge_swapper(
                 },
                 is_dev: false,
                 min_driver: None,
+                zip_entry: None,
             }
         })
         .collect();
@@ -819,6 +835,7 @@ where
                 channel: channel.into(),
                 is_dev: false,
                 min_driver: None,
+                zip_entry: Some(ext.zip_entry.clone()),
             };
             by_target
                 .entry((ext.vendor.into(), ext.family.into()))
@@ -842,41 +859,62 @@ struct ExtractedDll {
     vendor: &'static str,
     family: &'static str,
     filename: String,
+    zip_entry: String,
     sha256: String,
     size: u64,
     signed_hint: bool,
     signature_subject: Option<String>,
 }
 
+/// Rank a zip entry path for a basename match: the canonical production runtime
+/// (`bin/x64/<name>`) outranks any `/development/` or build-artifact copy, so a
+/// multi-copy SDK zip (the Streamline feature plugins ship 4 copies) always
+/// records and extracts the signed production binary regardless of entry order.
+fn production_rank(path_lower: &str) -> u8 {
+    if path_lower.contains("/development/") || path_lower.contains("_artifacts/") {
+        0
+    } else if path_lower.starts_with("bin/x64/") {
+        2
+    } else {
+        1
+    }
+}
+
 fn extract_dlls_from_zip(bytes: &[u8], rules: &[FilenameRule]) -> Result<Vec<ExtractedDll>> {
     let cursor = std::io::Cursor::new(bytes);
     let mut zip = zip::ZipArchive::new(cursor)?;
-    let mut out = Vec::new();
-    let mut seen: std::collections::HashSet<(&'static str, &'static str, &'static str)> =
-        Default::default();
+    let mut best: std::collections::HashMap<
+        (&'static str, &'static str, &'static str),
+        (usize, String, u8),
+    > = Default::default();
     for i in 0..zip.len() {
-        let mut entry = zip.by_index(i)?;
+        let entry = zip.by_index(i)?;
         if !entry.is_file() {
             continue;
         }
-        let entry_name = entry.name().to_string();
-        let base = entry_name
-            .rsplit(['/', '\\'])
-            .next()
-            .unwrap_or("")
-            .to_lowercase();
+        let entry_name = entry.name().replace('\\', "/");
+        let base = entry_name.rsplit('/').next().unwrap_or("").to_lowercase();
         let Some(rule) = rules.iter().find(|r| r.filename == base) else {
             continue;
         };
-        if !seen.insert((rule.vendor, rule.family, rule.filename)) {
-            continue;
+        let rank = production_rank(&entry_name.to_lowercase());
+        let key = (rule.vendor, rule.family, rule.filename);
+        if best
+            .get(&key)
+            .is_none_or(|(_, _, best_rank)| rank > *best_rank)
+        {
+            best.insert(key, (i, entry_name, rank));
         }
+    }
+    let mut out = Vec::new();
+    for ((vendor, family, filename), (idx, zip_entry, _)) in best {
+        let mut entry = zip.by_index(idx)?;
         let mut buf = Vec::with_capacity(entry.size() as usize);
         entry.read_to_end(&mut buf)?;
         let mut hasher = Sha256::new();
         hasher.update(&buf);
         let sha = hex::encode(hasher.finalize());
-        let subject = match rule.vendor {
+        let subject = match vendor {
             "nvidia" => Some("NVIDIA Corporation".into()),
             "intel" => Some("Intel Corporation".into()),
             "amd" => Some("Advanced Micro Devices, Inc.".into()),
@@ -884,9 +922,10 @@ fn extract_dlls_from_zip(bytes: &[u8], rules: &[FilenameRule]) -> Result<Vec<Ext
             _ => None,
         };
         out.push(ExtractedDll {
-            vendor: rule.vendor,
-            family: rule.family,
-            filename: rule.filename.into(),
+            vendor,
+            family,
+            filename: filename.into(),
+            zip_entry,
             sha256: sha,
             size: buf.len() as u64,
             signed_hint: subject.is_some(),
@@ -1044,6 +1083,7 @@ async fn ingest_directstorage_nuget(
                 channel: channel.into(),
                 is_dev: false,
                 min_driver: None,
+                zip_entry: Some(ext.zip_entry.clone()),
             };
             by_target
                 .entry((ext.vendor.into(), ext.family.into()))
@@ -1069,6 +1109,36 @@ mod tests {
             (2u64 << 48) | (10u64 << 32) | (3u64 << 16)
         );
         assert_eq!(pack_version("1.4.0-preview1"), (1u64 << 48) | (4u64 << 32));
+    }
+
+    #[test]
+    fn streamline_rules_source_sl_dlss_plugins_into_their_own_families() {
+        for (file, family) in [
+            ("sl.dlss.dll", "sl_dlss_sr"),
+            ("sl.dlss_g.dll", "sl_dlss_fg"),
+            ("sl.dlss_d.dll", "sl_dlss_rr"),
+        ] {
+            assert!(
+                STREAMLINE_RULES
+                    .iter()
+                    .any(|r| r.filename == file && r.family == family && r.vendor == "nvidia"),
+                "{file} must source family {family} (v1.6 Streamline Set Updater) — never the \
+                 nvngx 310.x families (that was the v1.5.2 cross-scheme bug)"
+            );
+        }
+    }
+
+    #[test]
+    fn production_rank_prefers_bin_x64_over_development_and_artifacts() {
+        assert!(
+            production_rank("bin/x64/sl.dlss_g.dll")
+                > production_rank("bin/x64/development/sl.dlss_g.dll")
+        );
+        assert!(
+            production_rank("bin/x64/sl.dlss_g.dll")
+                > production_rank("_artifacts/sl.dlss_g/production_x64/sl.dlss_g.dll")
+        );
+        assert_eq!(production_rank("bin/x64/development/sl.dlss_g.dll"), 0);
     }
 
     #[test]
@@ -1162,6 +1232,7 @@ mod tests {
             channel: "stable".into(),
             is_dev: false,
             min_driver: None,
+            zip_entry: None,
         }
     }
 

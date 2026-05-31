@@ -32,6 +32,9 @@ export type DllFamily =
   | "dlss_sr"
   | "dlss_fg"
   | "dlss_rr"
+  | "sl_dlss_sr"
+  | "sl_dlss_fg"
+  | "sl_dlss_rr"
   | "streamline"
   | "streamline_common"
   | "streamline_pcl"
@@ -402,6 +405,13 @@ export interface ApplyBatchResult {
   outcomes: ApplyOutcome[];
 }
 
+export interface StreamlineSetResult {
+  success: boolean;
+  applied: ApplyOutcome[];
+  error: string | null;
+  rolled_back: boolean;
+}
+
 export const APPLY_STAGES: { id: ApplyStage; label: string }[] = [
   { id: "download", label: "Download" },
   { id: "verify_sha", label: "Verify SHA" },
@@ -753,6 +763,10 @@ export async function applyUpdate(request: ApplyRequest): Promise<ApplyResult> {
 
 export async function applyUpdateBatch(request: ApplyBatchRequest): Promise<ApplyBatchResult> {
   return invoke("apply_update_batch", { request });
+}
+
+export async function applyStreamlineSet(items: ApplyRequest[]): Promise<StreamlineSetResult> {
+  return invoke("apply_streamline_set", { items });
 }
 
 export async function cancelApply(applyId: string): Promise<boolean> {

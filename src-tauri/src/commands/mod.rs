@@ -11,6 +11,7 @@ pub mod runtime;
 pub mod scan;
 pub mod settings;
 pub mod shell;
+pub mod streamline_set;
 pub mod system;
 pub mod system_drivers;
 pub mod ui_prefs;

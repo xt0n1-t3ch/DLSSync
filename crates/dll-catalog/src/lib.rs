@@ -182,6 +182,12 @@ pub struct Release {
     pub min_driver: Option<String>,
     #[serde(default = "default_hash_algorithm")]
     pub hash_algorithm: String,
+    /// Exact path of the wanted file inside a multi-copy SDK zip, e.g.
+    /// `bin/x64/sl.dlss_g.dll`. Disambiguates the signed production binary from
+    /// the unsigned `bin/x64/development/` copy that shares the same basename;
+    /// `None` keeps the basename-match behaviour for single-copy archives.
+    #[serde(default)]
+    pub zip_entry: Option<String>,
 }
 
 fn default_channel() -> String {
@@ -275,6 +281,21 @@ impl Catalog {
         f.releases.iter().find(|r| r.version == version).cloned()
     }
 
+    pub fn find_file(
+        &self,
+        vendor: &str,
+        family: &str,
+        version: &str,
+        filename: &str,
+    ) -> Option<Release> {
+        let v = self.vendors.get(vendor)?;
+        let f = v.get(family)?;
+        f.releases
+            .iter()
+            .find(|r| r.version == version && r.filename.eq_ignore_ascii_case(filename))
+            .cloned()
+    }
+
     pub fn find_latest_for_file(
         &self,
         vendor: &str,
@@ -351,6 +372,7 @@ mod tests {
             is_dev: false,
             min_driver: None,
             hash_algorithm: "sha256".into(),
+            zip_entry: None,
         }
     }
 
@@ -516,6 +538,41 @@ mod tests {
             .find_latest_for_file("intel", "xess_sr", "libxess_dx11.dll")
             .unwrap();
         assert_eq!(r.sha256, "dx11");
+    }
+
+    #[test]
+    fn find_file_disambiguates_same_version_by_filename() {
+        let c = catalog_with(
+            "xess_sr",
+            vec![
+                release_with("libxess.dll", "3.0.1", 301, "main"),
+                release_with("libxess_dx11.dll", "3.0.1", 301, "dx11"),
+            ],
+        );
+        assert_eq!(
+            c.find_file("intel", "xess_sr", "3.0.1", "libxess_dx11.dll")
+                .unwrap()
+                .sha256,
+            "dx11"
+        );
+        assert_eq!(
+            c.find_file("intel", "xess_sr", "3.0.1", "LIBXESS.DLL")
+                .unwrap()
+                .sha256,
+            "main"
+        );
+        assert_eq!(c.find("intel", "xess_sr", "3.0.1").unwrap().sha256, "main");
+    }
+
+    #[test]
+    fn find_file_returns_none_for_unknown_filename() {
+        let c = catalog_with(
+            "xess_sr",
+            vec![release_with("libxess.dll", "3.0.1", 301, "main")],
+        );
+        assert!(c
+            .find_file("intel", "xess_sr", "3.0.1", "nvngx_dlss.dll")
+            .is_none());
     }
 
     #[test]

@@ -186,6 +186,80 @@ describe("isStreamlinePlugin", () => {
   });
 });
 
+describe("sl_dlss feature plugins (v1.5.3 source-less, never mis-offered)", () => {
+  it("sl.dlss_g.dll is never offered the nvngx 310.x version (the v1.5.2 Nexus bug)", () => {
+    const slFg = rec({ family: "sl_dlss_fg", path: "C:\\g\\sl.dlss_g.dll", current_version: "2.7.30.0" });
+    const c = ctx({ latestByKey: { dlss_fg: "310.6.0.0" } });
+    expect(targetVersion(slFg, c)).toBeNull();
+    expect(dllRelation(slFg, c)).toBe("no-target");
+    expect(isOutdated(slFg, c)).toBe(false);
+    expect(gameStatusFromRecords([slFg], c, [], null, prefs({ update_streamline: true }))).toBe("up_to_date");
+  });
+
+  it("sl.dlss.dll and sl.dlss_d.dll are likewise never offered their nvngx versions", () => {
+    const slSr = rec({ family: "sl_dlss_sr", path: "C:\\g\\sl.dlss.dll", current_version: "2.7.30.0" });
+    const slRr = rec({ family: "sl_dlss_rr", path: "C:\\g\\sl.dlss_d.dll", current_version: "2.7.30.0" });
+    const c = ctx({ latestByKey: { dlss_sr: "310.6.0.0", dlss_rr: "310.6.0.0" } });
+    expect(dllRelation(slSr, c)).toBe("no-target");
+    expect(dllRelation(slRr, c)).toBe("no-target");
+  });
+});
+
+describe("sl_dlss feature plugins (v1.6 — sourced from the official SDK, offers light up)", () => {
+  it("offers the matched 2.x version once the catalog sources sl_dlss_fg", () => {
+    const slFg = rec({ family: "sl_dlss_fg", path: "C:\\g\\sl.dlss_g.dll", current_version: "2.10.3.0" });
+    const c = ctx({ latestByKey: { sl_dlss_fg: "2.11.1.0", dlss_fg: "310.6.0.0" } });
+    expect(targetVersion(slFg, c)).toBe("2.11.1.0");
+    expect(dllRelation(slFg, c)).toBe("outdated");
+    expect(recordUpdatable(slFg, prefs({ update_streamline: true }))).toBe(true);
+    expect(gameStatusFromRecords([slFg], c, [], null, prefs({ update_streamline: true }))).toBe("outdated");
+  });
+
+  it("targets the 2.x sl scheme, never the 310.x nvngx scheme that shares the SDK release", () => {
+    const slFg = rec({ family: "sl_dlss_fg", path: "C:\\g\\sl.dlss_g.dll", current_version: "2.10.3.0" });
+    const c = ctx({ latestByKey: { sl_dlss_fg: "2.11.1.0", dlss_fg: "310.6.0.0" } });
+    expect(targetVersion(slFg, c)).toBe("2.11.1.0");
+  });
+
+  it("stays gated behind the Streamline master switch", () => {
+    const slFg = rec({ family: "sl_dlss_fg", path: "C:\\g\\sl.dlss_g.dll", current_version: "2.10.3.0" });
+    expect(recordUpdatable(slFg, prefs({ update_streamline: false }))).toBe(false);
+    expect(recordUpdatable(slFg, prefs({ update_streamline: true }))).toBe(true);
+  });
+});
+
+describe("Nexus Subnautica 2 report (Kronprinz77, 2026-05-30) — end-to-end regression", () => {
+  // Report 1: "sl.dlss_g.dll v2.7.30.0 -> v310.6.0.0" was offered. A 2.x Streamline
+  // plug-in must never be offered the 310.x nvngx version.
+  it("never offers sl.dlss_g.dll the 310.x nvngx version, only its own 2.x line", () => {
+    const slFg = rec({ family: "sl_dlss_fg", path: "C:\\Subnautica 2\\sl.dlss_g.dll", current_version: "2.7.30.0" });
+    const c = ctx({ latestByKey: { sl_dlss_fg: "2.11.1.0", dlss_fg: "310.6.0.0" } });
+    expect(targetVersion(slFg, c)).toBe("2.11.1.0");
+    expect(targetVersion(slFg, c)).not.toBe("310.6.0.0");
+  });
+
+  // Report 2: "as soon as I updated Streamline, the DLSS Enabler stopped working."
+  // Under a DLSS Enabler the Streamline set must not be offered or applied, so the
+  // enabler is never swapped out from under itself.
+  it("never offers the Streamline set when a DLSS Enabler manages the game", () => {
+    const enabler = true;
+    const c = ctx({ latestByKey: { sl_dlss_fg: "2.11.1.0", sl_dlss_sr: "2.11.1.0" } });
+    const slFg = rec({ family: "sl_dlss_fg", path: "C:\\Subnautica 2\\sl.dlss_g.dll", current_version: "2.7.30.0" });
+    const slSr = rec({ family: "sl_dlss_sr", path: "C:\\Subnautica 2\\sl.dlss.dll", current_version: "2.7.30.0" });
+    expect(recordUpdatable(slFg, prefs({ update_streamline: true }), enabler)).toBe(false);
+    expect(recordUpdatable(slSr, prefs({ update_streamline: true }), enabler)).toBe(false);
+    expect(gameStatusFromRecords([slFg, slSr], c, [], null, prefs({ update_streamline: true }), enabler)).toBe("up_to_date");
+  });
+
+  // The nvngx_* runtime DLLs the user updated successfully stay updatable — only the
+  // version-locked Streamline plug-ins are held back under the enabler.
+  it("still offers the nvngx runtime under a DLSS Enabler", () => {
+    const enabler = true;
+    const ngx = rec({ family: "dlss_fg", path: "C:\\Subnautica 2\\nvngx_dlssg.dll", current_version: "310.1.0.0" });
+    expect(recordUpdatable(ngx, prefs({ update_dlss_fg: true }), enabler)).toBe(true);
+  });
+});
+
 describe("recordUpdatable", () => {
   it("permissive when no prefs are supplied (legacy)", () => {
     expect(recordUpdatable(rec({ path: "C:\\g\\sl.dlss.dll" }))).toBe(true);

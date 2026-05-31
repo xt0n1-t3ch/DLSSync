@@ -5,6 +5,20 @@ All notable changes to DLSSync are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-05-30
+
+DLSSync can now update NVIDIA's Streamline plug-ins, and it reads them correctly. In modern games, DLSS Frame Generation is two files: the NGX runtime `nvngx_dlssg.dll` (310.x line) and the Streamline plug-in that drives it, `sl.dlss_g.dll` (2.x line). DLSSync used to treat them as one and offer a bogus 310.x "update" for a 2.x plug-in. That offer is gone. In its place, the Streamline plug-ins now update as a matched set, pulled from NVIDIA's own signed SDK, applied all-or-nothing.
+
+### Added
+
+- Update the Streamline plug-in set in one step. When a game ships NVIDIA's Streamline plug-ins — `sl.dlss.dll`, `sl.dlss_g.dll`, `sl.dlss_d.dll`, and the `sl.interposer`/`sl.common`/`sl.pcl` runtime — the game-detail page offers a single "Update Streamline set" action that swaps the whole matched set to one official SDK version. The plug-ins are version-locked: a half-updated set crashes the game on launch, so the update is atomic — every file installs, or the previous set is restored. The binaries come from NVIDIA's own signed SDK release at apply time, verified by Authenticode; DLSSync hosts nothing. Gated behind "Update NVIDIA Streamline runtime" in Settings → Advanced, and skipped for games a DLSS Enabler manages. NVIDIA's driver already updates these in many games, so this is for titles that ship with that turned off, a pinned version, or an offline machine.
+
+### Fixed
+
+- DLSSync no longer offers a bogus cross-version update for the Streamline feature plug-ins (`sl.dlss_g.dll`, `sl.dlss.dll`, `sl.dlss_d.dll`). They now show under their DLSS feature, labeled as Streamline plug-ins, and are left alone — the matching `nvngx_*` runtime DLLs still update as before. Reported on Nexus for Subnautica 2.
+- DLSS Enabler detection catches its strongest marker, `nvngx-wrapper.dll`, plus the enabler log and ASI loader, so a game it manages is recognized even when the older marker files are missing.
+- Under a detected DLSS Enabler, the genuine Streamline plug-ins (`sl.interposer.dll`, `sl.common.dll`, `sl.pcl.dll`, `sl.reflex.dll`) now show a "Managed by Enabler" label and cannot be selected, matching the on-screen notice that DLSSync leaves them alone. They used to show an "Update" badge that apply would refuse anyway — the contradiction behind the same Nexus report. The `nvngx_*` runtime DLLs still update.
+
 ## [1.5.2] - 2026-05-29
 
 A reliability and catalog release. The in-app catalog is complete again — DirectStorage and the full AMD and Intel upscaler history are back — and DLSS updates no longer swap the version-locked Streamline runtime that could crash games such as Starfield. The System & Components driver updater installs without hanging, snapshots each driver before updating so you can roll it back, and shows the older and latest versions of every component driver. It also carries the notification, command-palette, and game-detail work from the interface pass.
@@ -58,6 +72,7 @@ of the Arc desktop package, and install progress no longer breaks when you switc
 - AMD opens its official download page instead of a constructed installer URL. The direct `.exe` is gated behind a license prompt and its filename changes per release, so a fabricated link was unreliable; version and changelog detection are unchanged.
 - Vendor installer exit codes are reported with a readable message. Intel's "no compatible device" (exit code 8) now explains the GPU may be OEM-locked or need a different driver branch, pointing to the manufacturer or Windows Update.
 
+[1.6.0]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.0
 [1.5.2]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.5.2
 [1.5.1]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.5.1
 

@@ -48,6 +48,14 @@ describe("family mappings", () => {
     expect(familyCatalogKey("xess_sr_dx11")).toBe("xess_sr");
   });
 
+  it("sl_dlss feature plugins get their own source-less catalog keys, distinct from nvngx", () => {
+    expect(familyCatalogKey("sl_dlss_fg")).toBe("sl_dlss_fg");
+    expect(familyCatalogKey("sl_dlss_fg")).not.toBe(familyCatalogKey("dlss_fg"));
+    expect(familyGroup("sl_dlss_fg")).toBe("dlss");
+    expect(recordFeature({ family: "sl_dlss_fg", path: "C:\\g\\sl.dlss_g.dll" } as DllRecord)).toBe("dlss_fg");
+    expect(recordFeature({ family: "sl_dlss_rr", path: "C:\\g\\sl.dlss_d.dll" } as DllRecord)).toBe("dlss_rr");
+  });
+
   it("family group buckets, unknown -> advanced", () => {
     expect(familyGroup("dlss_fg")).toBe("dlss");
     expect(familyGroup("fsr_fg")).toBe("fsr");

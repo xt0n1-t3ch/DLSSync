@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "generated_at": "2026-05-29T13:08:24.502347200Z",
+  "generated_at": "2026-05-31T00:17:02.900717200Z",
   "vendors": {
     "amd": {
       "fsr_fg": {
@@ -21,7 +21,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "Kits/FidelityFX/bin/amd_fidelityfx_framegeneration_dx12.dll"
           }
         ]
       },
@@ -43,7 +44,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "Kits/FidelityFX/bin/amd_fidelityfx_loader_dx12.dll"
           }
         ]
       },
@@ -57,7 +59,7 @@
             "sha256": "cfcd38f47665ddff195b80c62e3b57e2",
             "size_bytes": 6470360,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606337400Z",
+            "released_at": "2026-05-31T00:02:33.235387400Z",
             "source": "F1 2024",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/fsr_31_dx12/fsr_31_dx12_v1.0.0.36208_CFCD38F47665DDFF195B80C62E3B57E2.zip",
             "release_notes": "3.1.0",
@@ -65,7 +67,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.0.0.36604",
@@ -74,7 +77,7 @@
             "sha256": "071eb42e3cbd0989a12465e0e529bcac",
             "size_bytes": 6475480,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606346300Z",
+            "released_at": "2026-05-31T00:02:33.235391800Z",
             "source": "FidelityFX-SDK-1.1.zip",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/fsr_31_dx12/fsr_31_dx12_v1.0.0.36604_071EB42E3CBD0989A12465E0E529BCAC.zip",
             "release_notes": "3.1.0",
@@ -82,7 +85,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.0.0.36752",
@@ -91,7 +95,7 @@
             "sha256": "46f7049b30404d8c4ef685a13ef0bc43",
             "size_bytes": 6475992,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606352500Z",
+            "released_at": "2026-05-31T00:02:33.235395700Z",
             "source": "Horizon Zero Dawn Remastered",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/fsr_31_dx12/fsr_31_dx12_v1.0.0.36752_46F7049B30404D8C4EF685A13EF0BC43.zip",
             "release_notes": "3.1.0",
@@ -99,7 +103,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.0.1.37507",
@@ -108,7 +113,7 @@
             "sha256": "2fcbe69a137dba1ff45071a9b64c9581",
             "size_bytes": 6609624,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606358600Z",
+            "released_at": "2026-05-31T00:02:33.235399400Z",
             "source": "FidelityFX-SDK-v1.1.1.zip",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/fsr_31_dx12/fsr_31_dx12_v1.0.1.37507_2FCBE69A137DBA1FF45071A9B64C9581.zip",
             "release_notes": "3.1.1",
@@ -116,7 +121,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.0.1.38338",
@@ -125,7 +131,7 @@
             "sha256": "2dc40d2f183920624be396b624466157",
             "size_bytes": 6634192,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606364500Z",
+            "released_at": "2026-05-31T00:02:33.235403400Z",
             "source": "FidelityFX-SDK-v1.1.2.zip",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/fsr_31_dx12/fsr_31_dx12_v1.0.1.38338_2DC40D2F183920624BE396B624466157.zip",
             "release_notes": "3.1.2",
@@ -133,7 +139,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.0.1.39157",
@@ -142,7 +149,7 @@
             "sha256": "3ef374f8f7eb44d211bcc0c063a520d9",
             "size_bytes": 6647504,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606370500Z",
+            "released_at": "2026-05-31T00:02:33.235406900Z",
             "source": "FidelityFX-SDK-v1.1.3.zip",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/fsr_31_dx12/fsr_31_dx12_v1.0.1.39157_3EF374F8F7EB44D211BCC0C063A520D9.zip",
             "release_notes": "3.1.3",
@@ -150,7 +157,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.0.1.40157",
@@ -167,7 +175,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.0.1.41314",
@@ -184,7 +193,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.0.2.38022",
@@ -201,7 +211,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.0.0",
@@ -218,7 +229,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "Kits/FidelityFX/bin/amd_fidelityfx_upscaler_dx12.dll"
           }
         ]
       },
@@ -232,7 +244,7 @@
             "sha256": "a2bc75bc5455e870d71890c774541da9",
             "size_bytes": 9200344,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606405200Z",
+            "released_at": "2026-05-31T00:02:33.235427100Z",
             "source": "FidelityFX-SDK-1.1.zip",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/fsr_31_vk/fsr_31_vk_v1.0.0.36604_A2BC75BC5455E870D71890C774541DA9.zip",
             "release_notes": "3.1.0",
@@ -240,7 +252,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.0.1.37507",
@@ -249,7 +262,7 @@
             "sha256": "1fc735751d2632e926016206398b8654",
             "size_bytes": 9262808,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606412100Z",
+            "released_at": "2026-05-31T00:02:33.235431Z",
             "source": "FidelityFX-SDK-v1.1.1.zip",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/fsr_31_vk/fsr_31_vk_v1.0.1.37507_1FC735751D2632E926016206398B8654.zip",
             "release_notes": "3.1.1",
@@ -257,7 +270,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.0.1.38338",
@@ -266,7 +280,7 @@
             "sha256": "0d0cdc8d5865027d100daa35b605793f",
             "size_bytes": 9277136,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606418600Z",
+            "released_at": "2026-05-31T00:02:33.235435Z",
             "source": "FidelityFX-SDK-v1.1.2.zip",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/fsr_31_vk/fsr_31_vk_v1.0.1.38338_0D0CDC8D5865027D100DAA35B605793F.zip",
             "release_notes": "3.1.2",
@@ -274,7 +288,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.0.1.39157",
@@ -283,7 +298,7 @@
             "sha256": "23a87c10a859d5756edbe5a6d7f692b5",
             "size_bytes": 9284304,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606425Z",
+            "released_at": "2026-05-31T00:02:33.235438900Z",
             "source": "FidelityFX-SDK-v1.1.3.zip",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/fsr_31_vk/fsr_31_vk_v1.0.1.39157_23A87C10A859D5756EDBE5A6D7F692B5.zip",
             "release_notes": "3.1.3",
@@ -291,7 +306,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.0.1.39321",
@@ -308,7 +324,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.0.1.41314",
@@ -325,7 +342,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.0.1.42386",
@@ -342,7 +360,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           }
         ]
       }
@@ -358,7 +377,7 @@
             "sha256": "d469069d3935032f907106331161e78a",
             "size_bytes": 237968,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606614500Z",
+            "released_at": "2026-05-31T00:02:33.235554500Z",
             "source": "Marvel Rivals",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/xell/xell_v1.0.0.139_D469069D3935032F907106331161E78A.zip",
             "release_notes": "",
@@ -366,7 +385,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.0.1.6",
@@ -383,7 +403,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.1.0.6",
@@ -400,7 +421,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.2.0.9",
@@ -417,7 +439,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.2.1.13",
@@ -434,7 +457,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.3.0.5",
@@ -451,7 +475,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.0.1",
@@ -468,7 +493,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/libxell.dll"
           },
           {
             "version": "2.1.0",
@@ -485,7 +511,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/libxell.dll"
           },
           {
             "version": "2.1.1",
@@ -502,7 +529,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/libxell.dll"
           },
           {
             "version": "3.0.0",
@@ -519,7 +547,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/libxell.dll"
           },
           {
             "version": "3.0.1",
@@ -536,7 +565,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/libxell.dll"
           }
         ]
       },
@@ -558,7 +588,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.0.0.16",
@@ -567,7 +598,7 @@
             "sha256": "bf976a1c2e466b1be6fc4b17d76b50d5",
             "size_bytes": 59355536,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606565400Z",
+            "released_at": "2026-05-31T00:02:33.235523Z",
             "source": "Marvel Rivals",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/xess_fg/xess_fg_v1.0.0.16_BF976A1C2E466B1BE6FC4B17D76B50D5.zip",
             "release_notes": "",
@@ -575,7 +606,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.0.1.26",
@@ -592,7 +624,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.0.1.31",
@@ -609,7 +642,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.1.0.19",
@@ -626,7 +660,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.2.0.87",
@@ -643,7 +678,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.2.2.118",
@@ -660,7 +696,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.3.1.68",
@@ -677,7 +714,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.3.1.78",
@@ -694,7 +732,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.0.1",
@@ -711,7 +750,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/libxess_fg.dll"
           },
           {
             "version": "2.1.0",
@@ -728,7 +768,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/libxess_fg.dll"
           },
           {
             "version": "2.1.1",
@@ -745,7 +786,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/libxess_fg.dll"
           },
           {
             "version": "3.0.0",
@@ -762,7 +804,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/libxess_fg.dll"
           },
           {
             "version": "3.0.1",
@@ -779,7 +822,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/libxess_fg.dll"
           }
         ]
       },
@@ -801,7 +845,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/libxess.dll"
           },
           {
             "version": "1.0.0.59",
@@ -810,7 +855,7 @@
             "sha256": "feb7639e1043d0dc88d638c21871f566",
             "size_bytes": 9271976,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606454300Z",
+            "released_at": "2026-05-31T00:02:33.235455700Z",
             "source": "XeSS.SDK.1.0.zip",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/xess/xess_v1.0.0.59_FEB7639E1043D0DC88D638C21871F566.zip",
             "release_notes": "",
@@ -818,7 +863,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.0.1",
@@ -835,7 +881,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/libxess.dll"
           },
           {
             "version": "1.0.1.12",
@@ -844,7 +891,7 @@
             "sha256": "049bfea8c51245a545dc242a7317b9d3",
             "size_bytes": 9272488,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606462200Z",
+            "released_at": "2026-05-31T00:02:33.235460500Z",
             "source": "XeSS.SDK.1.0.1.zip",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/xess/xess_v1.0.1.12_049BFEA8C51245A545DC242A7317B9D3.zip",
             "release_notes": "",
@@ -852,7 +899,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.1.0",
@@ -869,7 +917,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/libxess.dll"
           },
           {
             "version": "1.1.0.18",
@@ -878,7 +927,7 @@
             "sha256": "c9fb6bb716a087fd537790bebe710d4c",
             "size_bytes": 15275688,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606467200Z",
+            "released_at": "2026-05-31T00:02:33.235463600Z",
             "source": "Forza Horizon 5",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/xess/xess_v1.1.0.18_C9FB6BB716A087FD537790BEBE710D4C.zip",
             "release_notes": "",
@@ -886,7 +935,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.1.0.21",
@@ -895,7 +945,7 @@
             "sha256": "7b20cc0a10008f0846ddac99981ac77f",
             "size_bytes": 15275688,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606472100Z",
+            "released_at": "2026-05-31T00:02:33.235466700Z",
             "source": "XeSS_SDK_1.1.0.zip",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/xess/xess_v1.1.0.21_7B20CC0A10008F0846DDAC99981AC77F.zip",
             "release_notes": "",
@@ -903,7 +953,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.2.0",
@@ -920,7 +971,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/libxess.dll"
           },
           {
             "version": "1.2.0.10",
@@ -937,7 +989,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.2.0.13",
@@ -946,7 +999,7 @@
             "sha256": "b0130df92c02efde7c2c4df42d69ee70",
             "size_bytes": 67777552,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606481700Z",
+            "released_at": "2026-05-31T00:02:33.235472800Z",
             "source": "XeSS_SDK-1.2.0.zip",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/xess/xess_v1.2.0.13_B0130DF92C02EFDE7C2C4DF42D69EE70.zip",
             "release_notes": "",
@@ -954,7 +1007,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.3.0",
@@ -971,7 +1025,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/libxess.dll"
           },
           {
             "version": "1.3.0.28",
@@ -980,7 +1035,7 @@
             "sha256": "dd62b2ef2da5a9be89e18302e38970a2",
             "size_bytes": 74108944,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606486500Z",
+            "released_at": "2026-05-31T00:02:33.235475900Z",
             "source": "XeSS_SDK-1.3.0.zip",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/xess/xess_v1.3.0.28_DD62B2EF2DA5A9BE89E18302E38970A2.zip",
             "release_notes": "",
@@ -988,7 +1043,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.3.1",
@@ -1005,7 +1061,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "XeSS_SDK-1.3.1/bin/libxess.dll"
           },
           {
             "version": "1.3.1.32",
@@ -1014,7 +1071,7 @@
             "sha256": "10623c59d5e4571bfd6118337ac69491",
             "size_bytes": 67095056,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606491900Z",
+            "released_at": "2026-05-31T00:02:33.235478900Z",
             "source": "XeSS_SDK-1.3.1.zip",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/xess/xess_v1.3.1.32_10623C59D5E4571BFD6118337AC69491.zip",
             "release_notes": "",
@@ -1022,7 +1079,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.0.0.18",
@@ -1031,7 +1089,7 @@
             "sha256": "367be8343b288372ff8523438f53b62d",
             "size_bytes": 120278928,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606497300Z",
+            "released_at": "2026-05-31T00:02:33.235482Z",
             "source": "Marvel Rivals",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/xess/xess_v2.0.0.18_367BE8343B288372FF8523438F53B62D.zip",
             "release_notes": "",
@@ -1039,7 +1097,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.0.1",
@@ -1056,7 +1115,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/libxess.dll"
           },
           {
             "version": "2.0.1.29",
@@ -1073,7 +1133,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.0.1.32",
@@ -1090,7 +1151,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.0.1.34",
@@ -1107,7 +1169,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.0.1.41",
@@ -1124,7 +1187,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.0.2.53",
@@ -1141,7 +1205,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.0.2.68",
@@ -1158,7 +1223,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.1.0",
@@ -1175,7 +1241,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/libxess.dll"
           },
           {
             "version": "2.1.1",
@@ -1192,7 +1259,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/libxess.dll"
           },
           {
             "version": "3.0.0",
@@ -1209,7 +1277,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/libxess.dll"
           },
           {
             "version": "3.0.1",
@@ -1226,7 +1295,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/libxess.dll"
           }
         ]
       },
@@ -1248,7 +1318,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/libxess_dx11.dll"
           },
           {
             "version": "2.0.1.41",
@@ -1265,7 +1336,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.0.2.53",
@@ -1282,7 +1354,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.0.2.68",
@@ -1299,7 +1372,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.1.0",
@@ -1316,7 +1390,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/libxess_dx11.dll"
           },
           {
             "version": "2.1.1",
@@ -1333,7 +1408,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/libxess_dx11.dll"
           },
           {
             "version": "3.0.0",
@@ -1350,7 +1426,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/libxess_dx11.dll"
           },
           {
             "version": "3.0.1",
@@ -1367,7 +1444,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/libxess_dx11.dll"
           }
         ]
       }
@@ -1391,7 +1469,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/dstorage.dll"
           },
           {
             "version": "1.0.2",
@@ -1408,7 +1487,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "native/bin/x64/dstorage.dll"
           },
           {
             "version": "1.1.0",
@@ -1425,7 +1505,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "native/bin/x64/dstorage.dll"
           },
           {
             "version": "1.1.1",
@@ -1442,7 +1523,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "native/bin/x64/dstorage.dll"
           },
           {
             "version": "1.2.0",
@@ -1459,7 +1541,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "native/bin/x64/dstorage.dll"
           },
           {
             "version": "1.2.1",
@@ -1476,7 +1559,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "native/bin/x64/dstorage.dll"
           },
           {
             "version": "1.2.2",
@@ -1493,7 +1577,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "native/bin/x64/dstorage.dll"
           },
           {
             "version": "1.2.3",
@@ -1510,7 +1595,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "native/bin/x64/dstorage.dll"
           },
           {
             "version": "1.2.4",
@@ -1527,7 +1613,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "native/bin/x64/dstorage.dll"
           },
           {
             "version": "1.3.0",
@@ -1544,7 +1631,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "native/bin/x64/dstorage.dll"
           },
           {
             "version": "1.4.0-preview1-2603.504",
@@ -1553,7 +1641,7 @@
             "sha256": "88e5e2f4eedbf0b604d7cecd724bb0c809d5f3479f00f0d138ec1006e354f0a4",
             "size_bytes": 192544,
             "signed": true,
-            "released_at": "2026-05-29T13:08:22.688417300Z",
+            "released_at": "2026-05-31T00:17:01.705222100Z",
             "source": "nuget:microsoft.direct3d.directstorage@1.4.0-preview1-2603.504",
             "cdn_url": "https://api.nuget.org/v3-flatcontainer/microsoft.direct3d.directstorage/1.4.0-preview1-2603.504/microsoft.direct3d.directstorage.1.4.0-preview1-2603.504.nupkg",
             "release_notes": null,
@@ -1561,7 +1649,8 @@
             "channel": "experimental",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "native/bin/ARM64/dstorage.dll"
           }
         ]
       },
@@ -1583,7 +1672,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/dstoragecore.dll"
           },
           {
             "version": "1.0.2",
@@ -1600,7 +1690,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "native/bin/x64/dstoragecore.dll"
           },
           {
             "version": "1.1.0",
@@ -1617,7 +1708,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "native/bin/x64/dstoragecore.dll"
           },
           {
             "version": "1.1.1",
@@ -1634,7 +1726,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "native/bin/x64/dstoragecore.dll"
           },
           {
             "version": "1.2.0",
@@ -1651,7 +1744,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "native/bin/x64/dstoragecore.dll"
           },
           {
             "version": "1.2.1",
@@ -1668,7 +1762,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "native/bin/x64/dstoragecore.dll"
           },
           {
             "version": "1.2.2",
@@ -1685,7 +1780,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "native/bin/x64/dstoragecore.dll"
           },
           {
             "version": "1.2.3",
@@ -1702,7 +1798,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "native/bin/x64/dstoragecore.dll"
           },
           {
             "version": "1.2.4",
@@ -1719,7 +1816,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "native/bin/x64/dstoragecore.dll"
           },
           {
             "version": "1.3.0",
@@ -1736,7 +1834,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "native/bin/x64/dstoragecore.dll"
           },
           {
             "version": "1.4.0-preview1-2603.504",
@@ -1745,7 +1844,7 @@
             "sha256": "8b2f4be29a6cfd090c74e0110864f78a0b7386a4b1b3ba8aaaf9ffd11e69b293",
             "size_bytes": 2572832,
             "signed": true,
-            "released_at": "2026-05-29T13:08:22.688417300Z",
+            "released_at": "2026-05-31T00:17:01.705222100Z",
             "source": "nuget:microsoft.direct3d.directstorage@1.4.0-preview1-2603.504",
             "cdn_url": "https://api.nuget.org/v3-flatcontainer/microsoft.direct3d.directstorage/1.4.0-preview1-2603.504/microsoft.direct3d.directstorage.1.4.0-preview1-2603.504.nupkg",
             "release_notes": null,
@@ -1753,7 +1852,8 @@
             "channel": "experimental",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "native/bin/ARM64/dstoragecore.dll"
           }
         ]
       }
@@ -1769,7 +1869,7 @@
             "sha256": "756c81decd8ab626058e8daaa08d9a19",
             "size_bytes": 12803624,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606135300Z",
+            "released_at": "2026-05-31T00:02:33.235270200Z",
             "source": "Microsoft Flight Simulator (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss_g/dlss_g_v1.0.1.0_756C81DECD8AB626058E8DAAA08D9A19.zip",
             "release_notes": "",
@@ -1777,7 +1877,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.0.2.0",
@@ -1786,7 +1887,7 @@
             "sha256": "36931062a0b9227011885514914c7a3b",
             "size_bytes": 12799528,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606142200Z",
+            "released_at": "2026-05-31T00:02:33.235273500Z",
             "source": "Witcher 3 (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss_g/dlss_g_v1.0.2.0_36931062A0B9227011885514914C7A3B.zip",
             "release_notes": "",
@@ -1794,7 +1895,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.0.3.0",
@@ -1803,7 +1905,7 @@
             "sha256": "9a44c28a5e5a915f884e2ed7dfc5d4b4",
             "size_bytes": 12799528,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606147600Z",
+            "released_at": "2026-05-31T00:02:33.235276400Z",
             "source": "Spiderman Remastered (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss_g/dlss_g_v1.0.3.0_9A44C28A5E5A915F884E2ED7DFC5D4B4.zip",
             "release_notes": "",
@@ -1811,7 +1913,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.0.4.0",
@@ -1820,7 +1923,7 @@
             "sha256": "9bfac44640d2fa6659ac18369f9870f4",
             "size_bytes": 12876840,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606153800Z",
+            "released_at": "2026-05-31T00:02:33.235279400Z",
             "source": "Portal RTX (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss_g/dlss_g_v1.0.4.0_9BFAC44640D2FA6659AC18369F9870F4.zip",
             "release_notes": "",
@@ -1828,7 +1931,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.0.5.0",
@@ -1837,7 +1941,7 @@
             "sha256": "4f39303b168462a4f2ecf04fead1a9e8",
             "size_bytes": 12932648,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606164300Z",
+            "released_at": "2026-05-31T00:02:33.235285300Z",
             "source": "Hitman 3 (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss_g/dlss_g_v1.0.5.0_4F39303B168462A4F2ECF04FEAD1A9E8.zip",
             "release_notes": "",
@@ -1845,7 +1949,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.0.6.0",
@@ -1854,7 +1959,7 @@
             "sha256": "f869fbd1ad307071cf7997b66c1e1e76",
             "size_bytes": 12936744,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606169200Z",
+            "released_at": "2026-05-31T00:02:33.235288600Z",
             "source": "Forza Horizon 5 (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss_g/dlss_g_v1.0.6.0_F869FBD1AD307071CF7997B66C1E1E76.zip",
             "release_notes": "",
@@ -1862,7 +1967,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.0.7.0",
@@ -1871,7 +1977,7 @@
             "sha256": "bbaeb66b55bea5a97ef12b949af52bc0",
             "size_bytes": 12936744,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606174700Z",
+            "released_at": "2026-05-31T00:02:33.235291600Z",
             "source": "The Witcher 3 (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss_g/dlss_g_v1.0.7.0_BBAEB66B55BEA5A97EF12B949AF52BC0.zip",
             "release_notes": "",
@@ -1879,7 +1985,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "3.1.1.0",
@@ -1888,7 +1995,7 @@
             "sha256": "3209de901666436042f4ce59344df47f",
             "size_bytes": 13181992,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606180Z",
+            "released_at": "2026-05-31T00:02:33.235294600Z",
             "source": "Cyberpunk Overdrive (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss_g/dlss_g_v3.1.1.0_3209DE901666436042F4CE59344DF47F.zip",
             "release_notes": "",
@@ -1896,7 +2003,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "3.1.11.0",
@@ -1905,7 +2013,7 @@
             "sha256": "2a3feb039ffb9ea70dc690b21e918417",
             "size_bytes": 12997672,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606185Z",
+            "released_at": "2026-05-31T00:02:33.235297800Z",
             "source": "Forza Horizon 5 (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss_g/dlss_g_v3.1.11.0_2A3FEB039FFB9EA70DC690B21E918417.zip",
             "release_notes": "",
@@ -1913,7 +2021,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "3.1.12.0",
@@ -1922,7 +2031,7 @@
             "sha256": "76f8be4e38a0789bce0dcde2cea9a324",
             "size_bytes": 13004328,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606190500Z",
+            "released_at": "2026-05-31T00:02:33.235301100Z",
             "source": "Diablo IV Beta (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss_g/dlss_g_v3.1.12.0_76F8BE4E38A0789BCE0DCDE2CEA9A324.zip",
             "release_notes": "",
@@ -1930,7 +2039,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "3.1.13.0",
@@ -1939,7 +2049,7 @@
             "sha256": "ef9b5fa50410a45a13014cb55aae950d",
             "size_bytes": 13001768,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606195600Z",
+            "released_at": "2026-05-31T00:02:33.235304300Z",
             "source": "Diablo IV (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss_g/dlss_g_v3.1.13.0_EF9B5FA50410A45A13014CB55AAE950D.zip",
             "release_notes": "",
@@ -1947,7 +2057,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "3.1.30.0",
@@ -1956,7 +2067,7 @@
             "sha256": "8363e2ac2e3e512ac5ab2d364aa4c245",
             "size_bytes": 12569128,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606201100Z",
+            "released_at": "2026-05-31T00:02:33.235307400Z",
             "source": "Desordre (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss_g/dlss_g_v3.1.30.0_8363E2AC2E3E512AC5AB2D364AA4C245.zip",
             "release_notes": "CL 33088933",
@@ -1964,7 +2075,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "3.5.0.0",
@@ -1973,7 +2085,7 @@
             "sha256": "1b21da1d91ab05b83625729d0b683797",
             "size_bytes": 12582456,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606206600Z",
+            "released_at": "2026-05-31T00:02:33.235310400Z",
             "source": "NVIDIA UE5 Plugin (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss_g/dlss_g_v3.5.0.0_1B21DA1D91AB05B83625729D0B683797.zip",
             "release_notes": "CL 33190482",
@@ -1981,7 +2093,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "3.5.10.0",
@@ -1990,7 +2103,7 @@
             "sha256": "4de45236c2aa62cd25f1d670e0c5deaf",
             "size_bytes": 11698216,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606211800Z",
+            "released_at": "2026-05-31T00:02:33.235313400Z",
             "source": "NVIDIA UE5 Plugin (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss_g/dlss_g_v3.5.10.0_4DE45236C2AA62CD25F1D670E0C5DEAF.zip",
             "release_notes": "CL 33396148",
@@ -1998,7 +2111,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "3.6.0.0",
@@ -2007,7 +2121,7 @@
             "sha256": "67453779383c58139267a9b15839bb78",
             "size_bytes": 11727912,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606217200Z",
+            "released_at": "2026-05-31T00:02:33.235316600Z",
             "source": "Naraka Bladepoint (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss_g/dlss_g_v3.6.0.0_67453779383C58139267A9B15839BB78.zip",
             "release_notes": "CL 33629598",
@@ -2015,7 +2129,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "3.7.0.0",
@@ -2024,7 +2139,7 @@
             "sha256": "ee98cd63c16316882c3e5d56e51fc680",
             "size_bytes": 11778088,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606223200Z",
+            "released_at": "2026-05-31T00:02:33.235319600Z",
             "source": "NVIDIA SDK (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss_g/dlss_g_v3.7.0.0_EE98CD63C16316882C3E5D56E51FC680.zip",
             "release_notes": "CL 33904986",
@@ -2032,7 +2147,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "3.7.1.0",
@@ -2041,7 +2157,7 @@
             "sha256": "b16e50dd7c60d254aab782278c2ef73c",
             "size_bytes": 11779112,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606228500Z",
+            "released_at": "2026-05-31T00:02:33.235322700Z",
             "source": "Senua's Saga: Hellblade II (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss_g/dlss_g_v3.7.1.0_B16E50DD7C60D254AAB782278C2EF73C.zip",
             "release_notes": "CL 34181968",
@@ -2049,7 +2165,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "3.7.10.0",
@@ -2058,7 +2175,7 @@
             "sha256": "69e9f9dc32d0aef4e7c986e2339a0e52",
             "size_bytes": 9477688,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606235100Z",
+            "released_at": "2026-05-31T00:02:33.235325900Z",
             "source": "Diablo IV (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss_g/dlss_g_v3.7.10.0_69E9F9DC32D0AEF4E7C986E2339A0E52.zip",
             "release_notes": "CL 34270846",
@@ -2066,7 +2183,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "3.8.1.0",
@@ -2075,7 +2193,7 @@
             "sha256": "db7b5c2c8686e1586cc56d5bdb64965c",
             "size_bytes": 9283120,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606241Z",
+            "released_at": "2026-05-31T00:02:33.235329300Z",
             "source": "Diablo IV (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss_g/dlss_g_v3.8.1.0_DB7B5C2C8686E1586CC56D5BDB64965C.zip",
             "release_notes": "CL 35007158",
@@ -2083,7 +2201,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "310.1.0.0",
@@ -2092,7 +2211,7 @@
             "sha256": "11ecc4bf7fe5cefcf4a737e95b6752ff",
             "size_bytes": 7607336,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606246Z",
+            "released_at": "2026-05-31T00:02:33.235332100Z",
             "source": "Cyberpunk 2077 2.21",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss_g/dlss_g_v310.1.0.0_11ECC4BF7FE5CEFCF4A737E95B6752FF.zip",
             "release_notes": "CL 35304964",
@@ -2100,7 +2219,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "310.2.0.0",
@@ -2109,7 +2229,7 @@
             "sha256": "26c2eafe046cdd403a1850f71186595c",
             "size_bytes": 7595560,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606251400Z",
+            "released_at": "2026-05-31T00:02:33.235335500Z",
             "source": "NVIDIA Driver",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss_g/dlss_g_v310.2.0.0_26C2EAFE046CDD403A1850F71186595C.zip",
             "release_notes": "CL 35440459",
@@ -2117,7 +2237,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "310.2.1.0",
@@ -2126,7 +2247,7 @@
             "sha256": "96cb06ff5a84e4e90591973bf99a7d45",
             "size_bytes": 7597104,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606257300Z",
+            "released_at": "2026-05-31T00:02:33.235338900Z",
             "source": "beeradmoore/dlss-swapper",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss_g/dlss_g_v310.2.1.0_96CB06FF5A84E4E90591973BF99A7D45.zip",
             "release_notes": "CL 35516211",
@@ -2134,7 +2255,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "310.3.0.0",
@@ -2151,7 +2273,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "310.4.0.0",
@@ -2168,7 +2291,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "310.5.0.0",
@@ -2185,7 +2309,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "310.5.2.0",
@@ -2202,7 +2327,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "310.5.3.0",
@@ -2219,7 +2345,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "310.6.0.0",
@@ -2236,7 +2363,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           }
         ]
       },
@@ -2250,7 +2378,7 @@
             "sha256": "cd523b592b9471b43d0e85d9629a6ae4",
             "size_bytes": 70025768,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606005100Z",
+            "released_at": "2026-05-31T00:02:33.235186Z",
             "source": "Cyberpunk 2077 Phantom Liberty (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss_d/dlss_d_v3.5.0.0_CD523B592B9471B43D0E85D9629A6AE4.zip",
             "release_notes": "CL 33263601",
@@ -2258,7 +2386,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "3.5.10.0",
@@ -2267,7 +2396,7 @@
             "sha256": "ce8b65654872a30dc6b771aae8ca98ad",
             "size_bytes": 71894568,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606026600Z",
+            "released_at": "2026-05-31T00:02:33.235203100Z",
             "source": "Alan Wake  (via TechPowerUp)2",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss_d/dlss_d_v3.5.10.0_CE8B65654872A30DC6B771AAE8CA98AD.zip",
             "release_notes": "CL 33457773",
@@ -2275,7 +2404,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "3.7.0.0",
@@ -2284,7 +2414,7 @@
             "sha256": "622fcb76d37a2d73811756e891cc80e8",
             "size_bytes": 38426680,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606031800Z",
+            "released_at": "2026-05-31T00:02:33.235206200Z",
             "source": "Portal with RTX (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss_d/dlss_d_v3.7.0.0_622FCB76D37A2D73811756E891CC80E8.zip",
             "release_notes": "CL 33812812",
@@ -2292,7 +2422,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "3.7.10.0",
@@ -2301,7 +2432,7 @@
             "sha256": "fdfac845ab72d509a24ea2c16a1619c4",
             "size_bytes": 43790888,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606036700Z",
+            "released_at": "2026-05-31T00:02:33.235209600Z",
             "source": "The First Descendant (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss_d/dlss_d_v3.7.10.0_FDFAC845AB72D509A24EA2C16A1619C4.zip",
             "release_notes": "CL 34201261",
@@ -2309,7 +2440,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "3.7.20.0",
@@ -2318,7 +2450,7 @@
             "sha256": "f2f968b15cd295d13d571d0d18170e10",
             "size_bytes": 44006968,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606041700Z",
+            "released_at": "2026-05-31T00:02:33.235213200Z",
             "source": "Star Wars Outlaws (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss_d/dlss_d_v3.7.20.0_F2F968B15CD295D13D571D0D18170E10.zip",
             "release_notes": "CL 34733527",
@@ -2326,7 +2458,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "310.1.0.0",
@@ -2335,7 +2468,7 @@
             "sha256": "10c793f0b14efedc595838bb8a09fd28",
             "size_bytes": 65630248,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606047200Z",
+            "released_at": "2026-05-31T00:02:33.235216600Z",
             "source": "Cyberpunk 2077 2.21",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss_d/dlss_d_v310.1.0.0_10C793F0B14EFEDC595838BB8A09FD28.zip",
             "release_notes": "CL 35269843",
@@ -2343,7 +2476,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "310.2.0.0",
@@ -2352,7 +2486,7 @@
             "sha256": "e6081b848ea68880db8adc83cdfb15dc",
             "size_bytes": 72957992,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.606052Z",
+            "released_at": "2026-05-31T00:02:33.235219800Z",
             "source": "NVIDIA Driver",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss_d/dlss_d_v310.2.0.0_E6081B848EA68880DB8ADC83CDFB15DC.zip",
             "release_notes": "CL 35440459",
@@ -2360,7 +2494,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "310.2.1.0",
@@ -2377,7 +2512,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "310.3.0.0",
@@ -2394,7 +2530,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "310.4.0.0",
@@ -2411,7 +2548,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "310.5.0.0",
@@ -2428,7 +2566,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "310.5.2.0",
@@ -2445,7 +2584,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "310.5.3.0",
@@ -2462,7 +2602,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "310.6.0.0",
@@ -2479,7 +2620,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           }
         ]
       },
@@ -2501,7 +2643,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.0.9.0",
@@ -2518,7 +2661,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.0.11.0",
@@ -2535,7 +2679,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.0.13.0",
@@ -2552,7 +2697,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.0.17.0",
@@ -2569,7 +2715,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.1.6.0",
@@ -2578,7 +2725,7 @@
             "sha256": "5e7b70421ece9dcca09260a38e4e9172",
             "size_bytes": 5564400,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605373700Z",
+            "released_at": "2026-05-31T00:02:33.234738700Z",
             "source": "Anthem (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v1.1.6.0_5E7B70421ECE9DCCA09260A38E4E9172.zip",
             "release_notes": "CL 26519365",
@@ -2586,7 +2733,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.1.13.0",
@@ -2595,7 +2743,7 @@
             "sha256": "5ee9de2ae9d76a32c727c1b6ff21e0fa",
             "size_bytes": 5646688,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605391300Z",
+            "released_at": "2026-05-31T00:02:33.234745200Z",
             "source": "Monster Hunter World (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v1.1.13.0_5EE9DE2AE9D76A32C727C1B6FF21E0FA.zip",
             "release_notes": "CL 27720038",
@@ -2603,7 +2751,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.2.14.0",
@@ -2612,7 +2761,7 @@
             "sha256": "899ebc3ac0637125d7578d87fef42970",
             "size_bytes": 5771120,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605396900Z",
+            "released_at": "2026-05-31T00:02:33.234748800Z",
             "source": "Sword of Legends Online (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v1.2.14.0_899EBC3AC0637125D7578D87FEF42970.zip",
             "release_notes": "CL 26937653",
@@ -2620,7 +2769,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "1.3.2.0",
@@ -2629,7 +2779,7 @@
             "sha256": "b92191e7a0b994a297ff8b2012eba529",
             "size_bytes": 5737784,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605401900Z",
+            "released_at": "2026-05-31T00:02:33.234752400Z",
             "source": "Control (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v1.3.2.0_B92191E7A0B994A297FF8B2012EBA529.zip",
             "release_notes": "CL 27036528",
@@ -2637,7 +2787,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.0.34.0",
@@ -2646,7 +2797,7 @@
             "sha256": "d30c27ca983f9792512c6f5874c60b2e",
             "size_bytes": 6344168,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605406700Z",
+            "released_at": "2026-05-31T00:02:33.234755400Z",
             "source": "Control (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.0.34.0_D30C27CA983F9792512C6F5874C60B2E.zip",
             "release_notes": "CL 28581698",
@@ -2654,7 +2805,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.0.38.0",
@@ -2663,7 +2815,7 @@
             "sha256": "acb8b647ba19dcc638dd50ff621f7801",
             "size_bytes": 6290920,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605413500Z",
+            "released_at": "2026-05-31T00:02:33.234759900Z",
             "source": "F1 2020 (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.0.38.0_ACB8B647BA19DCC638DD50FF621F7801.zip",
             "release_notes": "CL 28843986",
@@ -2671,7 +2823,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.1.16.0",
@@ -2680,7 +2833,7 @@
             "sha256": "1a30408f7ad1bdaec0ef81b5e2313c4e",
             "size_bytes": 11562296,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605418600Z",
+            "released_at": "2026-05-31T00:02:33.234763200Z",
             "source": "Minecraft Bedrock Edition (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.1.16.0_1A30408F7AD1BDAEC0EF81B5E2313C4E.zip",
             "release_notes": "CL 28844053",
@@ -2688,7 +2841,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.1.19.0",
@@ -2697,7 +2851,7 @@
             "sha256": "0a82a657e294219b6dc8875897a2cced",
             "size_bytes": 11731432,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605422900Z",
+            "released_at": "2026-05-31T00:02:33.234766500Z",
             "source": "Death Stranding (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.1.19.0_0A82A657E294219B6DC8875897A2CCED.zip",
             "release_notes": "CL 28939566",
@@ -2705,7 +2859,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.1.24.0",
@@ -2714,7 +2869,7 @@
             "sha256": "5af4c12dde0e9dfa54ed76fe9e4db647",
             "size_bytes": 11772216,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605427Z",
+            "released_at": "2026-05-31T00:02:33.234769800Z",
             "source": "TechPowerUp",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.1.24.0_5AF4C12DDE0E9DFA54ED76FE9E4DB647.zip",
             "release_notes": "CL 28996384",
@@ -2722,7 +2877,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.1.25.0",
@@ -2731,7 +2887,7 @@
             "sha256": "18b651a8df80464512ed19fa9859b585",
             "size_bytes": 11773928,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605431300Z",
+            "released_at": "2026-05-31T00:02:33.234773200Z",
             "source": "Control (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.1.25.0_18B651A8DF80464512ED19FA9859B585.zip",
             "release_notes": "CL 29009287",
@@ -2739,7 +2895,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.1.28.0",
@@ -2748,7 +2905,7 @@
             "sha256": "f92355a0a6376447c7d0fc0a3cfc2f43",
             "size_bytes": 11773416,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605435700Z",
+            "released_at": "2026-05-31T00:02:33.234776400Z",
             "source": "Bright Memory Infinite Benchmark (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.1.28.0_F92355A0A6376447C7D0FC0A3CFC2F43.zip",
             "release_notes": "CL 29017803",
@@ -2756,7 +2913,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.1.29.0",
@@ -2773,7 +2931,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.1.31.0",
@@ -2782,7 +2941,7 @@
             "sha256": "3e68d270cef16027da3ff3ba3b974537",
             "size_bytes": 11773752,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605445300Z",
+            "released_at": "2026-05-31T00:02:33.234784200Z",
             "source": "Watch Dogs Legion (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.1.31.0_3E68D270CEF16027DA3FF3BA3B974537.zip",
             "release_notes": "CL 29083287",
@@ -2790,7 +2949,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.1.35.0",
@@ -2799,7 +2959,7 @@
             "sha256": "fb72213cf0f3cf103a16cfe7d930f707",
             "size_bytes": 11784504,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605450100Z",
+            "released_at": "2026-05-31T00:02:33.234787500Z",
             "source": "TechPowerUp",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.1.35.0_FB72213CF0F3CF103A16CFE7D930F707.zip",
             "release_notes": "CL 29167882",
@@ -2807,7 +2967,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.1.39.0",
@@ -2816,7 +2977,7 @@
             "sha256": "6cbf57c2d08d775808aef61c9671db5b",
             "size_bytes": 11887416,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605456900Z",
+            "released_at": "2026-05-31T00:02:33.234790700Z",
             "source": "Cyberpunk 2077 (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.1.39.0_6CBF57C2D08D775808AEF61C9671DB5B.zip",
             "release_notes": "CL 29218479",
@@ -2824,7 +2985,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.1.40.0",
@@ -2833,7 +2995,7 @@
             "sha256": "8e3ac0a089abe2b319e2926b38db0ff9",
             "size_bytes": 11888616,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605461900Z",
+            "released_at": "2026-05-31T00:02:33.234793900Z",
             "source": "TechPowerUp",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.1.40.0_8E3AC0A089ABE2B319E2926B38DB0FF9.zip",
             "release_notes": "CL 29272686",
@@ -2841,7 +3003,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.1.50.0",
@@ -2850,7 +3013,7 @@
             "sha256": "6672c90b5afef2153259f84929364b2a",
             "size_bytes": 13758192,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605466400Z",
+            "released_at": "2026-05-31T00:02:33.234797500Z",
             "source": "System Shock Demo (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.1.50.0_6672C90B5AFEF2153259F84929364B2A.zip",
             "release_notes": "CL 29518444",
@@ -2858,7 +3021,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.1.51.0",
@@ -2867,7 +3031,7 @@
             "sha256": "4950c49d5e337f3146bcd51a26ab8cc6",
             "size_bytes": 13758192,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605471200Z",
+            "released_at": "2026-05-31T00:02:33.234800700Z",
             "source": "F1 2020 (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.1.51.0_4950C49D5E337F3146BCD51A26AB8CC6.zip",
             "release_notes": "CL 29469881",
@@ -2875,7 +3039,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.1.52.0",
@@ -2884,7 +3049,7 @@
             "sha256": "430ee0d531f4b89a7cc65524ccc5d912",
             "size_bytes": 13758192,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605476300Z",
+            "released_at": "2026-05-31T00:02:33.234805500Z",
             "source": "Fortnite (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.1.52.0_430EE0D531F4B89A7CC65524CCC5D912.zip",
             "release_notes": "CL 29573341",
@@ -2892,7 +3057,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.1.53.0",
@@ -2901,7 +3067,7 @@
             "sha256": "e696265c702cc90cbcf4974faeebb9f4",
             "size_bytes": 13756768,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605483600Z",
+            "released_at": "2026-05-31T00:02:33.234808700Z",
             "source": "TechPowerUp",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.1.53.0_E696265C702CC90CBCF4974FAEEBB9F4.zip",
             "release_notes": "CL 29608517",
@@ -2909,7 +3075,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.1.55.0",
@@ -2918,7 +3085,7 @@
             "sha256": "72c53fe8cf9114143680f3bc56cea1a7",
             "size_bytes": 13805424,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605489200Z",
+            "released_at": "2026-05-31T00:02:33.234811700Z",
             "source": "Metro Exodus Enhanced (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.1.55.0_72C53FE8CF9114143680F3BC56CEA1A7.zip",
             "release_notes": "CL 29708548",
@@ -2926,7 +3093,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.1.58.0",
@@ -2935,7 +3103,7 @@
             "sha256": "2b1b8d32e4866e7d7734acf2bcc830b1",
             "size_bytes": 14905712,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605494500Z",
+            "released_at": "2026-05-31T00:02:33.234814700Z",
             "source": "COD MW (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.1.58.0_2B1B8D32E4866E7D7734ACF2BCC830B1.zip",
             "release_notes": "CL 29760797",
@@ -2943,7 +3111,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.1.62.0",
@@ -2952,7 +3121,7 @@
             "sha256": "ecf487bc067ed07b90a3452db0203655",
             "size_bytes": 14904688,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605499800Z",
+            "released_at": "2026-05-31T00:02:33.234817800Z",
             "source": "TechPowerUp",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.1.62.0_ECF487BC067ED07B90A3452DB0203655.zip",
             "release_notes": "CL 29884341",
@@ -2960,7 +3129,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.1.63.0",
@@ -2969,7 +3139,7 @@
             "sha256": "262b728f1692e2550cf1cc9a41681a59",
             "size_bytes": 14904688,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605504700Z",
+            "released_at": "2026-05-31T00:02:33.234820900Z",
             "source": "No Man's Sky (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.1.63.0_262B728F1692E2550CF1CC9A41681A59.zip",
             "release_notes": "CL 29912254",
@@ -2977,7 +3147,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.1.66.0",
@@ -2986,7 +3157,7 @@
             "sha256": "1a81316e57aba6c9c46fae53936c3933",
             "size_bytes": 14908784,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605509500Z",
+            "released_at": "2026-05-31T00:02:33.234824Z",
             "source": "Doom Eternal (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.1.66.0_1A81316E57ABA6C9C46FAE53936C3933.zip",
             "release_notes": "CL 30017708",
@@ -2994,7 +3165,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.2.6.0",
@@ -3003,7 +3175,7 @@
             "sha256": "52219034574426fef16b19d2495648c0",
             "size_bytes": 14444400,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605514700Z",
+            "released_at": "2026-05-31T00:02:33.234827600Z",
             "source": "Rainbow Six Siege (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.2.6.0_52219034574426FEF16B19D2495648C0.zip",
             "release_notes": "CL 29980697",
@@ -3011,7 +3183,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.2.9.0",
@@ -3020,7 +3193,7 @@
             "sha256": "5b9b917af8fb72d63f073a0e0f621d94",
             "size_bytes": 14445936,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605519200Z",
+            "released_at": "2026-05-31T00:02:33.234831600Z",
             "source": "F1 2021 (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.2.9.0_5B9B917AF8FB72D63F073A0E0F621D94.zip",
             "release_notes": "CL 30084522",
@@ -3028,7 +3201,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.2.10.0",
@@ -3037,7 +3211,7 @@
             "sha256": "062215c828802b9202ada4ca4d3619b4",
             "size_bytes": 14447984,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605524100Z",
+            "released_at": "2026-05-31T00:02:33.234834800Z",
             "source": "Rust (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.2.10.0_062215C828802B9202ADA4CA4D3619B4.zip",
             "release_notes": "CL 30115323",
@@ -3045,7 +3219,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.2.11.0",
@@ -3054,7 +3229,7 @@
             "sha256": "65345301ba1a985aa9ac3ea6d671abdf",
             "size_bytes": 14449864,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605529400Z",
+            "released_at": "2026-05-31T00:02:33.234838100Z",
             "source": "No Man's Sky (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.2.11.0_65345301BA1A985AA9AC3EA6D671ABDF.zip",
             "release_notes": "CL 30183294",
@@ -3062,7 +3237,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.2.14.0",
@@ -3071,7 +3247,7 @@
             "sha256": "110f5ca0453c6f3901fd148ea5cc7650",
             "size_bytes": 14449872,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605535800Z",
+            "released_at": "2026-05-31T00:02:33.234841400Z",
             "source": "Call of Duty Warzone (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.2.14.0_110F5CA0453C6F3901FD148EA5CC7650.zip",
             "release_notes": "CL 30231549",
@@ -3079,7 +3255,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.2.15.0",
@@ -3088,7 +3265,7 @@
             "sha256": "c9dcdcd97e19529a7c89432693c8ec0c",
             "size_bytes": 14450376,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605541300Z",
+            "released_at": "2026-05-31T00:02:33.234844600Z",
             "source": "Marvel Avengers (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.2.15.0_C9DCDCD97E19529A7C89432693C8EC0C.zip",
             "release_notes": "CL 30254073",
@@ -3096,7 +3273,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.2.16.0",
@@ -3105,7 +3283,7 @@
             "sha256": "8fed151aa1b7975a1e5968b82df4e918",
             "size_bytes": 14448328,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605546400Z",
+            "released_at": "2026-05-31T00:02:33.234847700Z",
             "source": "DLSS-2.2.1.zip",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.2.16.0_8FED151AA1B7975A1E5968B82DF4E918.zip",
             "release_notes": "CL 30278952",
@@ -3113,7 +3291,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.2.18.0",
@@ -3122,7 +3301,7 @@
             "sha256": "77a75b96dd2d36a4a291f3939d59c221",
             "size_bytes": 14450896,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605556100Z",
+            "released_at": "2026-05-31T00:02:33.234853900Z",
             "source": "UE5 (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.2.18.0_77A75B96DD2D36A4A291F3939D59C221.zip",
             "release_notes": "CL 30305775",
@@ -3130,7 +3309,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.3.0.0",
@@ -3139,7 +3319,7 @@
             "sha256": "7bbbb70f34fc4f2977ba442ee5fc37ac",
             "size_bytes": 14452936,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605580700Z",
+            "released_at": "2026-05-31T00:02:33.234877500Z",
             "source": "DLSS-2.3.0.zip",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.3.0.0_7BBBB70F34FC4F2977BA442EE5FC37AC.zip",
             "release_notes": "CL 30447826",
@@ -3147,7 +3327,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.3.1.0",
@@ -3156,7 +3337,7 @@
             "sha256": "0fc1727ad4a52c29e2897567008b3407",
             "size_bytes": 14452944,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605592900Z",
+            "released_at": "2026-05-31T00:02:33.234885100Z",
             "source": "DLSS-2.3.1.zip",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.3.1.0_0FC1727AD4A52C29E2897567008B3407.zip",
             "release_notes": "CL 30473807",
@@ -3164,7 +3345,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.3.2.0",
@@ -3173,7 +3355,7 @@
             "sha256": "d62b6857f2f874e3892b30abce3dc603",
             "size_bytes": 14461648,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605602300Z",
+            "released_at": "2026-05-31T00:02:33.234892Z",
             "source": "Sword and Fairy 7 (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.3.2.0_D62B6857F2F874E3892B30ABCE3DC603.zip",
             "release_notes": "CL 30482926",
@@ -3181,7 +3363,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.3.3.0",
@@ -3190,7 +3373,7 @@
             "sha256": "229dd563c5a7cfe67a927c06333249da",
             "size_bytes": 14462152,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605606900Z",
+            "released_at": "2026-05-31T00:02:33.234895200Z",
             "source": "Swords of Legends Online (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.3.3.0_229DD563C5A7CFE67A927C06333249DA.zip",
             "release_notes": "CL 30520575",
@@ -3198,7 +3381,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.3.4.0",
@@ -3207,7 +3391,7 @@
             "sha256": "49b252e0f803a01c0cf6964ed4b16ad8",
             "size_bytes": 14464712,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605611700Z",
+            "released_at": "2026-05-31T00:02:33.234898100Z",
             "source": "Jurassic World Evolution 2 (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.3.4.0_49B252E0F803A01C0CF6964ED4B16AD8.zip",
             "release_notes": "CL 30584640",
@@ -3215,7 +3399,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.3.5.0",
@@ -3224,7 +3409,7 @@
             "sha256": "f59a89ca2150f107a1d9de4ca8ca8ddc",
             "size_bytes": 14467280,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605616300Z",
+            "released_at": "2026-05-31T00:02:33.234901100Z",
             "source": "Horizon Zero Dawn (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.3.5.0_F59A89CA2150F107A1D9DE4CA8CA8DDC.zip",
             "release_notes": "CL 30668210",
@@ -3232,7 +3417,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.3.7.0",
@@ -3241,7 +3427,7 @@
             "sha256": "0c1eda5e9d60b4d66e075fe0cb672794",
             "size_bytes": 14621184,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605622500Z",
+            "released_at": "2026-05-31T00:02:33.234910700Z",
             "source": "Dying Light 2 (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.3.7.0_0C1EDA5E9D60B4D66E075FE0CB672794.zip",
             "release_notes": "CL 30888174",
@@ -3249,7 +3435,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.3.9.0",
@@ -3258,7 +3445,7 @@
             "sha256": "f3938d96eb0600634cb16e01a4d6ea1f",
             "size_bytes": 14619848,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605630100Z",
+            "released_at": "2026-05-31T00:02:33.234915100Z",
             "source": "Chorus (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.3.9.0_F3938D96EB0600634CB16E01A4D6EA1F.zip",
             "release_notes": "CL 30929354",
@@ -3266,7 +3453,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.3.11.0",
@@ -3275,7 +3463,7 @@
             "sha256": "e14d1d3c4da7bb57641ba59a9f456cd4",
             "size_bytes": 14804680,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605634600Z",
+            "released_at": "2026-05-31T00:02:33.234918Z",
             "source": "DLSS-2.3.3.zip",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.3.11.0_E14D1D3C4DA7BB57641BA59A9F456CD4.zip",
             "release_notes": "CL 30954459",
@@ -3283,7 +3471,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.4.0.0",
@@ -3292,7 +3481,7 @@
             "sha256": "f395216f5c42b2658a4144837b457ddd",
             "size_bytes": 14803656,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605649900Z",
+            "released_at": "2026-05-31T00:02:33.234927300Z",
             "source": "DLSS-2.4.0.zip",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.4.0.0_F395216F5C42B2658A4144837B457DDD.zip",
             "release_notes": "CL 31105907",
@@ -3300,7 +3489,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.4.2.0",
@@ -3309,7 +3499,7 @@
             "sha256": "fc7f487079b5132e132729ea046dd017",
             "size_bytes": 14815352,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605660500Z",
+            "released_at": "2026-05-31T00:02:33.234933300Z",
             "source": "Back4Blood (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.4.2.0_FC7F487079B5132E132729EA046DD017.zip",
             "release_notes": "CL 31258854",
@@ -3317,7 +3507,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.4.3.0",
@@ -3326,7 +3517,7 @@
             "sha256": "dea5f1dabf86203c3210e21df9cfcf07",
             "size_bytes": 14816512,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605674100Z",
+            "released_at": "2026-05-31T00:02:33.234940700Z",
             "source": "Evil Dead (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.4.3.0_DEA5F1DABF86203C3210E21DF9CFCF07.zip",
             "release_notes": "CL 31309745",
@@ -3334,7 +3525,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.4.6.0",
@@ -3343,7 +3535,7 @@
             "sha256": "03a5a7be0e4d83487dd68dfb88fd0036",
             "size_bytes": 14852216,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605680800Z",
+            "released_at": "2026-05-31T00:02:33.234947800Z",
             "source": "Microsoft Flight Simulator SU10 (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.4.6.0_03A5A7BE0E4D83487DD68DFB88FD0036.zip",
             "release_notes": "CL 31353423",
@@ -3351,7 +3543,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.4.11.0",
@@ -3360,7 +3553,7 @@
             "sha256": "c1e931321a9818fa896abe03823d4c1e",
             "size_bytes": 14149736,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605686Z",
+            "released_at": "2026-05-31T00:02:33.234952700Z",
             "source": "Sackboy (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.4.11.0_C1E931321A9818FA896ABE03823D4C1E.zip",
             "release_notes": "CL 31481051",
@@ -3368,7 +3561,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.4.12.0",
@@ -3377,7 +3571,7 @@
             "sha256": "0aa6cf6b6779919088455e47fbba0a5f",
             "size_bytes": 14171176,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605690800Z",
+            "released_at": "2026-05-31T00:02:33.234955800Z",
             "source": "Final Fantasy Origin (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.4.12.0_0AA6CF6B6779919088455E47FBBA0A5F.zip",
             "release_notes": "CL 31617536",
@@ -3385,7 +3579,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.4.13.0",
@@ -3394,7 +3589,7 @@
             "sha256": "578d0a372c0d59a704513bb22a7db234",
             "size_bytes": 25176120,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605706800Z",
+            "released_at": "2026-05-31T00:02:33.234965200Z",
             "source": "WRC Generations (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.4.13.0_578D0A372C0D59A704513BB22A7DB234.zip",
             "release_notes": "CL 32022682",
@@ -3402,7 +3597,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.5.0.0",
@@ -3411,7 +3607,7 @@
             "sha256": "87a8231ac086ad8ee6b3c57140f25dcc",
             "size_bytes": 25176104,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605711700Z",
+            "released_at": "2026-05-31T00:02:33.234968400Z",
             "source": "Marvel's Midnight Suns Dec 10 Patch (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.5.0.0_87A8231AC086AD8EE6B3C57140F25DCC.zip",
             "release_notes": "CL 32141080",
@@ -3419,7 +3615,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "2.5.1.0",
@@ -3428,7 +3625,7 @@
             "sha256": "dfe932d0b3955e649c1f759382d4e0d4",
             "size_bytes": 25179192,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605716400Z",
+            "released_at": "2026-05-31T00:02:33.234971300Z",
             "source": "Portal RTX new patch (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v2.5.1.0_DFE932D0B3955E649C1F759382D4E0D4.zip",
             "release_notes": "CL 32211295",
@@ -3436,7 +3633,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "3.1.1.0",
@@ -3445,7 +3643,7 @@
             "sha256": "4bb567067b16b8fabf05d0817a9c971c",
             "size_bytes": 36687416,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605721100Z",
+            "released_at": "2026-05-31T00:02:33.234974200Z",
             "source": "DLSS-3.1.0.zip",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v3.1.1.0_4BB567067B16B8FABF05D0817A9C971C.zip",
             "release_notes": "CL 32342834",
@@ -3453,7 +3651,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "3.1.2.0",
@@ -3462,7 +3661,7 @@
             "sha256": "fcede5737d34413ce16cc0be9a6203af",
             "size_bytes": 35399736,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605735700Z",
+            "released_at": "2026-05-31T00:02:33.234984Z",
             "source": "The Last of Us (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v3.1.2.0_FCEDE5737D34413CE16CC0BE9A6203AF.zip",
             "release_notes": "CL 32544569",
@@ -3470,7 +3669,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "3.1.11.0",
@@ -3479,7 +3679,7 @@
             "sha256": "e557b8eb18fbd710f82073d9f6fa55a9",
             "size_bytes": 35385384,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605740400Z",
+            "released_at": "2026-05-31T00:02:33.234986800Z",
             "source": "DLSS-3.1.10.zip",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v3.1.11.0_E557B8EB18FBD710F82073D9F6FA55A9.zip",
             "release_notes": "CL 32597869",
@@ -3487,7 +3687,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "3.1.13.0",
@@ -3496,7 +3697,7 @@
             "sha256": "22b2359cf7ec76f523feeec53fa81464",
             "size_bytes": 35386424,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605755700Z",
+            "released_at": "2026-05-31T00:02:33.234997100Z",
             "source": "NVIDIA SDK (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v3.1.13.0_22B2359CF7EC76F523FEEEC53FA81464.zip",
             "release_notes": "CL 32824515",
@@ -3504,7 +3705,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "3.1.30.0",
@@ -3513,7 +3715,7 @@
             "sha256": "96f5ced18c119946e4a674c14d908692",
             "size_bytes": 51717160,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605771400Z",
+            "released_at": "2026-05-31T00:02:33.235006500Z",
             "source": "DLSS-3.1.30.zip",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v3.1.30.0_96F5CED18C119946E4A674C14D908692.zip",
             "release_notes": "CL 33088933",
@@ -3521,7 +3723,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "3.5.0.0",
@@ -3530,7 +3733,7 @@
             "sha256": "a6b5079411a58630799478ebb6baa722",
             "size_bytes": 51716648,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605785300Z",
+            "released_at": "2026-05-31T00:02:33.235014100Z",
             "source": "DLSS-3.5.0.zip",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v3.5.0.0_A6B5079411A58630799478EBB6BAA722.zip",
             "release_notes": "CL 33190482",
@@ -3538,7 +3741,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "3.5.10.0",
@@ -3547,7 +3751,7 @@
             "sha256": "ac477775c31346f60c17a7f4f0aa1983",
             "size_bytes": 53689400,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605800Z",
+            "released_at": "2026-05-31T00:02:33.235023100Z",
             "source": "DLSS-3.5.10.zip",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v3.5.10.0_AC477775C31346F60C17A7F4F0AA1983.zip",
             "release_notes": "CL 33396148",
@@ -3555,7 +3759,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "3.6.0.0",
@@ -3564,7 +3769,7 @@
             "sha256": "49ce45d36d0fe6e498f2aae54d94bdee",
             "size_bytes": 47438904,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605810500Z",
+            "released_at": "2026-05-31T00:02:33.235029200Z",
             "source": "Naraka Bladepoint (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v3.6.0.0_49CE45D36D0FE6E498F2AAE54D94BDEE.zip",
             "release_notes": "CL 33629598",
@@ -3572,7 +3777,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "3.7.0.0",
@@ -3581,7 +3787,7 @@
             "sha256": "956faf7e5de9c4634c5869389f91f11b",
             "size_bytes": 51255848,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605815700Z",
+            "released_at": "2026-05-31T00:02:33.235032100Z",
             "source": "DLSS-3.7.0.zip",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v3.7.0.0_956FAF7E5DE9C4634C5869389F91F11B.zip",
             "release_notes": "CL 33860605",
@@ -3589,7 +3795,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "3.7.10.0",
@@ -3598,7 +3805,7 @@
             "sha256": "12627ab9ee39858b6a28039a32d1b7c2",
             "size_bytes": 51276856,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605826Z",
+            "released_at": "2026-05-31T00:02:33.235039400Z",
             "source": "DLSS-3.7.10.zip",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v3.7.10.0_12627AB9EE39858B6A28039A32D1B7C2.zip",
             "release_notes": "CL 34360990",
@@ -3606,7 +3813,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "3.7.20.0",
@@ -3615,7 +3823,7 @@
             "sha256": "53dbec92bb250e667cbc532d5d782316",
             "size_bytes": 51291680,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605841200Z",
+            "released_at": "2026-05-31T00:02:33.235047700Z",
             "source": "NVIDIA Driver (DirectSR) (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v3.7.20.0_53DBEC92BB250E667CBC532D5D782316.zip",
             "release_notes": "CL 0",
@@ -3623,7 +3831,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "3.8.10.0",
@@ -3632,7 +3841,7 @@
             "sha256": "aed94e7029846c356882db166b824f5e",
             "size_bytes": 24925344,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605856900Z",
+            "released_at": "2026-05-31T00:02:33.235057Z",
             "source": "NVIDIA Driver (DirectSR) (via TechPowerUp)",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v3.8.10.0_AED94E7029846C356882DB166B824F5E.zip",
             "release_notes": "CL 0",
@@ -3640,7 +3849,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "310.1.0.0",
@@ -3649,7 +3859,7 @@
             "sha256": "117595d4839dcab18501249cbeee9b7a",
             "size_bytes": 44609064,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605862300Z",
+            "released_at": "2026-05-31T00:02:33.235061300Z",
             "source": "Cyberpunk 2077 2.21",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v310.1.0.0_117595D4839DCAB18501249CBEEE9B7A.zip",
             "release_notes": "CL 35322723",
@@ -3657,7 +3867,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "310.2.1.0",
@@ -3666,7 +3877,7 @@
             "sha256": "3a875f45c315d09e5f4548cc9288f178",
             "size_bytes": 48971832,
             "signed": true,
-            "released_at": "2026-05-29T13:04:54.605870500Z",
+            "released_at": "2026-05-31T00:02:33.235064500Z",
             "source": "NVIDIA Driver",
             "cdn_url": "https://dlss-swapper-downloads.beeradmoore.com/dlss/dlss_v310.2.1.0_3A875F45C315D09E5F4548CC9288F178.zip",
             "release_notes": "CL 35454170",
@@ -3674,7 +3885,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "310.3.0.0",
@@ -3691,7 +3903,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "310.4.0.0",
@@ -3708,7 +3921,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "310.5.0.0",
@@ -3725,7 +3939,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "310.5.2.0",
@@ -3742,7 +3957,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "310.5.3.0",
@@ -3759,7 +3975,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           },
           {
             "version": "310.6.0.0",
@@ -3776,7 +3993,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "md5"
+            "hash_algorithm": "md5",
+            "zip_entry": null
           }
         ]
       },
@@ -3787,8 +4005,8 @@
             "version": "2.7.32",
             "version_packed": 562980020289536,
             "filename": "sl.reflex.dll",
-            "sha256": "acfa554ed8cc4a8092e56b20eb1d99f5958ab72507489d4e23292cf00a6f3141",
-            "size_bytes": 253912,
+            "sha256": "df054996c2db2250908759b04c06b455b6e1889bcd0d5dc74feaca9d2286ff0d",
+            "size_bytes": 198104,
             "signed": true,
             "released_at": "2025-05-12T20:23:51Z",
             "source": "NVIDIA-RTX/Streamline@v2.7.32",
@@ -3798,14 +4016,15 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.reflex.dll"
           },
           {
             "version": "2.8.0",
             "version_packed": 562984313159680,
             "filename": "sl.reflex.dll",
-            "sha256": "8f768c26ebfc9550fbbca56870feed4973207cb748191f877c80a34b7b83d520",
-            "size_bytes": 254424,
+            "sha256": "95b010c52c4483a65611ea05542e66f63c4fc05aa56b1607e0d1824b4e22320c",
+            "size_bytes": 199136,
             "signed": true,
             "released_at": "2025-06-19T00:15:22Z",
             "source": "NVIDIA-RTX/Streamline@v2.8.0",
@@ -3815,7 +4034,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.reflex.dll"
           },
           {
             "version": "2.9.0",
@@ -3832,7 +4052,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.reflex.dll"
           },
           {
             "version": "2.10.0",
@@ -3849,7 +4070,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.reflex.dll"
           },
           {
             "version": "2.10.3",
@@ -3866,7 +4088,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.reflex.dll"
           },
           {
             "version": "2.11.1",
@@ -3883,7 +4106,347 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.reflex.dll"
+          }
+        ]
+      },
+      "sl_dlss_fg": {
+        "latest": "2.11.1",
+        "releases": [
+          {
+            "version": "2.7.32",
+            "version_packed": 562980020289536,
+            "filename": "sl.dlss_g.dll",
+            "sha256": "6197c518273f6ba7b47544289d656cc87613715429b0dd946d8ad2a6656da4d2",
+            "size_bytes": 448472,
+            "signed": true,
+            "released_at": "2025-05-12T20:23:51Z",
+            "source": "NVIDIA-RTX/Streamline@v2.7.32",
+            "cdn_url": "https://github.com/NVIDIA-RTX/Streamline/releases/download/v2.7.32/streamline-sdk-v2.7.32.zip",
+            "release_notes": "Streamline SDK 2.7.32 Release",
+            "signature_subject": "NVIDIA Corporation",
+            "channel": "stable",
+            "is_dev": false,
+            "min_driver": null,
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.dlss_g.dll"
+          },
+          {
+            "version": "2.8.0",
+            "version_packed": 562984313159680,
+            "filename": "sl.dlss_g.dll",
+            "sha256": "d7fa7559194b7b31487ed31697282f27f1c25adc6ac3332ad1c1ee5f42cf09da",
+            "size_bytes": 452568,
+            "signed": true,
+            "released_at": "2025-06-19T00:15:22Z",
+            "source": "NVIDIA-RTX/Streamline@v2.8.0",
+            "cdn_url": "https://github.com/NVIDIA-RTX/Streamline/releases/download/v2.8.0/streamline-sdk-v2.8.0.zip",
+            "release_notes": "Streamline SDK 2.8.0 Release",
+            "signature_subject": "NVIDIA Corporation",
+            "channel": "stable",
+            "is_dev": false,
+            "min_driver": null,
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.dlss_g.dll"
+          },
+          {
+            "version": "2.9.0",
+            "version_packed": 562988608126976,
+            "filename": "sl.dlss_g.dll",
+            "sha256": "0f7f2465602e26a50b733ac121452dfc48f2943e43424bf3e8a2d567992dfd11",
+            "size_bytes": 447456,
+            "signed": true,
+            "released_at": "2025-08-26T17:04:09Z",
+            "source": "NVIDIA-RTX/Streamline@v2.9.0",
+            "cdn_url": "https://github.com/NVIDIA-RTX/Streamline/releases/download/v2.9.0/streamline-sdk-v2.9.0.zip",
+            "release_notes": "Streamline SDK 2.9.0",
+            "signature_subject": "NVIDIA Corporation",
+            "channel": "stable",
+            "is_dev": false,
+            "min_driver": null,
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.dlss_g.dll"
+          },
+          {
+            "version": "2.10.0",
+            "version_packed": 562992903094272,
+            "filename": "sl.dlss_g.dll",
+            "sha256": "e07fd38310805e34265929d1999f33ed5566cf30176c082ca84ef63992f6c7d7",
+            "size_bytes": 459392,
+            "signed": true,
+            "released_at": "2026-01-06T05:29:51Z",
+            "source": "NVIDIA-RTX/Streamline@v2.10.0",
+            "cdn_url": "https://github.com/NVIDIA-RTX/Streamline/releases/download/v2.10.0/streamline-sdk-v2.10.0.zip",
+            "release_notes": "Streamline SDK 2.10.0",
+            "signature_subject": "NVIDIA Corporation",
+            "channel": "stable",
+            "is_dev": false,
+            "min_driver": null,
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.dlss_g.dll"
+          },
+          {
+            "version": "2.10.3",
+            "version_packed": 562992903290880,
+            "filename": "sl.dlss_g.dll",
+            "sha256": "29b1e42a5f5447b0e39687017f7fd70dff09c3b1c9a4e7a592f3faed4a053ae0",
+            "size_bytes": 459392,
+            "signed": true,
+            "released_at": "2026-01-28T21:36:49Z",
+            "source": "NVIDIA-RTX/Streamline@v2.10.3",
+            "cdn_url": "https://github.com/NVIDIA-RTX/Streamline/releases/download/v2.10.3/streamline-sdk-v2.10.3.zip",
+            "release_notes": "Streamline SDK 2.10.3",
+            "signature_subject": "NVIDIA Corporation",
+            "channel": "stable",
+            "is_dev": false,
+            "min_driver": null,
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.dlss_g.dll"
+          },
+          {
+            "version": "2.11.1",
+            "version_packed": 562997198127104,
+            "filename": "sl.dlss_g.dll",
+            "sha256": "dae3f24a690f3dee3fbd89bdde47fbeb6bf480cee376ecfd0242a50e0bb6e6c6",
+            "size_bytes": 578176,
+            "signed": true,
+            "released_at": "2026-04-21T13:00:14Z",
+            "source": "NVIDIA-RTX/Streamline@v2.11.1",
+            "cdn_url": "https://github.com/NVIDIA-RTX/Streamline/releases/download/v2.11.1/streamline-sdk-v2.11.1.zip",
+            "release_notes": "Streamline SDK 2.11.1",
+            "signature_subject": "NVIDIA Corporation",
+            "channel": "stable",
+            "is_dev": false,
+            "min_driver": null,
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.dlss_g.dll"
+          }
+        ]
+      },
+      "sl_dlss_rr": {
+        "latest": "2.11.1",
+        "releases": [
+          {
+            "version": "2.7.32",
+            "version_packed": 562980020289536,
+            "filename": "sl.dlss_d.dll",
+            "sha256": "9116460c24fbbcd0e90b0a5a6c73142a47fa185c420eae53adb6b17198461636",
+            "size_bytes": 251864,
+            "signed": true,
+            "released_at": "2025-05-12T20:23:51Z",
+            "source": "NVIDIA-RTX/Streamline@v2.7.32",
+            "cdn_url": "https://github.com/NVIDIA-RTX/Streamline/releases/download/v2.7.32/streamline-sdk-v2.7.32.zip",
+            "release_notes": "Streamline SDK 2.7.32 Release",
+            "signature_subject": "NVIDIA Corporation",
+            "channel": "stable",
+            "is_dev": false,
+            "min_driver": null,
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.dlss_d.dll"
+          },
+          {
+            "version": "2.8.0",
+            "version_packed": 562984313159680,
+            "filename": "sl.dlss_d.dll",
+            "sha256": "774c518dc033f56c71feb3a6e66fd356b02f7611c2155cddf2757ab2d577ac9d",
+            "size_bytes": 251352,
+            "signed": true,
+            "released_at": "2025-06-19T00:15:22Z",
+            "source": "NVIDIA-RTX/Streamline@v2.8.0",
+            "cdn_url": "https://github.com/NVIDIA-RTX/Streamline/releases/download/v2.8.0/streamline-sdk-v2.8.0.zip",
+            "release_notes": "Streamline SDK 2.8.0 Release",
+            "signature_subject": "NVIDIA Corporation",
+            "channel": "stable",
+            "is_dev": false,
+            "min_driver": null,
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.dlss_d.dll"
+          },
+          {
+            "version": "2.9.0",
+            "version_packed": 562988608126976,
+            "filename": "sl.dlss_d.dll",
+            "sha256": "b6d58a5ede8efc22ed62ebfbd4c43cff4d2cd5d69262daf21a7ad497085b0c3b",
+            "size_bytes": 252888,
+            "signed": true,
+            "released_at": "2025-08-26T17:04:09Z",
+            "source": "NVIDIA-RTX/Streamline@v2.9.0",
+            "cdn_url": "https://github.com/NVIDIA-RTX/Streamline/releases/download/v2.9.0/streamline-sdk-v2.9.0.zip",
+            "release_notes": "Streamline SDK 2.9.0",
+            "signature_subject": "NVIDIA Corporation",
+            "channel": "stable",
+            "is_dev": false,
+            "min_driver": null,
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.dlss_d.dll"
+          },
+          {
+            "version": "2.10.0",
+            "version_packed": 562992903094272,
+            "filename": "sl.dlss_d.dll",
+            "sha256": "1a65ae1656d7aab4cb1025e14bc14a92330a3a3008a05aafae803c4fe508c260",
+            "size_bytes": 254080,
+            "signed": true,
+            "released_at": "2026-01-06T05:29:51Z",
+            "source": "NVIDIA-RTX/Streamline@v2.10.0",
+            "cdn_url": "https://github.com/NVIDIA-RTX/Streamline/releases/download/v2.10.0/streamline-sdk-v2.10.0.zip",
+            "release_notes": "Streamline SDK 2.10.0",
+            "signature_subject": "NVIDIA Corporation",
+            "channel": "stable",
+            "is_dev": false,
+            "min_driver": null,
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.dlss_d.dll"
+          },
+          {
+            "version": "2.10.3",
+            "version_packed": 562992903290880,
+            "filename": "sl.dlss_d.dll",
+            "sha256": "7a36e3452a28cf56d5656890a5dbeb089d452ed18fbe502c7d5e23209f7dcfce",
+            "size_bytes": 254080,
+            "signed": true,
+            "released_at": "2026-01-28T21:36:49Z",
+            "source": "NVIDIA-RTX/Streamline@v2.10.3",
+            "cdn_url": "https://github.com/NVIDIA-RTX/Streamline/releases/download/v2.10.3/streamline-sdk-v2.10.3.zip",
+            "release_notes": "Streamline SDK 2.10.3",
+            "signature_subject": "NVIDIA Corporation",
+            "channel": "stable",
+            "is_dev": false,
+            "min_driver": null,
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.dlss_d.dll"
+          },
+          {
+            "version": "2.11.1",
+            "version_packed": 562997198127104,
+            "filename": "sl.dlss_d.dll",
+            "sha256": "c8b0aacc6150bb53bad229d5ea0cf565bc8c4fa3be616bd6636afd9ae01416d3",
+            "size_bytes": 435328,
+            "signed": true,
+            "released_at": "2026-04-21T13:00:14Z",
+            "source": "NVIDIA-RTX/Streamline@v2.11.1",
+            "cdn_url": "https://github.com/NVIDIA-RTX/Streamline/releases/download/v2.11.1/streamline-sdk-v2.11.1.zip",
+            "release_notes": "Streamline SDK 2.11.1",
+            "signature_subject": "NVIDIA Corporation",
+            "channel": "stable",
+            "is_dev": false,
+            "min_driver": null,
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.dlss_d.dll"
+          }
+        ]
+      },
+      "sl_dlss_sr": {
+        "latest": "2.11.1",
+        "releases": [
+          {
+            "version": "2.7.32",
+            "version_packed": 562980020289536,
+            "filename": "sl.dlss.dll",
+            "sha256": "4a49d0ff75ef90f38c88c74bf75f6e37edfe8205200c7f73a54ad15138f853ae",
+            "size_bytes": 237536,
+            "signed": true,
+            "released_at": "2025-05-12T20:23:51Z",
+            "source": "NVIDIA-RTX/Streamline@v2.7.32",
+            "cdn_url": "https://github.com/NVIDIA-RTX/Streamline/releases/download/v2.7.32/streamline-sdk-v2.7.32.zip",
+            "release_notes": "Streamline SDK 2.7.32 Release",
+            "signature_subject": "NVIDIA Corporation",
+            "channel": "stable",
+            "is_dev": false,
+            "min_driver": null,
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.dlss.dll"
+          },
+          {
+            "version": "2.8.0",
+            "version_packed": 562984313159680,
+            "filename": "sl.dlss.dll",
+            "sha256": "5b36874bfaf186bea61d800409d3afcf373b6cd52c93c2f52156a9b7eb0570d3",
+            "size_bytes": 237016,
+            "signed": true,
+            "released_at": "2025-06-19T00:15:22Z",
+            "source": "NVIDIA-RTX/Streamline@v2.8.0",
+            "cdn_url": "https://github.com/NVIDIA-RTX/Streamline/releases/download/v2.8.0/streamline-sdk-v2.8.0.zip",
+            "release_notes": "Streamline SDK 2.8.0 Release",
+            "signature_subject": "NVIDIA Corporation",
+            "channel": "stable",
+            "is_dev": false,
+            "min_driver": null,
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.dlss.dll"
+          },
+          {
+            "version": "2.9.0",
+            "version_packed": 562988608126976,
+            "filename": "sl.dlss.dll",
+            "sha256": "4465fec835b776aeb138ba774bb09631d3521aeef58596cf4db81d83e3d190d3",
+            "size_bytes": 239064,
+            "signed": true,
+            "released_at": "2025-08-26T17:04:09Z",
+            "source": "NVIDIA-RTX/Streamline@v2.9.0",
+            "cdn_url": "https://github.com/NVIDIA-RTX/Streamline/releases/download/v2.9.0/streamline-sdk-v2.9.0.zip",
+            "release_notes": "Streamline SDK 2.9.0",
+            "signature_subject": "NVIDIA Corporation",
+            "channel": "stable",
+            "is_dev": false,
+            "min_driver": null,
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.dlss.dll"
+          },
+          {
+            "version": "2.10.0",
+            "version_packed": 562992903094272,
+            "filename": "sl.dlss.dll",
+            "sha256": "2dbee8cb45af3de640f98ee68b4955d1fd90e772784e843f00951ac53ab908f6",
+            "size_bytes": 240256,
+            "signed": true,
+            "released_at": "2026-01-06T05:29:51Z",
+            "source": "NVIDIA-RTX/Streamline@v2.10.0",
+            "cdn_url": "https://github.com/NVIDIA-RTX/Streamline/releases/download/v2.10.0/streamline-sdk-v2.10.0.zip",
+            "release_notes": "Streamline SDK 2.10.0",
+            "signature_subject": "NVIDIA Corporation",
+            "channel": "stable",
+            "is_dev": false,
+            "min_driver": null,
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.dlss.dll"
+          },
+          {
+            "version": "2.10.3",
+            "version_packed": 562992903290880,
+            "filename": "sl.dlss.dll",
+            "sha256": "164750168cb36a79e7552e7fc74bf5723347f97f69e5d466167aa09623615c03",
+            "size_bytes": 240256,
+            "signed": true,
+            "released_at": "2026-01-28T21:36:49Z",
+            "source": "NVIDIA-RTX/Streamline@v2.10.3",
+            "cdn_url": "https://github.com/NVIDIA-RTX/Streamline/releases/download/v2.10.3/streamline-sdk-v2.10.3.zip",
+            "release_notes": "Streamline SDK 2.10.3",
+            "signature_subject": "NVIDIA Corporation",
+            "channel": "stable",
+            "is_dev": false,
+            "min_driver": null,
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.dlss.dll"
+          },
+          {
+            "version": "2.11.1",
+            "version_packed": 562997198127104,
+            "filename": "sl.dlss.dll",
+            "sha256": "7779f3c653535808b6f98307de8b067ca38f1dba16e3c7362b13dcd7d4e7dabe",
+            "size_bytes": 419968,
+            "signed": true,
+            "released_at": "2026-04-21T13:00:14Z",
+            "source": "NVIDIA-RTX/Streamline@v2.11.1",
+            "cdn_url": "https://github.com/NVIDIA-RTX/Streamline/releases/download/v2.11.1/streamline-sdk-v2.11.1.zip",
+            "release_notes": "Streamline SDK 2.11.1",
+            "signature_subject": "NVIDIA Corporation",
+            "channel": "stable",
+            "is_dev": false,
+            "min_driver": null,
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.dlss.dll"
           }
         ]
       },
@@ -3894,8 +4457,8 @@
             "version": "2.7.32",
             "version_packed": 562980020289536,
             "filename": "sl.interposer.dll",
-            "sha256": "d574e7fe279e4a447bdcc2ffbfe5827ddac6e105f632dc4dd7720ef6550ce64d",
-            "size_bytes": 606168,
+            "sha256": "e96bb9eb2930f57190a6dc76a24ff354114b8fcc75bff6a3b60fee2fba0bdc40",
+            "size_bytes": 543712,
             "signed": true,
             "released_at": "2025-05-12T20:23:51Z",
             "source": "NVIDIA-RTX/Streamline@v2.7.32",
@@ -3905,14 +4468,15 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.interposer.dll"
           },
           {
             "version": "2.8.0",
             "version_packed": 562984313159680,
             "filename": "sl.interposer.dll",
-            "sha256": "99a27ee6b265130729ce32fc802d443abe061bca66b5e7ac2f8e6ea21e7101ce",
-            "size_bytes": 606680,
+            "sha256": "48953b413c88ac82e2308712ac99140dc7302068a6c2b31e84a0d12d16425793",
+            "size_bytes": 545752,
             "signed": true,
             "released_at": "2025-06-19T00:15:22Z",
             "source": "NVIDIA-RTX/Streamline@v2.8.0",
@@ -3922,7 +4486,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.interposer.dll"
           },
           {
             "version": "2.9.0",
@@ -3939,7 +4504,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.interposer.dll"
           },
           {
             "version": "2.10.0",
@@ -3956,7 +4522,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.interposer.dll"
           },
           {
             "version": "2.10.3",
@@ -3973,7 +4540,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.interposer.dll"
           },
           {
             "version": "2.11.1",
@@ -3990,7 +4558,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.interposer.dll"
           }
         ]
       },
@@ -4001,8 +4570,8 @@
             "version": "2.7.32",
             "version_packed": 562980020289536,
             "filename": "sl.common.dll",
-            "sha256": "595f4fbd8b31964a02db17d9f2edf97c883c1bf54cb3440e5a137c7fe7428ef2",
-            "size_bytes": 759776,
+            "sha256": "b4a38987b3094eaf39ef1237af4436ac5bb77674d6def2cbeabdba062d1b83b8",
+            "size_bytes": 675800,
             "signed": true,
             "released_at": "2025-05-12T20:23:51Z",
             "source": "NVIDIA-RTX/Streamline@v2.7.32",
@@ -4012,14 +4581,15 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.common.dll"
           },
           {
             "version": "2.8.0",
             "version_packed": 562984313159680,
             "filename": "sl.common.dll",
-            "sha256": "ed139f7a048db055c4e4f61d5881e0b20173104c28da895c5881191b3837f0f8",
-            "size_bytes": 761816,
+            "sha256": "e7315fe13b226c258eb85678ba8bc1af257c5cab5dfb753d4bc16e1778d0efaf",
+            "size_bytes": 678360,
             "signed": true,
             "released_at": "2025-06-19T00:15:22Z",
             "source": "NVIDIA-RTX/Streamline@v2.8.0",
@@ -4029,7 +4599,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.common.dll"
           },
           {
             "version": "2.9.0",
@@ -4046,7 +4617,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.common.dll"
           },
           {
             "version": "2.10.0",
@@ -4063,7 +4635,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.common.dll"
           },
           {
             "version": "2.10.3",
@@ -4080,7 +4653,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.common.dll"
           },
           {
             "version": "2.11.1",
@@ -4097,7 +4671,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.common.dll"
           }
         ]
       },
@@ -4108,8 +4683,8 @@
             "version": "2.7.32",
             "version_packed": 562980020289536,
             "filename": "sl.directsr.dll",
-            "sha256": "751d63f190f050f09aaaac4a0e151344f8fe9e8b271287a5141fb01f8c78853b",
-            "size_bytes": 230872,
+            "sha256": "4afc85d4cb8e19f45a8181703d8f3f7e8646f4eaf7fa4488f0e5ff92b73a29ca",
+            "size_bytes": 182232,
             "signed": true,
             "released_at": "2025-05-12T20:23:51Z",
             "source": "NVIDIA-RTX/Streamline@v2.7.32",
@@ -4119,14 +4694,15 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.directsr.dll"
           },
           {
             "version": "2.8.0",
             "version_packed": 562984313159680,
             "filename": "sl.directsr.dll",
-            "sha256": "b02b2bbbb131deab3b49298dda39dc0d68aaf40b6a114aeb150e330ba0ca370c",
-            "size_bytes": 230872,
+            "sha256": "388f2896e4f9b8b6c5eae4cb5b9083ff0d400ddb8e9ab706ae857f5427e1f61a",
+            "size_bytes": 182232,
             "signed": true,
             "released_at": "2025-06-19T00:15:22Z",
             "source": "NVIDIA-RTX/Streamline@v2.8.0",
@@ -4136,7 +4712,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.directsr.dll"
           },
           {
             "version": "2.9.0",
@@ -4153,7 +4730,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.directsr.dll"
           },
           {
             "version": "2.10.0",
@@ -4170,7 +4748,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.directsr.dll"
           },
           {
             "version": "2.10.3",
@@ -4187,7 +4766,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.directsr.dll"
           },
           {
             "version": "2.11.1",
@@ -4204,7 +4784,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.directsr.dll"
           }
         ]
       },
@@ -4215,8 +4796,8 @@
             "version": "2.7.32",
             "version_packed": 562980020289536,
             "filename": "sl.nis.dll",
-            "sha256": "7a05536b4b811cbfbd7d89a0df50f00266d47d604ccb9d20a6cc85493e840897",
-            "size_bytes": 1029592,
+            "sha256": "2b617388a47d6ae6950b78aa8f7b203006a47e830d4ae5cf900fb5857565c8cc",
+            "size_bytes": 966104,
             "signed": true,
             "released_at": "2025-05-12T20:23:51Z",
             "source": "NVIDIA-RTX/Streamline@v2.7.32",
@@ -4226,14 +4807,15 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.nis.dll"
           },
           {
             "version": "2.8.0",
             "version_packed": 562984313159680,
             "filename": "sl.nis.dll",
-            "sha256": "f5d9688878038c7d9a7b752eb7dc1bb27ee8d3da5f13cc8b5f7736d09956a022",
-            "size_bytes": 1029600,
+            "sha256": "3df2d442d5093c8fc8935e48556c7ae99b3c1406202627a042a558a1edb91ce7",
+            "size_bytes": 966104,
             "signed": true,
             "released_at": "2025-06-19T00:15:22Z",
             "source": "NVIDIA-RTX/Streamline@v2.8.0",
@@ -4243,7 +4825,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.nis.dll"
           },
           {
             "version": "2.9.0",
@@ -4260,7 +4843,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.nis.dll"
           },
           {
             "version": "2.10.0",
@@ -4277,7 +4861,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.nis.dll"
           },
           {
             "version": "2.10.3",
@@ -4294,7 +4879,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.nis.dll"
           },
           {
             "version": "2.11.1",
@@ -4311,7 +4897,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.nis.dll"
           }
         ]
       },
@@ -4322,8 +4909,8 @@
             "version": "2.7.32",
             "version_packed": 562980020289536,
             "filename": "sl.pcl.dll",
-            "sha256": "3a7be6dae39ee5af4957870d22270ae0724d846e548d0af667eb493029fc877b",
-            "size_bytes": 222688,
+            "sha256": "266ef376af886c4c6b74b0e76c66072962f75f976ea90b3d6317c502316249d4",
+            "size_bytes": 175064,
             "signed": true,
             "released_at": "2025-05-12T20:23:51Z",
             "source": "NVIDIA-RTX/Streamline@v2.7.32",
@@ -4333,14 +4920,15 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.pcl.dll"
           },
           {
             "version": "2.8.0",
             "version_packed": 562984313159680,
             "filename": "sl.pcl.dll",
-            "sha256": "0fce49067dcb0ee2842f1e87f9c6989105c70e806e07158dccce81764f4791e3",
-            "size_bytes": 222688,
+            "sha256": "e91f6aea77adee1b38dd0ab9c7b82b0f595ec31e1b8637c327cdad10d463e919",
+            "size_bytes": 175064,
             "signed": true,
             "released_at": "2025-06-19T00:15:22Z",
             "source": "NVIDIA-RTX/Streamline@v2.8.0",
@@ -4350,7 +4938,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.pcl.dll"
           },
           {
             "version": "2.9.0",
@@ -4367,7 +4956,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.pcl.dll"
           },
           {
             "version": "2.10.0",
@@ -4384,7 +4974,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.pcl.dll"
           },
           {
             "version": "2.10.3",
@@ -4401,7 +4992,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.pcl.dll"
           },
           {
             "version": "2.11.1",
@@ -4418,7 +5010,8 @@
             "channel": "stable",
             "is_dev": false,
             "min_driver": null,
-            "hash_algorithm": "sha256"
+            "hash_algorithm": "sha256",
+            "zip_entry": "bin/x64/sl.pcl.dll"
           }
         ]
       }
