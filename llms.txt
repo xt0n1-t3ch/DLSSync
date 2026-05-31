@@ -1,14 +1,33 @@
 # DLSSync
 
-> Open-source Windows desktop app that keeps DLSS, FSR and XeSS DLLs in sync with the latest NVIDIA, AMD, Intel and Microsoft upstream releases. Hash-verified, vendor-signed, fully reversible. Built with Rust + Tauri 2 + Svelte 5. Apache-2.0.
+> Open-source Windows app that updates everything making PC games run and look better, from one place. It keeps NVIDIA DLSS, AMD FSR, Intel XeSS, Frame Generation, Reflex, Streamline, Ray Reconstruction and Microsoft DirectStorage DLLs in sync with each vendor's latest release, and it also updates NVIDIA, AMD and Intel GPU drivers plus other Windows device drivers. Hash-verified, vendor-signed, every change reversible. Lightweight (Rust + Tauri 2 + Svelte 5), zero telemetry, Apache-2.0.
 
-DLSSync is the modern open-source successor to DLSS Updater / DLSS Swapper for Windows gamers.
+DLSSync is the modern open-source successor to DLSS Updater / DLSS Swapper for Windows gamers, but broader: it is not only an upscaler-DLL swapper. It also updates GPU and system drivers, gates every file behind a SHA-256 + Authenticode check, and ships as one lightweight signed binary with no Python or .NET runtime.
 
 ## What
 
 DLSSync detects games installed via Steam, Epic Games, GOG Galaxy, Ubisoft Connect, EA Desktop, Xbox / Microsoft Store and Battle.net, then keeps their DLSS, FSR, XeSS, NVIDIA Reflex, NVIDIA Streamline and Microsoft DirectStorage DLLs synchronized with each vendor's latest publisher release.
 
 Every replacement is gated by two independent checks: a SHA-256 hash match against a public CDN-hosted catalog manifest, and an Authenticode publisher signature gate that refuses any DLL not signed by NVIDIA, AMD, Intel or Microsoft. Every replaced DLL is auto-snapshotted into a local SQLite backup store so a one-click revert is always available.
+
+Beyond DLLs, the Drivers tab updates NVIDIA, AMD and Intel GPU drivers (per-card version history, signature-verified installs) and other Windows device drivers (audio, network, Bluetooth, chipset, storage) through the Windows Update Agent, with an anti-downgrade guard and a System Restore checkpoint. It can also apply reversible NVIDIA DLSS preset and frame-generation overrides through the driver profile (NVAPI), the same mechanism the NVIDIA App uses, never injection.
+
+## How DLSSync compares
+
+- vs DLSS Swapper and DLSS Updater: DLSSync covers the same upscaler, frame-generation and ray-reconstruction DLLs, and adds the NVIDIA Streamline set (`sl.*`) as one atomic version-locked update, GPU and system driver updates, and a mandatory SHA-256 + Authenticode publisher gate. It ships as a single signed Rust binary with no Python or .NET runtime, installs per-user with no admin, and sends zero telemetry.
+- vs OptiScaler / DLSS Enabler: those inject and translate upscalers across GPUs (a different job). DLSSync updates the real vendor DLLs in place and pairs well alongside them.
+- License: Apache-2.0, every line auditable in the public repository.
+
+## Upstream sources
+
+DLSSync reads versions, hashes and signatures only from each vendor's official releases:
+
+- NVIDIA DLSS SDK: https://github.com/NVIDIA/DLSS
+- NVIDIA Streamline SDK: https://github.com/NVIDIA-RTX/Streamline
+- NVIDIA Reflex SDK: https://github.com/NVIDIA-RTX/REFLEX
+- Intel XeSS SDK: https://github.com/intel/xess
+- AMD FidelityFX SDK: https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK
+- Microsoft DirectStorage: https://github.com/microsoft/DirectStorage
 
 ## Stack
 
