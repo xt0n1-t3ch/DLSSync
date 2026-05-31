@@ -398,6 +398,9 @@ export const sidebarCounts: Readable<SidebarCounts> = derived(
 export const commandPaletteOpen: Writable<boolean> = writable(false);
 export const notificationsOpen: Writable<boolean> = writable(false);
 export const shortcutOverlayOpen: Writable<boolean> = writable(false);
+/** Set by UpdateBanner while it occupies the bottom-left corner, so the support
+ * card can yield and avoid overlapping it. */
+export const updateBannerActive: Writable<boolean> = writable(false);
 export const notificationsUnreadCount: Readable<number> = derived(
   notifications,
   ($n) => $n.filter((e) => e.read_at == null && e.dismissed_at == null).length,

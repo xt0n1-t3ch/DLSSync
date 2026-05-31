@@ -254,6 +254,7 @@ export interface UiPreferences {
   backups_group_by: BackupsGroupBy;
   settings_active_tab: SettingsTab;
   command_palette_recent: string[];
+  show_support_nudge: boolean;
 }
 
 export type LibraryViewMode = "grid" | "list";

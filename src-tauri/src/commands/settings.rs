@@ -76,6 +76,8 @@ pub struct UiPreferences {
     pub settings_active_tab: String,
     #[serde(default)]
     pub command_palette_recent: Vec<String>,
+    #[serde(default = "default_true")]
+    pub show_support_nudge: bool,
 }
 
 pub const DEFAULT_LIBRARY_VIEW_MODE: &str = "grid";
@@ -115,6 +117,7 @@ impl Default for UiPreferences {
             backups_group_by: DEFAULT_BACKUPS_GROUP_BY.into(),
             settings_active_tab: DEFAULT_SETTINGS_ACTIVE_TAB.into(),
             command_palette_recent: Vec::new(),
+            show_support_nudge: true,
         }
     }
 }

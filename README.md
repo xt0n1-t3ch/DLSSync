@@ -21,7 +21,7 @@
 </p>
 
 <p align="center">
-  <sub><b>New in v1.6.1:</b> DLSSync updates NVIDIA's Streamline plug-ins as one matched, version-locked set — a game's <code>sl.dlss*</code> plug-ins and their <code>sl.interposer</code>/<code>sl.common</code>/<code>sl.pcl</code> runtime move to one official, Authenticode-verified SDK version atomically (every file, or none, since a partial swap crashes the game on launch). Offers are now scheme-aware: a driver-managed plug-in is left alone, so your NVIDIA App overrides keep working. DLSSync hosts nothing — binaries come from NVIDIA's own signed SDK. See <a href="CHANGELOG.md#161---2026-05-30">CHANGELOG</a>.</sub>
+  <sub><b>New in v1.6.2:</b> DLSSync updates NVIDIA's Streamline plug-ins as one matched, version-locked set — a game's <code>sl.dlss*</code> plug-ins and their <code>sl.interposer</code>/<code>sl.common</code>/<code>sl.pcl</code> runtime move to one official, Authenticode-verified SDK version atomically (every file, or none, since a partial swap crashes the game on launch). Offers are scheme-aware: a driver-managed plug-in is left alone, so your NVIDIA App overrides keep working. DLSSync hosts nothing — binaries come from NVIDIA's own signed SDK. See <a href="CHANGELOG.md#162---2026-05-30">CHANGELOG</a>.</sub>
 </p>
 
 <p align="center">

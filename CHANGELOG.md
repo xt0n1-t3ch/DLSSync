@@ -5,6 +5,15 @@ All notable changes to DLSSync are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.2] - 2026-05-30
+
+Two small additions to help DLSSync find its people: a support card you can turn off, and a Nexus Mods link in About.
+
+### Added
+
+- A support card. After an update succeeds, DLSSync may show a card in the bottom-left — star it on GitHub, endorse it on Nexus Mods, or share it with a friend. It blocks nothing and never disappears on a timer. Close it, or pick "Don't show again" to retire it for good. It comes back from Settings → General → Show the support card whenever you want it.
+- A "Help DLSSync grow" section in About, with a live GitHub star count, a Nexus Mods endorsement link, and a share button — plus a Nexus Mods link in the About header.
+
 ## [1.6.1] - 2026-05-30
 
 DLSSync updates NVIDIA's Streamline plug-ins, and reads them correctly across both of their version schemes. In modern games DLSS Frame Generation is two files — the NGX runtime `nvngx_dlssg.dll` on the 310.x line and the Streamline plug-in that drives it, `sl.dlss_g.dll`, on the 2.x line. The Streamline plug-ins update as a matched set from NVIDIA's own signed SDK, applied all-or-nothing, and only when your installed plug-in is on the same version line as the SDK — a driver-managed build is left alone, so your NVIDIA App overrides keep working.
@@ -73,6 +82,7 @@ of the Arc desktop package, and install progress no longer breaks when you switc
 - AMD opens its official download page instead of a constructed installer URL. The direct `.exe` is gated behind a license prompt and its filename changes per release, so a fabricated link was unreliable; version and changelog detection are unchanged.
 - Vendor installer exit codes are reported with a readable message. Intel's "no compatible device" (exit code 8) now explains the GPU may be OEM-locked or need a different driver branch, pointing to the manufacturer or Windows Update.
 
+[1.6.2]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.2
 [1.6.1]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.1
 [1.5.2]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.5.2
 [1.5.1]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.5.1
