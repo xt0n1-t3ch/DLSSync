@@ -235,13 +235,26 @@ pub async fn cancel_all_applies(state: State<'_, AppState>) -> AppResult<usize> 
     Ok(state.apply_registry.cancel_all())
 }
 
-async fn lookup_release(state: &StateHandles, request: &ApplyRequest) -> AppResult<Release> {
+pub(crate) async fn lookup_release(
+    state: &StateHandles,
+    request: &ApplyRequest,
+) -> AppResult<Release> {
     let guard = state.catalog.read();
     let catalog = guard
         .as_ref()
         .ok_or_else(|| AppError::Other("catalog not loaded".into()))?;
+    let filename = std::path::Path::new(&request.dll_path)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or_default();
     catalog
-        .find(&request.vendor, &request.family, &request.target_version)
+        .find_file(
+            &request.vendor,
+            &request.family,
+            &request.target_version,
+            filename,
+        )
+        .or_else(|| catalog.find(&request.vendor, &request.family, &request.target_version))
         .ok_or_else(|| {
             AppError::Other(format!(
                 "release {}::{}::{} not in catalog",
@@ -250,7 +263,7 @@ async fn lookup_release(state: &StateHandles, request: &ApplyRequest) -> AppResu
         })
 }
 
-async fn apply_single_item(
+pub(crate) async fn apply_single_item(
     handle: &AppHandle,
     state: &StateHandles,
     request: &ApplyRequest,
@@ -818,7 +831,7 @@ fn version_major(version: &str) -> Option<u16> {
 /// older games ship SL 1.x and break when newer 2.x plugins are swapped in).
 /// NGX DLLs (`nvngx_*.dll`) are never gated — the driver loads them
 /// independently and they are safe to swap on their own.
-fn streamline_guard(
+pub(crate) fn streamline_guard(
     state: &StateHandles,
     dll_path: &std::path::Path,
     target_version: &str,
@@ -876,10 +889,10 @@ fn streamline_block_reason(
     if let (Some(installed), Some(target)) = (installed_major, target_major) {
         if installed != target {
             return Some(format!(
-                "{filename} is NVIDIA Streamline v{installed}.x in this game but the catalog \
-                 version is v{target}.x. Streamline is version-locked by major release — swapping \
-                 across majors (v{installed} to v{target}) crashes the game on launch. Skipped; \
-                 only same-major Streamline updates are applied."
+                "{filename} is NVIDIA Streamline v{installed}.x in this game but the update is \
+                 Streamline v{target}.x. The Streamline plug-ins are version-locked as a matched \
+                 set — mixing major releases (v{installed} with v{target}) crashes the game on \
+                 launch. Skipped; only a same-major Streamline set update is applied."
             ));
         }
     }
@@ -1081,6 +1094,17 @@ mod tests {
             streamline_block_reason("sl.reflex.dll", true, true, Some(2), Some(2)).unwrap();
         assert!(reason.contains("DLSS Enabler"));
         assert!(reason.contains("kFeatureReflex"));
+        assert_eq!(classify_error(&reason), "streamline_locked");
+    }
+
+    #[test]
+    fn streamline_guard_blocks_sl_dlss_g_under_enabler_nexus_subnautica2() {
+        // Regression for the Nexus Subnautica 2 report: updating the Streamline set
+        // under a DLSS Enabler broke the enabler. The guard must skip sl.dlss_g.dll
+        // when an enabler manages the game, even with the same major and opt-in on.
+        let reason =
+            streamline_block_reason("sl.dlss_g.dll", true, true, Some(2), Some(2)).unwrap();
+        assert!(reason.contains("DLSS Enabler"));
         assert_eq!(classify_error(&reason), "streamline_locked");
     }
 

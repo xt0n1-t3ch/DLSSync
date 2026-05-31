@@ -50,6 +50,7 @@ fn release_for(filename: &str, cdn_url: &str, sha: &str, size: u64) -> Release {
         is_dev: false,
         min_driver: None,
         hash_algorithm: "sha256".into(),
+        zip_entry: None,
     }
 }
 

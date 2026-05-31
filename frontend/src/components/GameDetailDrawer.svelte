@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
   import { setActiveArt, clearActiveArt } from "../lib/artContext";
-  import { EXTERNAL_URLS } from "../lib/ux";
+  import { EXTERNAL_URLS, ENABLER_MANAGED_LABEL, ENABLER_MANAGED_NOTE } from "../lib/ux";
   import {
     games,
     gameDlls,
@@ -17,11 +17,11 @@
     rescanGame,
     driverReports,
   } from "../lib/stores";
-  import { dllRelation, targetVersion, recordUpdatable } from "../lib/relation";
+  import { dllRelation, targetVersion, recordUpdatable, isStreamlinePlugin } from "../lib/relation";
   import { addBlacklistEntry, removeBlacklistEntry, findGameExecutable, detectAnticheat, saveSettings, type AppSettings, type DllRecord, type AntiCheatReport } from "../lib/api";
   import { hasAntiCheat, statusNote, warningMessage, severity } from "../lib/anticheat";
   import DlssOverridePanel from "./DlssOverridePanel.svelte";
-  import { dispatchApply, type ApplyTarget } from "../lib/applyController";
+  import { dispatchApply, dispatchStreamlineSet, type ApplyTarget } from "../lib/applyController";
   import {
     LAUNCHER_ACCENTS,
     familyLabel,
@@ -142,6 +142,10 @@
   function isOutdated(r: DllRecord): boolean {
     if (!recordUpdatable(r, $settings?.update_prefs ?? null, dlssEnabler)) return false;
     return relation(r) === "outdated";
+  }
+
+  function enablerManagedSl(r: DllRecord): boolean {
+    return dlssEnabler && isStreamlinePlugin(filenameFromPath(r.path));
   }
 
   function targetFor(r: DllRecord): string | null {
@@ -338,6 +342,7 @@
     for (const r of records) {
       if (!selected[rowKey(r)]) continue;
       if (disabledFamilies.includes(r.family)) continue;
+      if (enablerManagedSl(r)) continue;
       const tgt = targetFor(r);
       if (!tgt) continue;
       out.push({ record: r, target: tgt });
@@ -360,6 +365,36 @@
       target_version: it.target,
     }));
     await dispatchApply(targets, { showModal: onApplyStart });
+    try {
+      await rescanGame(game.id);
+      selected = {};
+    } catch (err: unknown) {
+      showToast(
+        "warning",
+        `Rescan after apply failed: ${String(err)} — close and re-open the game to refresh`,
+      );
+    }
+  }
+
+  let streamlineSetMembers = $derived(
+    records.filter(
+      (r) => isStreamlinePlugin(filenameFromPath(r.path)) && isOutdated(r) && !enablerManagedSl(r),
+    ),
+  );
+  let streamlineSetTarget = $derived(
+    streamlineSetMembers.length ? targetFor(streamlineSetMembers[0]) : null,
+  );
+
+  async function applyStreamlineSetAction(): Promise<void> {
+    if (!game || streamlineSetMembers.length === 0) return;
+    const game_label = `${launcherLabel(game.launcher)} - ${game.name}`;
+    const targets: ApplyTarget[] = [];
+    for (const r of streamlineSetMembers) {
+      const tgt = targetFor(r);
+      if (!tgt) continue;
+      targets.push({ game_id: game.id, game_label, record: r, target_version: tgt });
+    }
+    await dispatchStreamlineSet(targets, { showModal: onApplyStart });
     try {
       await rescanGame(game.id);
       selected = {};
@@ -671,6 +706,7 @@
                       {@const t = targetFor(r)}
                       {@const lat = latestFor(r)}
                       {@const rel = relation(r)}
+                      {@const em = enablerManagedSl(r)}
                       {@const fd = disabledFamilies.includes(r.family)}
                       {@const pin = pinnedVersions[k]}
                       {@const fileAside = rel === "ahead" || (rel === "same" && t != null && t !== (r.current_version ?? ""))}
@@ -679,7 +715,7 @@
                           <input
                             type="checkbox"
                             checked={selected[k] ?? false}
-                            disabled={fd || rel === "same" || rel === "no-target"}
+                            disabled={fd || rel === "same" || rel === "no-target" || em}
                             onchange={(e) => (selected = { ...selected, [k]: (e.target as HTMLInputElement).checked })}
                           />
                           <span class="check-box"></span>
@@ -711,7 +747,9 @@
                           <div class="file-path mono truncate" title={r.path}>{r.path}</div>
                         </div>
                         <div class="file-status">
-                          {#if rel === "outdated"}
+                          {#if em}
+                            <span class="chip chip-info small-chip" title={ENABLER_MANAGED_NOTE}>{ENABLER_MANAGED_LABEL}</span>
+                          {:else if rel === "outdated"}
                             <span class="chip chip-update small-chip">Update</span>
                           {:else if rel === "ahead"}
                             <span class="chip chip-info small-chip" title="Installed version is newer than what the catalog tracks">Ahead</span>
@@ -775,6 +813,7 @@
                   {@const t = targetFor(r)}
                   {@const lat = latestFor(r)}
                   {@const rel = relation(r)}
+                  {@const em = enablerManagedSl(r)}
                   {@const fd = disabledFamilies.includes(r.family)}
                   {@const pin = pinnedVersions[k]}
                   <li class="file-row" class:disabled={fd}>
@@ -782,7 +821,7 @@
                       <input
                         type="checkbox"
                         checked={selected[k] ?? false}
-                        disabled={fd || rel === "same" || rel === "no-target"}
+                        disabled={fd || rel === "same" || rel === "no-target" || em}
                         onchange={(e) => (selected = { ...selected, [k]: (e.target as HTMLInputElement).checked })}
                       />
                       <span class="check-box"></span>
@@ -802,7 +841,9 @@
                       </div>
                     </div>
                     <div class="file-status">
-                      {#if rel === "outdated"}
+                      {#if em}
+                        <span class="chip chip-info small-chip" title={ENABLER_MANAGED_NOTE}>{ENABLER_MANAGED_LABEL}</span>
+                      {:else if rel === "outdated"}
                         <span class="chip chip-update small-chip">Update</span>
                       {:else if rel === "ahead"}
                         <span class="chip chip-info small-chip" title="Installed version is newer than what the catalog tracks">Ahead</span>
@@ -875,6 +916,15 @@
       <div class="foot-spacer"></div>
       {#if aheadCount > 0}
         <span class="chip chip-info ahead-chip">{aheadCount} ahead of catalog</span>
+      {/if}
+      {#if streamlineSetMembers.length > 0}
+        <button
+          class="btn btn-ghost"
+          onclick={applyStreamlineSetAction}
+          title="Update the matched NVIDIA Streamline plug-in set together as one atomic transaction (all files, or none)"
+        >
+          Update Streamline set{streamlineSetTarget ? ` → v${streamlineSetTarget}` : ""} ({streamlineSetMembers.length})
+        </button>
       {/if}
       <button
         class="btn btn-primary halo is-update"

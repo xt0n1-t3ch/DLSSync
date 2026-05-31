@@ -19,6 +19,9 @@ pub enum DllFamily {
     DlssSr,
     DlssFg,
     DlssRr,
+    SlDlssSr,
+    SlDlssFg,
+    SlDlssRr,
     Streamline,
     StreamlineCommon,
     StreamlinePcl,
@@ -44,6 +47,9 @@ impl DllFamily {
             DllFamily::DlssSr
             | DllFamily::DlssFg
             | DllFamily::DlssRr
+            | DllFamily::SlDlssSr
+            | DllFamily::SlDlssFg
+            | DllFamily::SlDlssRr
             | DllFamily::Streamline
             | DllFamily::StreamlineCommon
             | DllFamily::StreamlinePcl
@@ -67,6 +73,9 @@ impl DllFamily {
             DllFamily::DlssSr => "dlss_sr",
             DllFamily::DlssFg => "dlss_fg",
             DllFamily::DlssRr => "dlss_rr",
+            DllFamily::SlDlssSr => "sl_dlss_sr",
+            DllFamily::SlDlssFg => "sl_dlss_fg",
+            DllFamily::SlDlssRr => "sl_dlss_rr",
             DllFamily::Streamline
             | DllFamily::StreamlineCommon
             | DllFamily::StreamlinePcl
@@ -106,9 +115,12 @@ pub struct DllRecord {
 pub const DLSS_ENABLER_MARKERS: &[&str] = &[
     "dlss-enabler.dll",
     "dlss-enabler-upscaler.dll",
+    "nvngx-wrapper.dll",
     "nvngx.dll",
     "optiscaler.dll",
     "dlssg_to_fsr3_amd_is_better.dll",
+    "dlss-enabler.log",
+    "dlss-enabler.asi",
 ];
 
 /// Bounded depth for the DLSS Enabler scan. The enabler DLLs sit near the game
@@ -200,9 +212,9 @@ static KNOWN_DLLS: Lazy<Vec<(&'static str, DllFamily)>> = Lazy::new(|| {
         ("nvngx_dlss.dll", DllFamily::DlssSr),
         ("nvngx_dlssg.dll", DllFamily::DlssFg),
         ("nvngx_dlssd.dll", DllFamily::DlssRr),
-        ("sl.dlss.dll", DllFamily::DlssSr),
-        ("sl.dlss_g.dll", DllFamily::DlssFg),
-        ("sl.dlss_d.dll", DllFamily::DlssRr),
+        ("sl.dlss.dll", DllFamily::SlDlssSr),
+        ("sl.dlss_g.dll", DllFamily::SlDlssFg),
+        ("sl.dlss_d.dll", DllFamily::SlDlssRr),
         ("sl.interposer.dll", DllFamily::Streamline),
         ("sl.common.dll", DllFamily::StreamlineCommon),
         ("sl.pcl.dll", DllFamily::StreamlinePcl),
@@ -388,9 +400,20 @@ mod tests {
         assert!(is_dlss_enabler_marker("DLSS-Enabler-Upscaler.dll"));
         assert!(is_dlss_enabler_marker("nvngx.dll"));
         assert!(is_dlss_enabler_marker("OptiScaler.dll"));
+        assert!(is_dlss_enabler_marker("nvngx-wrapper.dll"));
+        assert!(is_dlss_enabler_marker("NVNGX-WRAPPER.DLL"));
+        assert!(is_dlss_enabler_marker("dlss-enabler.log"));
+        assert!(is_dlss_enabler_marker("dlss-enabler.ASI"));
         assert!(!is_dlss_enabler_marker("nvngx_dlss.dll"));
         assert!(!is_dlss_enabler_marker("dxgi.dll"));
         assert!(!is_dlss_enabler_marker("sl.dlss.dll"));
+    }
+
+    #[test]
+    fn detect_dlss_enabler_finds_nvngx_wrapper_alone() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(root.path().join("nvngx-wrapper.dll"), b"x").unwrap();
+        assert!(detect_dlss_enabler(root.path()));
     }
 
     #[test]
@@ -447,5 +470,37 @@ mod tests {
             .iter()
             .any(|r| r.family == DllFamily::DirectStorageCore));
         assert!(recs.iter().any(|r| r.family == DllFamily::FsrDenoiser));
+    }
+
+    #[test]
+    fn sl_dlss_plugins_have_their_own_catalog_keys_distinct_from_nvngx() {
+        assert_eq!(DllFamily::SlDlssSr.catalog_key(), "sl_dlss_sr");
+        assert_eq!(DllFamily::SlDlssFg.catalog_key(), "sl_dlss_fg");
+        assert_eq!(DllFamily::SlDlssRr.catalog_key(), "sl_dlss_rr");
+        assert_eq!(DllFamily::SlDlssFg.vendor(), "nvidia");
+        assert_ne!(
+            DllFamily::SlDlssFg.catalog_key(),
+            DllFamily::DlssFg.catalog_key()
+        );
+        assert_eq!(DllFamily::DlssFg.catalog_key(), "dlss_fg");
+    }
+
+    #[test]
+    fn scan_splits_sl_dlss_plugins_from_their_nvngx_runtimes() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(root.path().join("sl.dlss_g.dll"), b"x").unwrap();
+        std::fs::write(root.path().join("sl.dlss.dll"), b"x").unwrap();
+        std::fs::write(root.path().join("sl.dlss_d.dll"), b"x").unwrap();
+        std::fs::write(root.path().join("nvngx_dlssg.dll"), b"x").unwrap();
+        let recs = scan_install(root.path()).unwrap();
+        let fam = |name: &str| {
+            recs.iter()
+                .find(|r| r.path.file_name().unwrap() == name)
+                .map(|r| r.family)
+        };
+        assert_eq!(fam("sl.dlss_g.dll"), Some(DllFamily::SlDlssFg));
+        assert_eq!(fam("sl.dlss.dll"), Some(DllFamily::SlDlssSr));
+        assert_eq!(fam("sl.dlss_d.dll"), Some(DllFamily::SlDlssRr));
+        assert_eq!(fam("nvngx_dlssg.dll"), Some(DllFamily::DlssFg));
     }
 }

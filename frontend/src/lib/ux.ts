@@ -234,6 +234,14 @@ export function githubReleaseTagUrl(version: string): string {
 export const ADMIN_ELEVATION_NOTE =
   "Windows installs per-machine drivers only with Administrator rights, so Update shows a UAC prompt. DLSSync stays unelevated and runs a signed helper with your approval — it snapshots the current driver and sets a System Restore point first, so you can roll back.";
 
+/** Chip shown on every `sl.*` Streamline plug-in row when a DLSS Enabler manages
+ *  the game — the enabler version-locks its own Streamline set, so DLSSync leaves
+ *  those files untouched (the row's title carries `ENABLER_MANAGED_NOTE`). */
+export const ENABLER_MANAGED_LABEL = "Managed by Enabler";
+
+export const ENABLER_MANAGED_NOTE =
+  "This game's Streamline set is managed by DLSS Enabler — DLSSync leaves the sl.* plug-ins untouched.";
+
 export const VENDOR_TOKEN_BY_FAMILY: Record<string, string> = {
   dlss_sr: "var(--vendor-nvidia)",
   dlss_fg: "var(--vendor-nvidia)",

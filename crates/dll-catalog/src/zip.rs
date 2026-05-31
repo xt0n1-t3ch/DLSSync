@@ -39,9 +39,9 @@ pub fn extract_dll_from_bytes(
         let cursor = Cursor::new(bytes);
         let mut zip = zip::ZipArchive::new(cursor)?;
         let mut total_uncompressed: u64 = 0;
-        let mut found = false;
+        let mut candidates: Vec<(usize, String)> = Vec::new();
         for i in 0..zip.len() {
-            let mut entry = zip.by_index(i)?;
+            let entry = zip.by_index(i)?;
             if !entry.is_file() {
                 continue;
             }
@@ -68,24 +68,18 @@ pub fn extract_dll_from_bytes(
                     CatalogError::Unsafe(format!("unsafe zip entry path: {}", entry.name()))
                 })?;
             reject_unsafe_components(&name, entry.name())?;
-            let file_name = name
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or_default()
-                .to_string();
-            if file_name.eq_ignore_ascii_case(&release.filename) {
-                let mut out = std::fs::File::create(&out_path)?;
-                std::io::copy(&mut entry, &mut out)?;
-                found = true;
-                break;
-            }
+            candidates.push((i, normalize_zip_path(&name)));
         }
-        if !found {
-            return Err(CatalogError::Missing(format!(
+        let target = select_zip_entry(&candidates, release).ok_or_else(|| {
+            CatalogError::Missing(format!(
                 "{} not in zip {}",
-                release.filename, release.cdn_url
-            )));
-        }
+                release.zip_entry.as_deref().unwrap_or(&release.filename),
+                release.cdn_url
+            ))
+        })?;
+        let mut entry = zip.by_index(target)?;
+        let mut out = std::fs::File::create(&out_path)?;
+        std::io::copy(&mut entry, &mut out)?;
     } else {
         std::fs::write(&out_path, bytes)?;
     }
@@ -100,6 +94,38 @@ pub fn extract_dll_from_bytes(
     }
 
     Ok(out_path)
+}
+
+fn normalize_zip_path(p: &Path) -> String {
+    p.to_string_lossy().replace('\\', "/")
+}
+
+/// Pick the zip entry index to extract. With `release.zip_entry` set, match that
+/// exact path (case-insensitive). Otherwise match the basename, preferring a path
+/// outside `/development/` so a signed `bin/x64/` binary always wins over the
+/// unsigned development copy that shares the same filename.
+fn select_zip_entry(candidates: &[(usize, String)], release: &Release) -> Option<usize> {
+    if let Some(want) = &release.zip_entry {
+        let want = want.replace('\\', "/");
+        return candidates
+            .iter()
+            .find(|(_, path)| path.eq_ignore_ascii_case(&want))
+            .map(|(i, _)| *i);
+    }
+    let basename_matches: Vec<&(usize, String)> = candidates
+        .iter()
+        .filter(|(_, path)| {
+            path.rsplit('/')
+                .next()
+                .unwrap_or(path)
+                .eq_ignore_ascii_case(&release.filename)
+        })
+        .collect();
+    basename_matches
+        .iter()
+        .find(|(_, path)| !path.to_ascii_lowercase().contains("/development/"))
+        .or_else(|| basename_matches.first())
+        .map(|(i, _)| *i)
 }
 
 fn reject_unsafe_components(path: &Path, raw_name: &str) -> Result<(), CatalogError> {
@@ -168,6 +194,7 @@ mod tests {
             is_dev: false,
             min_driver: None,
             hash_algorithm: "sha256".into(),
+            zip_entry: None,
         }
     }
 
@@ -257,6 +284,55 @@ mod tests {
         );
         let out = extract_dll_from_bytes(&zip_bytes, &release, dir.path()).unwrap();
         assert_eq!(std::fs::read(&out).unwrap(), dll_bytes);
+    }
+
+    #[test]
+    fn zip_entry_exact_path_wins_over_basename_collision() {
+        let prod = b"production-payload";
+        let dev = b"development-payload";
+        let zip_bytes = build_zip_with(&[
+            ("bin/x64/development/sl.dlss_g.dll", dev),
+            ("bin/x64/sl.dlss_g.dll", prod),
+        ]);
+        let dir = tempfile::tempdir().unwrap();
+        let mut release = make_release(
+            "sl.dlss_g.dll",
+            TEST_ZIP_URL,
+            &hex_sha256(prod),
+            prod.len() as u64,
+        );
+        release.zip_entry = Some("bin/x64/sl.dlss_g.dll".into());
+        let out = extract_dll_from_bytes(&zip_bytes, &release, dir.path()).unwrap();
+        assert_eq!(std::fs::read(&out).unwrap(), prod);
+    }
+
+    #[test]
+    fn basename_fallback_prefers_production_over_development() {
+        let prod = b"signed-production";
+        let dev = b"unsigned-development";
+        let zip_bytes = build_zip_with(&[
+            ("bin/x64/development/sl.interposer.dll", dev),
+            ("bin/x64/sl.interposer.dll", prod),
+        ]);
+        let dir = tempfile::tempdir().unwrap();
+        let release = make_release(
+            "sl.interposer.dll",
+            TEST_ZIP_URL,
+            &hex_sha256(prod),
+            prod.len() as u64,
+        );
+        let out = extract_dll_from_bytes(&zip_bytes, &release, dir.path()).unwrap();
+        assert_eq!(std::fs::read(&out).unwrap(), prod);
+    }
+
+    #[test]
+    fn zip_entry_missing_path_is_missing_error() {
+        let zip_bytes = build_zip_with(&[("bin/x64/sl.dlss.dll", b"x")]);
+        let dir = tempfile::tempdir().unwrap();
+        let mut release = make_release("sl.dlss.dll", TEST_ZIP_URL, &hex_sha256(b"x"), 1);
+        release.zip_entry = Some("bin/x64/development/sl.dlss.dll".into());
+        let err = extract_dll_from_bytes(&zip_bytes, &release, dir.path()).unwrap_err();
+        assert!(matches!(err, CatalogError::Missing(_)));
     }
 
     #[test]
