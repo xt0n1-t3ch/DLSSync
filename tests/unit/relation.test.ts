@@ -170,11 +170,11 @@ describe("gameStatusFromRecords", () => {
     expect(gameStatusFromRecords(records, slCtx, [], null, prefs({ update_streamline: true }))).toBe("outdated");
   });
 
-  it("a Streamline plugin is never offered when DLSS Enabler manages the set", () => {
+  it("a same-major Streamline plugin is offered even when a DLSS Enabler is present", () => {
     const records = [rec({ family: "reflex", path: "C:\\g\\sl.reflex.dll", current_version: "2.0.0.0" })];
     const reflexCtx = ctx({ latestByKey: { reflex: "2.5.0.0" } });
-    expect(gameStatusFromRecords(records, reflexCtx, [], null, prefs({ update_streamline: true }), true)).toBe("up_to_date");
-    expect(gameStatusFromRecords(records, reflexCtx, [], null, prefs({ update_streamline: true }), false)).toBe("outdated");
+    expect(gameStatusFromRecords(records, reflexCtx, [], null, prefs({ update_streamline: true }))).toBe("outdated");
+    expect(gameStatusFromRecords(records, reflexCtx, [], null, prefs({ update_streamline: false }))).toBe("up_to_date");
   });
 });
 
@@ -231,8 +231,6 @@ describe("sl_dlss feature plugins (v1.6 — sourced from the official SDK, offer
 });
 
 describe("Nexus Subnautica 2 report (Kronprinz77, 2026-05-30) — end-to-end regression", () => {
-  // Report 1: "sl.dlss_g.dll v2.7.30.0 -> v310.6.0.0" was offered. A 2.x Streamline
-  // plug-in must never be offered the 310.x nvngx version.
   it("never offers sl.dlss_g.dll the 310.x nvngx version, only its own 2.x line", () => {
     const slFg = rec({ family: "sl_dlss_fg", path: "C:\\Subnautica 2\\sl.dlss_g.dll", current_version: "2.7.30.0" });
     const c = ctx({ latestByKey: { sl_dlss_fg: "2.11.1.0", dlss_fg: "310.6.0.0" } });
@@ -240,25 +238,19 @@ describe("Nexus Subnautica 2 report (Kronprinz77, 2026-05-30) — end-to-end reg
     expect(targetVersion(slFg, c)).not.toBe("310.6.0.0");
   });
 
-  // Report 2: "as soon as I updated Streamline, the DLSS Enabler stopped working."
-  // Under a DLSS Enabler the Streamline set must not be offered or applied, so the
-  // enabler is never swapped out from under itself.
-  it("never offers the Streamline set when a DLSS Enabler manages the game", () => {
-    const enabler = true;
+  it("offers the same-major Streamline set under a DLSS Enabler (keeps the Enabler working)", () => {
     const c = ctx({ latestByKey: { sl_dlss_fg: "2.11.1.0", sl_dlss_sr: "2.11.1.0" } });
     const slFg = rec({ family: "sl_dlss_fg", path: "C:\\Subnautica 2\\sl.dlss_g.dll", current_version: "2.7.30.0" });
     const slSr = rec({ family: "sl_dlss_sr", path: "C:\\Subnautica 2\\sl.dlss.dll", current_version: "2.7.30.0" });
-    expect(recordUpdatable(slFg, prefs({ update_streamline: true }), enabler)).toBe(false);
-    expect(recordUpdatable(slSr, prefs({ update_streamline: true }), enabler)).toBe(false);
-    expect(gameStatusFromRecords([slFg, slSr], c, [], null, prefs({ update_streamline: true }), enabler)).toBe("up_to_date");
+    expect(recordUpdatable(slFg, prefs({ update_streamline: true }))).toBe(true);
+    expect(recordUpdatable(slSr, prefs({ update_streamline: true }))).toBe(true);
+    expect(gameStatusFromRecords([slFg, slSr], c, [], null, prefs({ update_streamline: true }))).toBe("outdated");
+    expect(gameStatusFromRecords([slFg, slSr], c, [], null, prefs({ update_streamline: false }))).toBe("up_to_date");
   });
 
-  // The nvngx_* runtime DLLs the user updated successfully stay updatable — only the
-  // version-locked Streamline plug-ins are held back under the enabler.
-  it("still offers the nvngx runtime under a DLSS Enabler", () => {
-    const enabler = true;
+  it("still offers the nvngx runtime regardless of the Streamline switch", () => {
     const ngx = rec({ family: "dlss_fg", path: "C:\\Subnautica 2\\nvngx_dlssg.dll", current_version: "310.1.0.0" });
-    expect(recordUpdatable(ngx, prefs({ update_dlss_fg: true }), enabler)).toBe(true);
+    expect(recordUpdatable(ngx, prefs({ update_dlss_fg: true, update_streamline: false }))).toBe(true);
   });
 });
 
@@ -273,8 +265,6 @@ describe("versionMajor", () => {
 });
 
 describe("scheme-aware Streamline offer (v1.6.1)", () => {
-  // (a) A driver/OTA-managed sl.dlss_g stamped 310.x must NOT be offered the catalog
-  // 2.x build — swapping it risks the user's NVIDIA App global overrides (the Cyberpunk case).
   it("leaves a 310.x-stamped sl.dlss_g alone against a 2.x catalog", () => {
     const slFg = rec({ family: "sl_dlss_fg", path: "C:\\g\\sl.dlss_g.dll", current_version: "310.6.0.0" });
     const c = ctx({ latestByKey: { sl_dlss_fg: "2.11.1.0", dlss_fg: "310.6.0.0" } });
@@ -283,7 +273,6 @@ describe("scheme-aware Streamline offer (v1.6.1)", () => {
     expect(gameStatusFromRecords([slFg], c, [], null, prefs({ update_streamline: true }))).toBe("up_to_date");
   });
 
-  // (b) PRESERVE the Nexus user's case: a 2.x file older than the 2.x catalog is still offered.
   it("still offers a 2.x sl.dlss_g older than the 2.x catalog (the Nexus 2.7.30 case)", () => {
     const slFg = rec({ family: "sl_dlss_fg", path: "C:\\g\\sl.dlss_g.dll", current_version: "2.7.30.0" });
     const c = ctx({ latestByKey: { sl_dlss_fg: "2.11.1.0", dlss_fg: "310.6.0.0" } });
@@ -291,21 +280,18 @@ describe("scheme-aware Streamline offer (v1.6.1)", () => {
     expect(gameStatusFromRecords([slFg], c, [], null, prefs({ update_streamline: true }))).toBe("outdated");
   });
 
-  // (c) Cross-major future SDK (3.x) must not be offered to a 2.x install (version-locked set).
   it("does not offer a 3.x catalog to a 2.x sl plug-in", () => {
     const slFg = rec({ family: "sl_dlss_fg", path: "C:\\g\\sl.dlss_g.dll", current_version: "2.11.1.0" });
     const c = ctx({ latestByKey: { sl_dlss_fg: "3.0.0.0" } });
     expect(dllRelation(slFg, c)).toBe("same");
   });
 
-  // (d) Non-Streamline families keep the raw version comparison untouched.
   it("non-Streamline nvngx still compares versions normally", () => {
     const ngx = rec({ family: "dlss_sr", path: "C:\\g\\nvngx_dlss.dll", current_version: "310.5.0.0" });
     const c = ctx({ latestByKey: { dlss_sr: "310.6.0.0" } });
     expect(dllRelation(ngx, c)).toBe("outdated");
   });
 
-  // (e) Garbage version on a Streamline plug-in nulls the major → no false offer.
   it("a garbage version on a Streamline plug-in is left alone, never offered", () => {
     const slFg = rec({ family: "sl_dlss_fg", path: "C:\\g\\sl.dlss_g.dll", current_version: "dev" });
     const c = ctx({ latestByKey: { sl_dlss_fg: "2.11.1.0" } });
@@ -331,10 +317,10 @@ describe("recordUpdatable", () => {
     expect(recordUpdatable(slSr, prefs({ update_dlss: false, update_streamline: true }))).toBe(false);
   });
 
-  it("a Streamline plugin is blocked when DLSS Enabler is present even if opted in", () => {
+  it("a Streamline plugin is updatable when opted in — a DLSS Enabler no longer blocks the offer", () => {
     const slReflex = rec({ family: "reflex", path: "C:\\g\\sl.reflex.dll" });
-    expect(recordUpdatable(slReflex, prefs({ update_reflex: true, update_streamline: true }), true)).toBe(false);
-    expect(recordUpdatable(slReflex, prefs({ update_reflex: true, update_streamline: true }), false)).toBe(true);
+    expect(recordUpdatable(slReflex, prefs({ update_reflex: true, update_streamline: true }))).toBe(true);
+    expect(recordUpdatable(slReflex, prefs({ update_reflex: true, update_streamline: false }))).toBe(false);
   });
 
   it("DirectStorage follows its own pref and is never gated by the Streamline switch", () => {

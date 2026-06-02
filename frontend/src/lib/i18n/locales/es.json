@@ -1,0 +1,1691 @@
+{
+  "app": {
+    "name": "DLSSync"
+  },
+  "language": {
+    "label": "Idioma",
+    "switcherAria": "Cambiar idioma",
+    "currentAria": "Idioma actual: {name}"
+  },
+  "common": {
+    "updatesReady_one": "{count} actualización lista",
+    "updatesReady_other": "{count} actualizaciones listas",
+    "cancel": "Cancelar",
+    "close": "Cerrar",
+    "copy": "Copiar",
+    "retry": "Reintentar",
+    "dismiss": "Descartar",
+    "shareCopied": "Enlace copiado: comparte DLSSync con un amigo",
+    "shareFailed": "No se pudo copiar el enlace",
+    "apply": "Aplicar",
+    "restore": "Restaurar",
+    "download": "Descargar",
+    "install": "Instalar",
+    "open": "Abrir",
+    "undo": "Deshacer"
+  },
+  "status": {
+    "outdated": "Actualización disponible",
+    "up_to_date": "Actualizado",
+    "no_dlls": "Sin DLL",
+    "unknown": "Desconocido",
+    "scanning": "Analizando",
+    "scan_failed": "Error al analizar"
+  },
+  "view": {
+    "library": {
+      "title": "Biblioteca",
+      "subtitle": "{detected} juegos detectados — {shown} mostrados",
+      "addFolder": "Añadir carpeta",
+      "scanning": "Escaneando",
+      "rescan": "Reescanear",
+      "hero": {
+        "aria": "Actualizaciones pendientes",
+        "updatesReadyLabel_one": "actualización lista",
+        "updatesReadyLabel_other": "actualizaciones listas",
+        "acrossGames_one": "en {count} juego",
+        "acrossGames_other": "en {count} juegos",
+        "review": "Revisar",
+        "reviewTitle": "Filtra la biblioteca para mostrar solo los juegos con actualizaciones pendientes",
+        "applyAll": "Aplicar todo",
+        "applyAllTitle": "Aplica todas las actualizaciones detectadas en la biblioteca",
+        "manifestStamp": "Manifiesto {stamp}",
+        "manifestTitle": "Hora de actualización del manifiesto del catálogo"
+      },
+      "filter": {
+        "launcher": "Lanzador",
+        "status": "Estado",
+        "sort": "Ordenar",
+        "sortAria": "Ordenar biblioteca",
+        "view": "Vista",
+        "density": "Densidad"
+      },
+      "launcherFilter": {
+        "all": "Todos",
+        "custom": "Personalizado"
+      },
+      "statusFilter": {
+        "all": "Todos los juegos",
+        "hidden": "Ocultos"
+      },
+      "view": {
+        "grid": "Cuadrícula",
+        "gridTitle": "Vista de cuadrícula",
+        "list": "Lista",
+        "listTitle": "Vista de lista"
+      },
+      "density": {
+        "compact": "Compacta",
+        "compactTitle": "Densidad compacta",
+        "comfy": "Cómoda",
+        "comfyTitle": "Densidad cómoda"
+      },
+      "empty": {
+        "noGames": {
+          "title": "No se detectaron juegos",
+          "detail": "Ejecuta un reescaneo para detectar juegos instalados de Steam, Epic, GOG, Ubisoft, EA, Xbox y Battle.net.",
+          "customPrefix": "O añade una carpeta personalizada donde guardas tus juegos — por ejemplo",
+          "rescanNow": "Reescanear ahora",
+          "addCustomFolder": "Añadir carpeta personalizada"
+        },
+        "noMatch": {
+          "title": "Ningún juego coincide con tus filtros",
+          "detail": "Borra la búsqueda o elige un filtro diferente.",
+          "reset": "Restablecer filtros"
+        }
+      },
+      "section": {
+        "needsUpdate": "Necesita actualización",
+        "upToDate": "Actualizados",
+        "viewAll": "Ver todos →"
+      },
+      "noDllsZone": {
+        "title": "Juegos sin tecnologías compatibles",
+        "hint": "DLSS · FSR · XeSS no detectados — haz clic para expandir"
+      },
+      "menu": {
+        "openFolder": "Abrir carpeta",
+        "scan": "Escanear",
+        "pin": "Fijar una versión…",
+        "hide": "Ocultar",
+        "unhide": "Mostrar"
+      },
+      "toast": {
+        "allUpToDate": "Todo ya está actualizado",
+        "rescanAfterApplyFailed": "El reescaneo tras aplicar falló para {id}: {error}",
+        "openFolderFailed": "Error al abrir la carpeta: {error}",
+        "gameRestored": "{name} restaurado",
+        "gameHidden": "{name} oculto",
+        "restoreFailed": "Error al restaurar: {error}",
+        "hideFailed": "Error al ocultar: {error}",
+        "rescanning": "Reescaneando {name}",
+        "folderAlreadyAdded": "La carpeta ya está añadida",
+        "folderAdded": "Añadida {path}",
+        "folderPickerFailed": "Selector de carpetas: {error}"
+      }
+    },
+    "catalog": {
+      "title": "Catálogo",
+      "subtitle": "Todas las tecnologías de escalado y generación de fotogramas que DLSSync rastrea. Haz clic en una función para ver cada versión, copiar una URL de CDN o ir directo a una descarga.",
+      "refreshing": "Actualizando",
+      "refreshManifest": "Actualizar manifiesto",
+      "stat": {
+        "versions": "Versiones",
+        "features": "Funciones",
+        "vendors": "Fabricantes",
+        "updated": "Actualizado"
+      },
+      "gpuDrivers": {
+        "title": "Controladores de GPU",
+        "sub": "Último controlador publicado por cada GPU detectada, resuelto en vivo desde el fabricante.",
+        "checking": "Consultando al fabricante los controladores más recientes…",
+        "none": "No se detectaron GPU.",
+        "genericVendor": "GPU"
+      },
+      "empty": {
+        "before": "El catálogo está vacío. El proceso del manifiesto aún no ha publicado datos: haz clic en",
+        "after": "arriba para descargar desde las fuentes oficiales, o espera a que llegue la caché incluida."
+      },
+      "libraries": {
+        "title": "Bibliotecas y tecnologías de escalado",
+        "sub": "Todas las familias de DLL de DLSS, FSR y XeSS que DLSSync rastrea. Haz clic en una para explorar cada versión, copiar una URL de CDN o descargar directamente."
+      },
+      "filterPlaceholder": "Filtrar tecnologías, fabricantes o familias de DLL…",
+      "clearSearch": "Borrar búsqueda",
+      "technologiesShown_one": "{count} tecnología mostrada",
+      "technologiesShown_other": "{count} tecnologías mostradas",
+      "versionsCount_one": "{count} versión",
+      "versionsCount_other": "{count} versiones",
+      "openPortal": "Abrir {name}",
+      "browseModulesAria": "Explorar módulos de {name}",
+      "viewVersionsAria": "Ver versiones de {name}",
+      "modulesSummary_one": "{count} módulo · {detail} en total",
+      "modulesSummary_other": "{count} módulos · {detail} en total",
+      "versionsSummary_one": "{count} versión · última v{latest}",
+      "versionsSummary_other": "{count} versiones · última v{latest}",
+      "foot": {
+        "status": "Catálogo {status}",
+        "updated": "actualizado {ago}",
+        "autoRefresh": "actualización automática cada 6 h",
+        "refreshTitle": "Descargar el manifiesto desde la fuente ahora",
+        "refreshNow": "Actualizar ahora"
+      },
+      "freshness": {
+        "justNow": "ahora mismo",
+        "minutes_one": "hace {count} min",
+        "minutes_other": "hace {count} min",
+        "hours_one": "hace {count} h",
+        "hours_other": "hace {count} h",
+        "days_one": "hace {count} día",
+        "days_other": "hace {count} días"
+      }
+    },
+    "drivers": {
+      "title": "Controladores",
+      "subtitle": "El controlador de GPU más reciente para cada adaptador detectado, comprobado en directo con el fabricante, además de controles de preajuste de DLSS y de generación de fotogramas.",
+      "checking": "Comprobando…",
+      "checkForUpdates": "Buscar actualizaciones",
+      "noGpus": "No se han detectado GPU.",
+      "channelBeta": "Beta",
+      "channelWhql": "WHQL",
+      "updateTo": "Actualizar a v{version}",
+      "openDownloadPage": "Abrir página de descarga",
+      "findMyDriver": "Encontrar mi controlador ↗",
+      "releaseNotesTitle": "Abrir las notas de la versión oficiales",
+      "releaseNotesAria": "Notas de la versión",
+      "allVersionsTitle": "Explorar todas las versiones de controlador compatibles conocidas con esta GPU",
+      "allVersionsAria": "Todas las versiones",
+      "whatsNew": "Novedades",
+      "changelogFixed": "Corregido",
+      "noInlineNotes": "No se han publicado notas para esta versión.",
+      "fullReleaseNotes": "Notas de la versión completas ↗",
+      "systemComponents": "Sistema y componentes",
+      "betaTag": "Beta",
+      "betaTagTitle": "Esta función todavía está en beta",
+      "scanning": "Analizando…",
+      "rescan": "Volver a analizar",
+      "systemSub": "Actualizaciones de controladores para el resto de tu PC: audio, red, Bluetooth, chipset, entrada y almacenamiento. Provienen de Windows Update y del Microsoft Update Catalog, se mantienen firmadas por el fabricante y nunca ofrecemos una más antigua que el controlador que ya tienes.",
+      "betaNote": "La detección puede pasar por alto o interpretar mal parte del hardware, así que revisa cada actualización antes de aplicarla. Si alguna causa problemas, la copia de seguridad automática la revierte.",
+      "scanningWindowsUpdate": "Buscando controladores de componentes en Windows Update…",
+      "allComponentsUpToDate": "Todos los componentes están actualizados; Windows Update no tiene ningún controlador más reciente.",
+      "latestFallback": "más reciente",
+      "versionHistoryTitle": "Mostrar las versiones instaladas y previamente instaladas de este controlador",
+      "versionHistoryAria": "Historial de versiones",
+      "vendorInfoTitle": "Abrir la página de información del fabricante de este controlador",
+      "catalogInfoTitle": "Buscar este controlador en el Microsoft Update Catalog",
+      "driverInfoAria": "Información del controlador",
+      "update": "Actualizar",
+      "installStageFallback": "En curso",
+      "readingDriverStore": "Leyendo el almacén de controladores local…",
+      "readVersionsError": "No se pudieron leer las versiones del controlador.",
+      "noCachedVersions": "No hay versiones anteriores en caché en este PC. Última disponible: {version}.",
+      "onThisPc": "En este PC",
+      "installed": "Instalada",
+      "latestAvailable": "Última disponible",
+      "dlssOverrides": "Anulaciones de DLSS",
+      "dlssOverridesSub": "Fuerza el preajuste de DLSS, el modo de generación de fotogramas y el multiplicador de forma global mediante el perfil del controlador de NVIDIA, el mismo mecanismo que usa la app de NVIDIA. Las anulaciones por juego están en el panel de detalle de cada juego.",
+      "upscalingOn": "Escalado en {vendors}",
+      "upscalingSub": "Las anulaciones de preajuste por perfil del controlador son exclusivas de NVIDIA (NVAPI). En AMD e Intel, FSR y XeSS se controlan por juego intercambiando sus DLL; gestiónalos desde el panel de detalle del juego y el Catalog. Esta pestaña mantiene actualizado tu propio controlador de AMD / Intel arriba.",
+      "openLinkFailed": "Error al abrir el enlace: {error}"
+    },
+    "backups": {
+      "title": "Copias de seguridad",
+      "subtitle": "Cada DLL que DLSSync reemplaza se respalda primero. Restaura cuando quieras, con un clic.",
+      "expandAll": "Expandir todo",
+      "collapseAll": "Contraer todo",
+      "emptyTitle": "Aún no hay copias de seguridad",
+      "emptyBody": "Las copias de seguridad se crean automáticamente al aplicar una actualización de DLL o un controlador de Sistema y componentes. Abre cualquier juego desde la Biblioteca, elige las DLL y pulsa Aplicar seleccionadas.",
+      "kpi": {
+        "total": "Copias totales",
+        "diskUsed": "Disco usado",
+        "restorable": "Restaurables",
+        "alreadyRestored": "Ya restauradas"
+      },
+      "meta": {
+        "gamesCovered": "Juegos cubiertos",
+        "newest": "Más reciente",
+        "oldest": "Más antigua",
+        "missingHint": "Los archivos de la copia ya no están en el disco; se movieron o eliminaron fuera de DLSSync. Elimina las filas para limpiar la lista.",
+        "missingCount": "{count} faltante"
+      },
+      "bulk": {
+        "selected": "{count} seleccionada",
+        "selected_one": "{count} seleccionada",
+        "selected_other": "{count} seleccionadas",
+        "restorable": "{count} restaurable",
+        "restorable_one": "{count} restaurable",
+        "restorable_other": "{count} restaurables",
+        "clear": "Limpiar",
+        "restore": "Restaurar {count}",
+        "restoring": "Restaurando {count}…",
+        "delete": "Eliminar {count}",
+        "deleting": "Eliminando {count}…"
+      },
+      "searchPlaceholder": "Buscar por juego, archivo DLL, función o versión…",
+      "clearSearchAria": "Limpiar búsqueda",
+      "clearSearch": "Limpiar búsqueda",
+      "groupByAria": "Agrupar copias por",
+      "groupBy": {
+        "game": "Juego",
+        "date": "Fecha"
+      },
+      "summaryCount": "{shown} de {count} copia",
+      "summaryCount_one": "{shown} de {count} copia",
+      "summaryCount_other": "{shown} de {count} copias",
+      "summaryGames": "{count} juego",
+      "summaryGames_one": "{count} juego",
+      "summaryGames_other": "{count} juegos",
+      "summaryDays": "{count} día",
+      "summaryDays_one": "{count} día",
+      "summaryDays_other": "{count} días",
+      "noMatch": "Ninguna copia coincide con tu búsqueda.",
+      "openInstallFolder": "Abrir carpeta de instalación",
+      "group": {
+        "selectAll": "Seleccionar todo en este juego",
+        "deselectAll": "Deseleccionar todo en este juego",
+        "snapshots": "<strong>{count}</strong> instantánea",
+        "snapshots_one": "<strong>{count}</strong> instantánea",
+        "snapshots_other": "<strong>{count}</strong> instantáneas",
+        "restorable": "{count} restaurable",
+        "restorable_one": "{count} restaurable",
+        "restorable_other": "{count} restaurables",
+        "restored": "{count} restaurada",
+        "restored_one": "{count} restaurada",
+        "restored_other": "{count} restauradas",
+        "missing": "{count} faltante",
+        "missing_one": "{count} faltante",
+        "missing_other": "{count} faltantes",
+        "latest": "última {date}"
+      },
+      "entry": {
+        "selectHint": "Seleccionar para restaurar/eliminar en lote",
+        "snapshotMissing": "Instantánea faltante",
+        "missingHint": "El archivo de la instantánea ya no está en el disco; se movió o eliminó fuera de DLSSync. No se puede restaurar; elimina la fila para ordenar la lista.",
+        "restored": "Restaurada",
+        "restoredHint": "Restaurada el {date}: la instantánea sigue en el disco, así que puedes restaurarla de nuevo si has aplicado una DLL más reciente desde entonces.",
+        "activeBackup": "Copia activa",
+        "activeHint": "La DLL original está respaldada y lista para revertir en cualquier momento.",
+        "gone": "ausente",
+        "reveal": "Mostrar el archivo de la instantánea en el Explorador",
+        "revealMissing": "Abrir la carpeta de la instantánea (el archivo ya no está en el disco)",
+        "deleteHint": "Eliminar la instantánea de la copia del disco",
+        "unavailable": "No disponible",
+        "unavailableHint": "No se puede restaurar: el archivo de la instantánea no está en el disco",
+        "restore": "Restaurar",
+        "restoreHint": "Revertir la DLL original en la carpeta del juego",
+        "restoreAgain": "Restaurar de nuevo",
+        "restoreAgainHint": "Restaurar esta instantánea de nuevo: útil si aplicaste una DLL más reciente tras la última restauración",
+        "restoring": "Restaurando"
+      },
+      "cancel": "Cancelar",
+      "delete": "Eliminar",
+      "deleteCount": "Eliminar {count}",
+      "confirmDeleteOne": {
+        "title": "Eliminar copia",
+        "sizeSuffix": " ({size})",
+        "body": "¿Eliminar la copia de {file}{sizeSuffix}?\n\nEsto borra el archivo de la instantánea del disco. NO podrás restaurar esta DLL después."
+      },
+      "confirmDeleteMany": {
+        "title": "Eliminar copias",
+        "sizeSuffix": " que suman {size}",
+        "body": "¿Eliminar {count} instantáneas de copia{sizeSuffix}?\n\nEsto borra los archivos de las instantáneas del disco. NO podrás restaurar los originales después. Esta acción es irreversible.",
+        "body_one": "¿Eliminar {count} instantánea de copia{sizeSuffix}?\n\nEsto borra el archivo de la instantánea del disco. NO podrás restaurar el original después. Esta acción es irreversible.",
+        "body_other": "¿Eliminar {count} instantáneas de copia{sizeSuffix}?\n\nEsto borra los archivos de las instantáneas del disco. NO podrás restaurar los originales después. Esta acción es irreversible."
+      },
+      "toastNothingToRestore": "Nada que restaurar: las instantáneas seleccionadas ya están restauradas o faltan en el disco",
+      "toastRestoredFile": "Se restauró {file}",
+      "toastRestoreFailed": "Error al restaurar: {error}",
+      "toastRestoredCount": "Se restauró {count} instantánea",
+      "toastRestoredCount_one": "Se restauró {count} instantánea",
+      "toastRestoredCount_other": "Se restauraron {count} instantáneas",
+      "toastFailedToRestore": "{count} no se pudo restaurar",
+      "toastFailedToRestore_one": "{count} no se pudo restaurar",
+      "toastFailedToRestore_other": "{count} no se pudieron restaurar",
+      "toastAllRestored": "Se restauraron todas las instantáneas seleccionadas",
+      "toastRestoreFailedAll": "Falló la restauración de las {count} instantáneas",
+      "toastRestoreFailedAll_one": "Falló la restauración de la {count} instantánea",
+      "toastRestoreFailedAll_other": "Falló la restauración de las {count} instantáneas",
+      "toastRestorePartial": "Se restauraron {ok}, {fail} fallaron",
+      "toastDeletedFile": "Se eliminó {file}",
+      "toastDeleteFailed": "Error al eliminar: {error}",
+      "toastRowRemovedFileFailed": "Fila eliminada, no se pudo borrar el archivo: {error}",
+      "toastDeletedCount": "Se eliminó {count} instantánea",
+      "toastDeletedCount_one": "Se eliminó {count} instantánea",
+      "toastDeletedCount_other": "Se eliminaron {count} instantáneas",
+      "toastDeleteFailedAll": "Falló la eliminación de las {count} instantáneas",
+      "toastDeleteFailedAll_one": "Falló la eliminación de la {count} instantánea",
+      "toastDeleteFailedAll_other": "Falló la eliminación de las {count} instantáneas",
+      "toastDeletePartial": "Se eliminaron {removed}, {fail} fallaron",
+      "toastRevealFailed": "Error al mostrar: {error}",
+      "toastInstallPathUnavailable": "Ruta de instalación del juego no disponible: puede que el juego se haya desinstalado",
+      "toastOpenFolderFailed": "Abrir carpeta: {error}",
+      "driver": {
+        "sectionTitle": "Controladores del sistema",
+        "sectionSub": "Instantáneas previas a la actualización de tus controladores de audio, red, Bluetooth, chipset y otros componentes. Revierte cualquiera si una actualización se comporta mal: Windows pide aprobación de Administrador y puede ser necesario reiniciar.",
+        "searchPlaceholder": "Buscar por componente, fabricante, INF o id de hardware…",
+        "filterAria": "Filtrar controladores por componente",
+        "filterAll": "Todos",
+        "noMatch": "Ninguna copia de controlador coincide con tu filtro.",
+        "driverWord": "Controlador",
+        "thisDriver": "este",
+        "rolledBack": "Revertido",
+        "rolledBackHint": "Revertido el {date}",
+        "snapshot": "Instantánea",
+        "snapshotHint": "El controlador que había antes de la actualización está respaldado y listo para revertir.",
+        "revealHint": "Abrir la carpeta de la instantánea en el Explorador",
+        "rollBack": "Revertir",
+        "rollBackHint": "Reinstalar el controlador que había antes de la actualización (se requiere aprobación de Administrador)",
+        "rollingBack": "Revirtiendo",
+        "confirmRollback": {
+          "title": "Revertir controlador",
+          "body": "¿Revertir el controlador {deviceClass} de {provider} a la v{version}?\n\nDLSSync reinstala la instantánea que tomó antes de la actualización. Windows pedirá aprobación de Administrador y puede ser necesario reiniciar."
+        },
+        "toastRolledBack": "Se revirtió {file}",
+        "rebootSuffix": " — reinicia para terminar",
+        "notifTitle": "Se revirtió el controlador de {deviceClass}",
+        "toastRollbackFailed": "Error al revertir: {error}"
+      }
+    },
+    "settings": {
+      "title": "Ajustes",
+      "savedTo": "Guardado en",
+      "loading": "Cargando…",
+      "tab": {
+        "general": "General",
+        "updates": "Preferencias de actualización",
+        "detection": "Detección",
+        "art": "Carátulas",
+        "advanced": "Avanzado"
+      },
+      "sectionsAria": "Secciones de ajustes",
+      "hero": {
+        "technologiesEnabled": "{count}/{total} tecnologías activadas",
+        "sub": "Todos los cambios se guardan al instante. El archivo de configuración es JSON sencillo — puedes inspeccionarlo o respaldarlo.",
+        "revealConfig": "Mostrar config",
+        "revealConfigTitle": "Mostrar settings.json en el Explorador",
+        "dataFolder": "Carpeta de datos",
+        "dataFolderTitle": "Abrir la carpeta raíz de datos (~/DLSSync)",
+        "backups": "Copias de seguridad",
+        "backupsTitle": "Abrir la carpeta de copias de seguridad",
+        "logs": "Registros",
+        "logsTitle": "Abrir la carpeta de registros"
+      },
+      "general": {
+        "appearance": {
+          "title": "Apariencia",
+          "help": "El tema se guarda por equipo; el selector también está disponible en la barra superior."
+        },
+        "darkTheme": {
+          "label": "Tema oscuro",
+          "sub": "Fondo negro puro. Ideal para OLED, menos brillo por la noche."
+        },
+        "language": {
+          "help": "Elige el idioma de la interfaz. El selector también está disponible al final de la barra lateral.",
+          "sub": "Se aplica al instante en toda la aplicación."
+        },
+        "performance": {
+          "title": "Rendimiento e inicio",
+          "help": "Controles de consumo. Con las tres opciones activadas, DLSSync queda en la bandeja con un uso de CPU casi nulo entre comprobaciones programadas."
+        },
+        "updateBehavior": {
+          "title": "Comportamiento de actualización",
+          "help": "Opciones de seguridad y automatización. Se recomiendan las copias de seguridad; la aplicación automática es opcional."
+        },
+        "support": {
+          "title": "Tarjeta de apoyo",
+          "help": "Una pequeña tarjeta que de vez en cuando te invita a destacar, recomendar o compartir DLSSync tras una actualización correcta. Nunca bloquea nada.",
+          "label": "Mostrar la tarjeta de apoyo",
+          "sub": "Un recordatorio discreto abajo a la izquierda cuando se aplica una actualización. Desactívalo aquí cuando quieras, o vuelve a activarlo más tarde."
+        }
+      },
+      "feature": {
+        "update_dlss": {
+          "label": "DLSS Super Resolution",
+          "sub": "Imagen más nítida con más FPS — escalado por IA de NVIDIA."
+        },
+        "update_dlss_fg": {
+          "label": "DLSS Frame Generation",
+          "sub": "Fotogramas interpolados adicionales para un movimiento más fluido en GPUs RTX 40 o superiores."
+        },
+        "update_dlss_rr": {
+          "label": "DLSS Ray Reconstruction",
+          "sub": "Reflejos, sombras e iluminación global con trazado de rayos más limpios."
+        },
+        "update_streamline": {
+          "label": "Complementos NVIDIA Streamline (avanzado)",
+          "sub": "Interruptor principal para todas las DLL sl.* de Streamline. Desactivado por defecto — forman un conjunto bloqueado por versión, así que cambiarlas puede provocar fallos en los juegos (sobre todo con DLSS Enabler). Las DLL NGX no se ven afectadas."
+        },
+        "update_reflex": {
+          "label": "NVIDIA Reflex",
+          "sub": "Menor latencia de entrada en los títulos compatibles."
+        },
+        "update_xess": {
+          "label": "Intel XeSS",
+          "sub": "Escalado por IA de Intel — mejor en GPUs Arc, funciona en el resto."
+        },
+        "update_fsr": {
+          "label": "AMD FSR",
+          "sub": "Escalado y generación de fotogramas de AMD — funciona en cualquier GPU."
+        },
+        "update_direct_storage": {
+          "label": "Microsoft DirectStorage",
+          "sub": "Carga de juegos más rápida mediante transmisión directa NVMe → GPU."
+        },
+        "create_backups": {
+          "label": "Crear copias de seguridad antes de aplicar",
+          "sub": "Muy recomendable. Necesario para la restauración con un clic."
+        },
+        "auto_apply_all_on_rescan": {
+          "label": "Aplicar actualizaciones automáticamente al reescanear",
+          "sub": "Desactivado por defecto. Actívalo para actualizaciones desatendidas."
+        }
+      },
+      "filesDisclosure": {
+        "hide": "Ocultar archivos",
+        "show": "Mostrar archivos técnicos"
+      },
+      "updates": {
+        "autoUpdate": {
+          "title": "Actualización automática",
+          "help": "DLSSync consulta las versiones de GitHub cada 6 horas. Inicia una comprobación manual abajo."
+        },
+        "currentVersion": {
+          "label": "Versión actual"
+        },
+        "lastCheck": "última comprobación: {time}",
+        "checking": "Comprobando…",
+        "checkNow": "Buscar actualizaciones",
+        "prefs": {
+          "title": "Preferencias de actualización",
+          "help": "Elige qué tecnologías sincronizará DLSSync. Las familias desactivadas se siguen detectando, pero nunca se sobrescriben."
+        },
+        "toast": {
+          "available": "v{version} está disponible — consulta el aviso.",
+          "latest": "Tienes la última versión (v{version}).",
+          "checkFailed": "Error al buscar actualizaciones: {error}"
+        }
+      },
+      "toast": {
+        "overlayEnabled": "Superposición de depuración DLSS activada",
+        "overlayDisabled": "Superposición de depuración DLSS desactivada",
+        "registryWrite": "Escritura en el registro: {error}",
+        "folderAlreadyAdded": "La carpeta ya está añadida",
+        "folderAdded": "Carpeta personalizada añadida — reescanea para aplicar",
+        "folderPickerFailed": "Error al abrir el selector de carpetas: {error}",
+        "openFailed": "Error al abrir: {error}",
+        "revealFailed": "Error al mostrar: {error}",
+        "pathsUnavailable": "Las rutas de datos aún no están disponibles"
+      },
+      "detection": {
+        "customFolders": {
+          "title": "Carpetas personalizadas",
+          "help": "Añade carpetas donde guardas juegos fuera de los lanzadores habituales (p. ej. {path}). Cada subcarpeta aparecerá como una entrada Manual en la Biblioteca."
+        },
+        "browse": "Examinar",
+        "addFolder": "Añadir carpeta",
+        "noFolders": "Aún no hay carpetas personalizadas",
+        "openFolderTitle": "Abrir carpeta",
+        "removeTitle": "Quitar",
+        "rescanNow": "Reescanear ahora",
+        "launcherOverrides": {
+          "title": "Rutas personalizadas de lanzadores",
+          "help": "Las rutas predeterminadas provienen del registro de Windows. Añade una ruta manual solo si un lanzador está instalado fuera de su ubicación habitual."
+        },
+        "launcher": {
+          "defaultAuto": "Predeterminado (automático)",
+          "overrideCount_one": "{count} ruta personalizada",
+          "overrideCount_other": "{count} rutas personalizadas",
+          "removePathTitle": "Quitar ruta",
+          "addPath": "Añadir ruta"
+        }
+      },
+      "art": {
+        "steamCdn": {
+          "title": "CDN pública de Steam",
+          "help": "Opción predeterminada. DLSSync busca tus juegos manuales/personalizados en la tienda de Steam y obtiene las carátulas de la CDN pública (cabecera, hero, cápsula). No requiere clave.",
+          "alwaysOn": "Siempre activo",
+          "noKeyRequired": "no requiere clave",
+          "sub": "Cada juego sin carátula se resuelve automáticamente. Usa una inicial como respaldo para los títulos que Steam no indexa."
+        },
+        "sgdb": {
+          "fallback": "respaldo",
+          "help": "Para títulos pirateados, modificados o muy específicos que Steam no indexa, SteamGridDB tiene carátulas de la comunidad. Clave gratuita en tu perfil de SGDB.",
+          "helpMuted": "No incluimos una clave integrada — SteamGridDB limita las peticiones por clave (1000 al día en el plan gratuito), así que una clave compartida agotaría la cuota de todos los usuarios de DLSSync.",
+          "label": "Clave de API de SteamGridDB",
+          "active": "Activa · {masked}",
+          "sub": "Se usa solo como respaldo. Se guarda localmente en {file}.",
+          "getKey": "Consigue una clave gratuita en steamgriddb.com",
+          "placeholder": "Déjalo vacío para usar solo la CDN de Steam"
+        },
+        "steamApi": {
+          "optional": "opcional",
+          "help": "Mejora la coincidencia de títulos de Steam más allá de lo que ya ofrece el {manifest} local. Consigue una clave gratuita en {site}.",
+          "helpMuted": "No incluimos una clave integrada — los Términos de la API web de Steam de Valve (§2) exigen que cada titular mantenga su clave confidencial y no la comparta con terceros. La clave de cada usuario queda en su propio {file}.",
+          "keyLabel": "Clave de API",
+          "keySub": "Cadena hexadecimal de 32 caracteres.",
+          "keyPlaceholder": "Déjalo vacío para usar las carátulas de la CDN pública",
+          "idLabel": "ID de Steam de 64 bits",
+          "idSub": "Se detecta automáticamente desde {file} cuando se deja en blanco."
+        }
+      },
+      "advanced": {
+        "powerUser": {
+          "title": "Opciones para usuarios avanzados",
+          "help": "La superposición de depuración DLSS escribe en {regPath}. Reinicia el juego para que los cambios surtan efecto."
+        },
+        "overlay": {
+          "label": "Superposición de depuración DLSS",
+          "sub": "Añade la superposición en pantalla de NVIDIA que muestra la versión de DLSS, el modo y los tiempos de fotograma."
+        },
+        "verboseLogs": {
+          "label": "Registros detallados",
+          "sub": "Captura toda la salida de depuración en {dir} dentro de la carpeta de datos."
+        },
+        "preferStable": {
+          "label": "Preferir el canal estable",
+          "sub": "Oculta las versiones experimentales y beta del selector de versiones. Recomendado."
+        },
+        "allowUnsigned": {
+          "label": "Permitir DLL sin firmar",
+          "devOnly": "solo desarrollo",
+          "sub": "Omite la comprobación del editor Authenticode. Cada aplicación sigue verificando el SHA-256, pero ya no se exige la firma del proveedor. Desactivado por defecto."
+        },
+        "parallelApplies": {
+          "label": "Aplicaciones en paralelo",
+          "sub": "Cuántos grupos de archivos de proveedor instalar en paralelo. Más alto = más rápido en conexiones potentes, más bajo = más suave en enlaces inestables. 1–4, predeterminado 2."
+        },
+        "network": {
+          "title": "Red",
+          "sub": "Ajustes del cliente de descargas — los valores predeterminados son adecuados; cámbialos solo si tu conexión es inusual.",
+          "retry": {
+            "label": "Reintentos por descarga",
+            "sub": "Cuántas veces se reintenta la descarga de un archivo inestable antes de fallar. Espera exponencial entre intentos. 1–6, predeterminado 3."
+          },
+          "chunkTimeout": {
+            "label": "Tiempo de espera por fragmento (segundos)",
+            "sub": "Intervalo máximo permitido entre fragmentos de bytes antes de abortar y reintentar. 10–600, predeterminado 60."
+          },
+          "connectTimeout": {
+            "label": "Tiempo de espera de conexión (segundos)",
+            "sub": "Tiempo máximo para establecer la conexión TCP. 3–60, predeterminado 10."
+          },
+          "cacheTtl": {
+            "label": "TTL de la caché de descargas (segundos)",
+            "sub": "Cuánto tiempo permanece en memoria un archivo de proveedor descargado para las DLL hermanas que lo comparten. 60–3600, predeterminado 300."
+          }
+        },
+        "dlssOverrides": {
+          "title": "Reemplazos de DLSS",
+          "sub": "Los reemplazos de preajuste DLSS y de generación de fotogramas se trasladaron a la pestaña {drivers}, junto a las actualizaciones del controlador de la GPU. Los reemplazos por juego permanecen en la ficha de detalle de cada juego.",
+          "driversTabBold": "Controladores",
+          "openDrivers": "Abrir la pestaña Controladores"
+        }
+      }
+    },
+    "about": {
+      "title": "Acerca de",
+      "subtitle": "DLSSync mantiene las tecnologías DLSS, FSR y XeSS sincronizadas con las versiones del fabricante: verificadas por hash, firmadas por el fabricante y totalmente reversibles.",
+      "action": {
+        "sponsorTitle": "GitHub Sponsors: apoyo recurrente o puntual",
+        "kofiTitle": "Ko-fi: propina rápida y puntual",
+        "nexusTitle": "DLSSync en Nexus Mods: recomiéndalo para aumentar su visibilidad",
+        "reportTitle": "Abre una incidencia de GitHub prerellenada con la versión de la app, el SO y los registros recientes adjuntos",
+        "report": "Informar de un problema",
+        "preparing": "Preparando",
+        "checkUpdates": "Buscar actualizaciones",
+        "checking": "Buscando"
+      },
+      "tagline": "SINCRONIZAR · VERIFICAR · APLICAR",
+      "pillar": {
+        "hashVerified": "Verificado por hash",
+        "hashVerifiedTitle": "SHA-256 y hash por cada DLL verificados antes de aplicar",
+        "vendorSigned": "Firmado por el fabricante",
+        "vendorSignedTitle": "Control de editor Authenticode aplicado",
+        "reversible": "Reversible",
+        "reversibleTitle": "Copia de seguridad automática, restauración con un clic"
+      },
+      "whatsNew": {
+        "eyebrow": "Novedades",
+        "viewChangelog": "Ver el registro de cambios completo →",
+        "openReleasesTitle": "Abrir las versiones de GitHub"
+      },
+      "kpi": {
+        "familiesTracked": "Familias supervisadas",
+        "versionsInManifest": "Versiones en el manifiesto",
+        "upstreamVendors": "Fabricantes de origen",
+        "gamesDetected": "Juegos detectados",
+        "backupsStored": "Copias de seguridad guardadas",
+        "manifestUpdated": "Manifiesto actualizado"
+      },
+      "manifest": {
+        "title": "Manifiesto",
+        "sub": "Réplica en vivo de cada fabricante de escalado de origen. El estado refleja el último intento de actualización.",
+        "lastUpdate": "Última actualización",
+        "totalVersions": "Versiones totales",
+        "vendorsTracked": "Fabricantes supervisados",
+        "dllFamilies": "Familias de DLL"
+      },
+      "data": {
+        "title": "Datos y registros",
+        "sub": "Todo lo que DLSSync escribe es JSON o SQLite normal dentro de tu perfil de usuario. Nada sale de tu equipo.",
+        "root": "Raíz",
+        "settings": "Ajustes",
+        "backups": "Copias de seguridad",
+        "logs": "Registros",
+        "openRootAria": "Abrir la carpeta raíz",
+        "revealSettingsAria": "Mostrar el archivo de ajustes",
+        "openBackupsAria": "Abrir la carpeta de copias de seguridad",
+        "openLogsAria": "Abrir la carpeta de registros"
+      },
+      "system": {
+        "title": "Tu sistema",
+        "sub": "Detectado una vez por inicio. Nunca se envía fuera de tu equipo.",
+        "unavailable": "La detección del sistema no está disponible en esta compilación.",
+        "build": "compilación {build}",
+        "coresThreads": "{cores} núcleos / {threads} subprocesos",
+        "modules_one": "{count} módulo",
+        "modules_other": "{count} módulos",
+        "gpuIndexed": "GPU {index}",
+        "driver": "controlador {version}"
+      },
+      "sources": {
+        "title": "Fuentes del manifiesto",
+        "sub": "Las versiones, fechas, hashes y datos de firma provienen exclusivamente de estos proyectos de origen."
+      },
+      "author": {
+        "title": "Creado por",
+        "sub": "DLSSync es un proyecto de código abierto independiente bajo la licencia Apache 2.0.",
+        "role": "Autor y responsable de mantenimiento"
+      },
+      "support": {
+        "title": "Ayuda a que DLSSync crezca",
+        "sub": "DLSSync es gratis, sin telemetría y sin plan de pago. La forma más rápida de apoyarlo es una estrella, una recomendación o compartirlo: cada acción ayuda a que otros jugadores lo encuentren.",
+        "star": "Dar estrella en GitHub",
+        "starTitle": "Dar estrella a DLSSync en GitHub",
+        "endorse": "Recomendar en Nexus",
+        "endorseTitle": "Recomendar DLSSync en Nexus Mods",
+        "share": "Compartir con un amigo",
+        "shareTitle": "Copiar un enlace para compartir"
+      },
+      "foot": {
+        "trademarks": "DLSS, NVIDIA, GeForce, RTX, Reflex y Streamline son marcas comerciales de NVIDIA Corporation. XeSS, Xe y Arc son marcas comerciales de Intel Corporation. FidelityFX, FSR y Radeon son marcas comerciales de Advanced Micro Devices, Inc. DirectStorage, DirectX y Windows son marcas comerciales de Microsoft Corporation.",
+        "disclaimer": "Sin respaldo, patrocinio ni afiliación con NVIDIA, Intel, AMD o Microsoft. DLSSync es un proyecto independiente: cada binario redistribuido conserva su firma Authenticode original del fabricante.",
+        "licensedUnder": "Con licencia",
+        "copyright": "Copyright 2026 xt0n1"
+      },
+      "update": {
+        "checking": "Buscando en GitHub Releases…",
+        "available": "Actualización disponible: v{version}. Visita la página de versiones para descargarla.",
+        "latest": "Tienes la versión más reciente (v{version}).",
+        "failed": "Error al buscar actualizaciones: {error}. Puede que el servidor no sea accesible o que aún no haya ninguna versión publicada."
+      },
+      "toast": {
+        "openLinkFailed": "No se pudo abrir el enlace: {error}",
+        "openFailed": "No se pudo abrir: {error}",
+        "shareCopied": "Enlace copiado: comparte DLSSync con un amigo",
+        "shareFailed": "No se pudo copiar el enlace",
+        "blankIssue": "Se abrió una incidencia en blanco: diagnóstico no disponible: {error}"
+      }
+    }
+  },
+  "group": {
+    "dlss": {
+      "label": "DLSS",
+      "sub": "Escalado por IA, generación de fotogramas y reconstrucción de rayos de NVIDIA"
+    },
+    "fsr": {
+      "label": "AMD FSR",
+      "sub": "Escalado y generación de fotogramas de AMD"
+    },
+    "xess": {
+      "label": "Intel XeSS",
+      "sub": "Escalado por IA y generación de fotogramas de Intel"
+    },
+    "advanced": {
+      "label": "Otras tecnologías",
+      "sub": "NVIDIA Reflex, complementos de Streamline, Microsoft DirectStorage"
+    }
+  },
+  "feature": {
+    "dlss_sr": {
+      "blurb": "Imagen más nítida a más FPS — escalado por IA de NVIDIA",
+      "title": "DLSS Super Resolución"
+    },
+    "dlss_fg": {
+      "blurb": "Fotogramas interpolados adicionales para un movimiento más fluido",
+      "title": "DLSS Generación de Fotogramas"
+    },
+    "dlss_rr": {
+      "blurb": "Reflejos, sombras e iluminación global con trazado de rayos más limpios",
+      "title": "DLSS Reconstrucción de Rayos"
+    },
+    "fsr_upscaler": {
+      "blurb": "Escalado espacial y temporal de AMD — funciona en cualquier GPU",
+      "title": "Escalado FSR"
+    },
+    "xess_sr": {
+      "blurb": "Escalado por IA de Intel — óptimo en Arc, funciona en otras GPU",
+      "title": "Intel XeSS"
+    },
+    "xess_fg": {
+      "blurb": "Interpolación de fotogramas de Intel para más FPS",
+      "title": "XeSS Generación de Fotogramas"
+    },
+    "advanced": {
+      "title": "Otras tecnologías",
+      "short": "Otras",
+      "blurb": "NVIDIA Reflex, complementos de Streamline, Microsoft DirectStorage"
+    }
+  },
+  "dlss": {
+    "preset": {
+      "recommended": {
+        "label": "Recomendado (más reciente)",
+        "desc": "Deja que NVIDIA elija el mejor modelo por modo de calidad — Preset M para Rendimiento, L para Ultra Rendimiento, K para el resto. La mejor opción por defecto para la mayoría."
+      },
+      "default": {
+        "label": "Usar valor por defecto de la app",
+        "desc": "Deja intacto el modelo DLSS del propio juego — no se fuerza ningún preset."
+      },
+      "k": {
+        "label": "Preset K — Transformer (más reciente)",
+        "desc": "Modelo transformer de DLSS 4. La mejor calidad de imagen — más nítida, más estable, con menos ghosting — a mayor coste de GPU. Por defecto para DLAA / Calidad / Equilibrado."
+      },
+      "j": {
+        "label": "Preset J — Transformer",
+        "desc": "Transformer de DLSS 4, cercano a K con algo menos de ghosting pero un poco más de parpadeo. Suele preferirse K sobre J."
+      },
+      "l": {
+        "label": "Preset L — Transformer (Ultra Rend.)",
+        "desc": "Transformer de segunda generación de DLSS 4.5 ajustado para Ultra Rendimiento / 4K — el más nítido y estable, con el mayor coste. Las RTX 20/30 no tienen FP8, así que ahí es más pesado."
+      },
+      "m": {
+        "label": "Preset M — Transformer (Rend.)",
+        "desc": "Transformer de segunda generación de DLSS 4.5 ajustado para el modo Rendimiento — calidad cercana a L a una velocidad parecida a J/K."
+      },
+      "e": {
+        "label": "Preset E — CNN (heredado)",
+        "desc": "Modelo convolucional heredado. Prefiere un preset transformer (K) en RTX salvo que un juego concreto falle con él."
+      },
+      "f": {
+        "label": "Preset F — CNN (heredado)",
+        "desc": "CNN heredado ajustado para Ultra Rendimiento / DLAA a 4K y superior."
+      },
+      "c": {
+        "label": "Preset C — CNN (heredado)",
+        "desc": "Variante CNN heredada para juegos de ritmo rápido — menos ghosting a costa de estabilidad temporal."
+      },
+      "d": {
+        "label": "Preset D — CNN (heredado)",
+        "desc": "Variante CNN heredada para juegos de ritmo lento — más estable temporalmente pero con más ghosting."
+      },
+      "n": {
+        "label": "Preset N — Transformer",
+        "desc": "Preset transformer N de DLSS. Se muestra para respetar un perfil definido en la app de NVIDIA o en Profile Inspector."
+      },
+      "o": {
+        "label": "Preset O — Transformer",
+        "desc": "Preset transformer O de DLSS. Se muestra para respetar un perfil definido en la app de NVIDIA o en Profile Inspector."
+      },
+      "a": {
+        "label": "Preset A — CNN (heredado)",
+        "desc": "Preset CNN heredado. Prefiere un preset transformer en RTX salvo que un juego falle."
+      },
+      "b": {
+        "label": "Preset B — CNN (heredado)",
+        "desc": "Preset CNN heredado. Prefiere un preset transformer en RTX salvo que un juego falle."
+      },
+      "g": {
+        "label": "Preset G — CNN (heredado)",
+        "desc": "Preset CNN heredado. Prefiere un preset transformer en RTX salvo que un juego falle."
+      },
+      "h": {
+        "label": "Preset H — CNN (heredado)",
+        "desc": "Preset CNN heredado. Prefiere un preset transformer en RTX salvo que un juego falle."
+      },
+      "i": {
+        "label": "Preset I — CNN (heredado)",
+        "desc": "Preset CNN heredado. Prefiere un preset transformer en RTX salvo que un juego falle."
+      }
+    },
+    "fgMode": {
+      "app_controlled": {
+        "label": "Usar ajuste de la app",
+        "desc": "Mantén sin cambios el ajuste de Frame Generation del juego."
+      },
+      "fixed": {
+        "label": "Multiplicador fijo",
+        "desc": "Fuerza un multiplicador fijo (2×/3×/4×, hasta 6× en títulos compatibles). El recuento «Controlado por la app» mantiene el 2× del juego."
+      },
+      "dynamic": {
+        "label": "Dinámico (DLSS 4.5)",
+        "desc": "Ajusta automáticamente el multiplicador para alcanzar tu tasa de fotogramas / frecuencia de actualización objetivo. Solo RTX 50. No es compatible con limitadores de FPS ni V-Sync."
+      }
+    },
+    "fgCount": {
+      "app_controlled": {
+        "label": "Controlado por la app",
+        "desc": "Deja que el juego o el controlador elija el multiplicador de Frame Generation."
+      },
+      "x2": {
+        "label": "Frame Generation 2×",
+        "desc": "Un fotograma generado por cada fotograma renderizado. Compatible con RTX 40 y RTX 50."
+      },
+      "x3": {
+        "label": "Multi Frame Generation 3×",
+        "desc": "Dos fotogramas generados por cada fotograma renderizado. Solo RTX 50."
+      },
+      "x4": {
+        "label": "Multi Frame Generation 4×",
+        "desc": "Tres fotogramas generados por cada fotograma renderizado. Solo RTX 50."
+      }
+    }
+  },
+  "applyStage": {
+    "download": "Descargar",
+    "verify_sha": "Verificar SHA",
+    "verify_signature": "Verificar firma",
+    "backup_current": "Copia de seguridad del actual",
+    "install_new": "Instalar nuevo",
+    "verify_installed": "Verificar instalado",
+    "done": "Listo"
+  },
+  "installStage": {
+    "downloading": "Descargando",
+    "installing": "Instalando",
+    "completed": "Listo",
+    "failed": "Error"
+  },
+  "driverStatus": {
+    "update_available": "Actualización disponible",
+    "up_to_date": "Actualizado",
+    "unknown": "Desconocido",
+    "unsupported": "No compatible"
+  },
+  "errorClass": {
+    "network": {
+      "label": "Red",
+      "short": "Problema de red",
+      "hint": "La CDN del proveedor falló a mitad de la descarga. Reintentar suele solucionarlo."
+    },
+    "signature": {
+      "label": "Firma",
+      "short": "DLL sin firmar o proveedor no coincidente",
+      "hint": "El proveedor distribuye esta DLL sin firmar, o el sujeto incrustado no está en la lista de permitidos. Activa «Permitir DLL sin firmar» en Ajustes → Avanzado y reintenta — el SHA-256 se sigue verificando."
+    },
+    "lock": {
+      "label": "Bloqueado",
+      "short": "El juego tiene la DLL abierta",
+      "hint": "Cierra el juego (y el ayudante anti-trampas del launcher si corresponde) y reintenta."
+    },
+    "permission": {
+      "label": "Permisos",
+      "short": "Permiso denegado",
+      "hint": "Ejecuta DLSSync como administrador para escribir en este directorio de instalación y reintenta."
+    },
+    "hash": {
+      "label": "Integridad",
+      "short": "La integridad no coincide",
+      "hint": "La DLL descargada no coincidió con el SHA-256 del manifiesto. El manifiesto puede estar desactualizado — actualiza el catálogo y reintenta."
+    },
+    "missing": {
+      "label": "Ausente",
+      "short": "Falta un archivo",
+      "hint": "El archivo esperado no estaba en el paquete del proveedor (o la versión fue retirada). Repórtalo para que se pueda corregir el catálogo."
+    },
+    "backup": {
+      "label": "Copia de seguridad",
+      "short": "Almacén de copias no disponible",
+      "hint": "No se pudo escribir en la base de datos o carpeta de copias de seguridad. Comprueba el espacio en disco y que no haya otra instancia de DLSSync en ejecución."
+    },
+    "cancelled": {
+      "label": "Cancelado",
+      "short": "Cancelado",
+      "hint": "Cancelaste esta aplicación. Haz clic en Reintentar para volver a intentarlo."
+    },
+    "other": {
+      "label": "Desconocido",
+      "short": "Error inesperado",
+      "hint": "Ocurrió un fallo sin clasificar. Usa «Copiar informe» y abre un issue si persiste."
+    }
+  },
+  "notifKind": {
+    "apply_success": "Actualización correcta",
+    "apply_failure": "Actualización fallida",
+    "apply_cancelled": "Actualización cancelada",
+    "app_update_available": "Actualización de la app disponible",
+    "catalog_update_available": "Nueva versión del catálogo",
+    "driver_update_available": "Actualización de controlador de GPU",
+    "system_driver_update_available": "Actualización de controlador del sistema",
+    "backup_restored": "Copia de seguridad restaurada",
+    "scan_failed": "Error al analizar la biblioteca",
+    "catalog_refresh_failed": "Error al actualizar el catálogo",
+    "default": "Notificación"
+  },
+  "command": {
+    "nav": {
+      "library": {
+        "title": "Ir a Biblioteca",
+        "hint": "Tus juegos instalados y actualizaciones pendientes"
+      },
+      "catalog": {
+        "title": "Ir a Catálogo",
+        "hint": "Todas las versiones de DLL del manifiesto"
+      },
+      "backups": {
+        "title": "Ir a Copias de seguridad",
+        "hint": "Instantáneas guardadas que puedes restaurar"
+      },
+      "settings": {
+        "title": "Ir a Ajustes"
+      },
+      "about": {
+        "title": "Ir a Acerca de"
+      }
+    },
+    "action": {
+      "apply_all_outdated": {
+        "title": "Aplicar todas las actualizaciones pendientes"
+      },
+      "rescan": {
+        "title": "Volver a analizar los juegos instalados"
+      },
+      "refresh_manifest": {
+        "title": "Actualizar el manifiesto de DLL"
+      },
+      "check_updates": {
+        "title": "Buscar actualizaciones de la app"
+      },
+      "restore_recent": {
+        "title": "Restaurar la copia de seguridad más reciente"
+      },
+      "open_data_folder": {
+        "title": "Abrir la carpeta de datos de DLSSync"
+      },
+      "open_backups_folder": {
+        "title": "Abrir la carpeta de copias de seguridad"
+      },
+      "open_logs_folder": {
+        "title": "Abrir la carpeta de registros"
+      },
+      "toggle_theme": {
+        "title": "Cambiar tema claro / oscuro"
+      },
+      "toggle_view_mode": {
+        "title": "Cambiar vista de la biblioteca (Cuadrícula / Lista)"
+      },
+      "toggle_density": {
+        "title": "Cambiar densidad de la biblioteca (Compacta / Cómoda)"
+      }
+    },
+    "settings": {
+      "general": {
+        "title": "Ajustes · General"
+      },
+      "updates": {
+        "title": "Ajustes · Preferencias de actualización"
+      },
+      "detection": {
+        "title": "Ajustes · Detección"
+      },
+      "art": {
+        "title": "Ajustes · Carátulas"
+      },
+      "advanced": {
+        "title": "Ajustes · Avanzado"
+      }
+    }
+  },
+  "commandCategory": {
+    "all": "Todo",
+    "navigate": "Navegar",
+    "action": "Acción",
+    "settings": "Ajustes"
+  },
+  "shortcut": {
+    "open_command_palette": {
+      "description": "Abrir la paleta de comandos"
+    },
+    "show_shortcuts": {
+      "description": "Mostrar atajos de teclado"
+    },
+    "focus_search": {
+      "description": "Enfocar la búsqueda"
+    },
+    "go_library": {
+      "description": "Ir a Biblioteca"
+    },
+    "go_catalog": {
+      "description": "Ir a Catálogo"
+    },
+    "go_backups": {
+      "description": "Ir a Copias de seguridad"
+    },
+    "go_settings": {
+      "description": "Ir a Ajustes"
+    },
+    "go_about": {
+      "description": "Ir a Acerca de"
+    },
+    "close_overlay": {
+      "description": "Cerrar paleta / modal / panel"
+    },
+    "apply_all_outdated": {
+      "description": "Aplicar todas las actualizaciones pendientes"
+    },
+    "rescan": {
+      "description": "Volver a analizar los juegos instalados"
+    },
+    "toggle_view": {
+      "description": "Cambiar vista Cuadrícula / Lista"
+    },
+    "toggle_density": {
+      "description": "Cambiar densidad Compacta / Cómoda"
+    },
+    "next_feature": {
+      "description": "Siguiente fila de función"
+    },
+    "prev_feature": {
+      "description": "Fila de función anterior"
+    },
+    "toggle_feature": {
+      "description": "Alternar selección de función"
+    },
+    "open_version_picker": {
+      "description": "Abrir el selector de versión"
+    },
+    "cancel_apply": {
+      "description": "Cancelar la aplicación en curso"
+    },
+    "cycle_category": {
+      "description": "Recorrer el filtro de categoría"
+    },
+    "run_command": {
+      "description": "Ejecutar el comando seleccionado"
+    }
+  },
+  "librarySort": {
+    "default": {
+      "label": "Recomendado",
+      "hint": "Primero los juegos desactualizados, luego A → Z"
+    },
+    "outdated_first": {
+      "label": "Desactualizados primero",
+      "hint": "Juegos con actualizaciones pendientes arriba"
+    },
+    "a_z": {
+      "label": "Nombre A → Z"
+    },
+    "z_a": {
+      "label": "Nombre Z → A"
+    },
+    "launcher": {
+      "label": "Launcher",
+      "hint": "Agrupados por launcher, luego por nombre"
+    }
+  },
+  "note": {
+    "adminElevation": "Windows instala los controladores por equipo solo con permisos de administrador, por eso Actualizar muestra un aviso de UAC. DLSSync se mantiene sin elevar y ejecuta un ayudante firmado con tu aprobación — primero crea una instantánea del controlador actual y un punto de restauración del sistema, para que puedas revertir.",
+    "enablerManaged": "DLSS Enabler requiere NVIDIA Streamline 2.11 o posterior pero no lo actualiza, así que DLSSync actualiza el conjunto de Streamline dentro de la misma versión mayor para que Enabler siga funcionando. Nunca cambia el conjunto a otra versión mayor.",
+    "streamlineOverride": "Actualizar Streamline reemplaza el conjunto compartido de complementos sl.*. Los overrides de DLSS por juego siguen funcionando; puede que tengas que volver a definir los overrides globales de preset y ratio de NVIDIA App. Si un juego falla, restaura el conjunto anterior desde Copias de seguridad."
+  },
+  "component": {
+    "applyModal": {
+      "eyebrow": {
+        "completedWithFailures": "Aplicación completada con errores",
+        "complete": "Aplicación completa",
+        "applying": "Aplicando actualizaciones"
+      },
+      "headline": {
+        "someUpdated": "{done} de {total} actualizadas",
+        "allUpdated_one": "{count} función actualizada",
+        "allUpdated_other": "{count} funciones actualizadas",
+        "updating": "Actualizando {running} de {total}",
+        "queued_one": "{count} función en cola",
+        "queued_other": "{count} funciones en cola"
+      },
+      "stat": {
+        "done": "listas",
+        "inFlight": "en curso",
+        "failed": "fallidas",
+        "total": "total",
+        "running": "en curso",
+        "cancelled": "canceladas"
+      },
+      "filesSummary_one": "{done}/{count} archivo",
+      "filesSummary_other": "{done}/{count} archivos",
+      "closeBlockedTitle": "Cancela primero las aplicaciones en curso",
+      "filter": {
+        "all": "Todas",
+        "failed": "Fallidas",
+        "running": "En curso",
+        "done": "Listas"
+      },
+      "status": {
+        "updated": "Actualizada",
+        "failed": "Fallida",
+        "done": "Listo",
+        "cancelled": "Cancelado",
+        "partialUpdated": "{done}/{total} actualizadas"
+      },
+      "failedAtStage": "Falló en {stage}",
+      "noItemsMatch": "Ningún elemento coincide con este filtro.",
+      "fileCount_one": "{count} archivo",
+      "fileCount_other": "{count} archivos",
+      "toggleDetailTitle": "Mostrar u ocultar el detalle de etapa por archivo",
+      "hideDetail": "Ocultar detalle",
+      "showDetail": "Mostrar detalle",
+      "elapsedTitle": "Tiempo transcurrido de esta función",
+      "downloadingArchive": "Descargando archivo compartido",
+      "attempt": "intento {count}",
+      "of": "de",
+      "eta": "ETA",
+      "affectedFiles_one": "× {count} archivo",
+      "affectedFiles_other": "× {count} archivos",
+      "copyThisErrorTitle": "Copiar este error",
+      "action": {
+        "allowUnsignedRetry": "Permitir sin firmar y reintentar",
+        "allowUnsignedRetryCount": "Permitir sin firmar y reintentar ({count})",
+        "retryGroup": "Reintentar este grupo",
+        "retryAfterClosing": "Reintentar (tras cerrar)",
+        "copyReport": "Copiar informe",
+        "copyError": "Copiar error",
+        "cancelAll": "Cancelar todas",
+        "retryAllFailed": "Reintentar todas las fallidas",
+        "reportIssue": "Reportar problema",
+        "reportIssueTitle": "Abrir una incidencia de GitHub precargada con este informe, tu versión de la app, el sistema operativo y los registros recientes",
+        "preparing": "Preparando",
+        "viewBackups": "Ver copias de seguridad",
+        "viewBackupsTitle": "Ver las instantáneas recién creadas"
+      },
+      "stageStep": "paso {current} de {total}",
+      "retrying": "Reintentando",
+      "empty": {
+        "title": "Ningún grupo seleccionado",
+        "body": "Elige un grupo a la izquierda para ver las etapas y errores de cada archivo."
+      },
+      "info": {
+        "running": "Actualizaciones en curso: cerrar DLSSync ahora las cancelará.",
+        "failed_one": "{count} función falló — categorizada abajo.",
+        "failed_other": "{count} funciones fallaron — categorizadas abajo.",
+        "applied_one": "Se aplicó {count} actualización {games} · copia de seguridad automática creada.",
+        "applied_other": "Se aplicaron {count} actualizaciones {games} · copia de seguridad automática creada.",
+        "appliedGames_one": "en {count} juego",
+        "appliedGames_other": "en {count} juegos"
+      },
+      "toast": {
+        "unsignedEnabled": "Omisión de DLL sin firmar activada",
+        "unsignedFailed": "No se pudo activar la omisión sin firmar: {error}",
+        "noSignatureFailures": "No hay errores de firma para reintentar",
+        "errorCopied": "Error copiado",
+        "reportCopied": "Informe copiado",
+        "clipboardUnavailable": "Portapapeles no disponible",
+        "issueFailed": "No se pudo abrir el reporte de incidencia: {error}"
+      }
+    },
+    "banner": {
+      "available": "DLSSync v{version} ya está disponible",
+      "subPortable": "Versión portable. Abre la página de la versión para que reemplaces el ejecutable.",
+      "subInstaller": "Se instala automáticamente y reinicia la aplicación. Tu biblioteca y tus copias de seguridad se conservan.",
+      "downloading": "Descargando v{version}",
+      "installing": "Instalando v{version}",
+      "subRestarting": "Reiniciando en un momento.",
+      "failedTitle": "La actualización falló",
+      "viewChangelog": "Ver registro de cambios",
+      "hideChangelog": "Ocultar registro de cambios",
+      "later": "Más tarde",
+      "skip": "Omitir esta versión",
+      "openRelease": "Abrir página de la versión",
+      "updateNow": "Actualizar ahora",
+      "notifTitle": "DLSSync v{version} disponible",
+      "notifBodyFallback": "Nueva versión lista para instalar.",
+      "noLongerAvailable": "La actualización ya no está disponible",
+      "toastInstalled": "Actualización instalada. Reiniciando…",
+      "toastFailed": "La actualización falló: {error}"
+    },
+    "support": {
+      "regionAria": "Apoya DLSSync",
+      "title": "¿Disfrutas DLSSync?",
+      "sub": "Una estrella, una recomendación en Nexus o un compartido ayudan a que otros lo encuentren.",
+      "star": "Estrella",
+      "starTitle": "Dale una estrella a DLSSync en GitHub",
+      "endorse": "Recomendar",
+      "endorseTitle": "Recomienda DLSSync en Nexus Mods",
+      "share": "Compartir",
+      "shareTitle": "Comparte DLSSync con un amigo",
+      "dontShowAgain": "No volver a mostrar"
+    },
+    "perf": {
+      "closeToTray": {
+        "label": "Minimizar a la bandeja",
+        "sub": "Mantén DLSSync ejecutándose en la bandeja del sistema cuando pulses la X. Usa el icono de la bandeja para recuperarlo. Recomendado para comprobar actualizaciones en segundo plano."
+      },
+      "efficiency": {
+        "label": "Modo de eficiencia al minimizar",
+        "sub": "Programa DLSSync en los núcleos eficientes y baja su prioridad mientras no lo estás mirando. Reduce el consumo de CPU y batería casi a cero. Muestra la insignia de la hoja verde en el Administrador de tareas."
+      },
+      "autostart": {
+        "label": "Iniciar con Windows",
+        "unavailable": "no disponible",
+        "sub": "Inicia DLSSync en la bandeja del sistema al arrancar Windows, para que las comprobaciones de actualización ocurran en segundo plano, sin ventana visible. Se inicia con"
+      },
+      "toast": {
+        "closeToTrayFailed": "No se pudo cambiar minimizar a la bandeja: {error}",
+        "autostartFailed": "No se pudo cambiar el inicio automático: {error}"
+      }
+    },
+    "card": {
+      "menu": {
+        "aria": "Acciones del juego"
+      },
+      "customFolderHint": "Carpeta personalizada · las DLL pueden estar en otro lugar",
+      "scanFailedTitle": "Error al escanear — abre y haz clic en Volver a escanear",
+      "updatesAvailable_one": "{count} actualización disponible",
+      "updatesAvailable_other": "{count} actualizaciones disponibles",
+      "hidden": "Oculto",
+      "restoreToLibrary": "Restaurar a la biblioteca",
+      "applyLatest": "Aplicar las DLL más recientes",
+      "openInstallFolder": "Abrir carpeta de instalación",
+      "hideFromList": "Ocultar de la lista",
+      "hide": "Ocultar",
+      "chipFilesSuffix_one": " · {count} archivo",
+      "chipFilesSuffix_other": " · {count} archivos",
+      "chipUpdateSuffix": " · actualización disponible",
+      "moreCount_one": "{count} más",
+      "moreCount_other": "{count} más",
+      "noSupportedDlls": "No hay DLL compatibles",
+      "rowAria": "{name}, {status}",
+      "updatesShort_one": "{count} actualización",
+      "updatesShort_other": "{count} actualizaciones",
+      "versionDiffTitle": "Diferencia de versión principal"
+    },
+    "chrome": {
+      "topbar": {
+        "searchPlaceholder": "Buscar juegos",
+        "commandPaletteTitle": "Paleta de comandos ({mod}K)",
+        "commandPaletteAria": "Abrir la paleta de comandos",
+        "notifications": "Notificaciones",
+        "unreadNotifications_one": "{count} notificación sin leer",
+        "unreadNotifications_other": "{count} notificaciones sin leer",
+        "toggleTheme": "Cambiar tema",
+        "minimize": "Minimizar",
+        "minimizeAria": "Minimizar la ventana",
+        "maximize": "Maximizar",
+        "maximizeAria": "Maximizar la ventana",
+        "closeAria": "Cerrar la ventana"
+      },
+      "dock": {
+        "tasksRunning_one": "{count} tarea en ejecución",
+        "tasksRunning_other": "{count} tareas en ejecución",
+        "inProgress": "en curso",
+        "backgroundActivity": "Actividad en segundo plano",
+        "showDetails": "Ver detalles"
+      },
+      "sidebar": {
+        "libraryGroup": "Biblioteca",
+        "generalGroup": "General",
+        "outdatedCount_one": "{count} desactualizado",
+        "outdatedCount_other": "{count} desactualizados",
+        "restorableCount_one": "{count} restaurable",
+        "restorableCount_other": "{count} restaurables",
+        "collapse": "Contraer la barra lateral",
+        "expand": "Expandir la barra lateral",
+        "collapseLabel": "Contraer"
+      }
+    },
+    "gameDrawer": {
+      "thisGame": "este juego",
+      "featureFallback": "Función",
+      "toast": {
+        "rescanComplete": "Reescaneo completado",
+        "rescanFailed": "Reescaneo fallido: {error}",
+        "featureEnabled": "{feature} activado para {game}",
+        "featureDisabled": "{feature} desactivado para {game}",
+        "nothingSelected": "No se seleccionó nada",
+        "rescanAfterApplyFailed": "El reescaneo tras aplicar falló: {error} — cierra y vuelve a abrir el juego para actualizar",
+        "openFolderFailed": "Abrir carpeta: {error}",
+        "openLinkFailed": "No se pudo abrir el enlace: {error}"
+      },
+      "menu": {
+        "rescan": "Reescanear",
+        "hideGame": "Ocultar juego"
+      },
+      "backToLibrary": "Volver a la biblioteca",
+      "backToLibraryTitle": "Volver a la biblioteca (Esc)",
+      "ribbon": {
+        "scanning": "Escaneando DLL…",
+        "scanFailed": "Escaneo fallido:",
+        "noDlls": "No se detectaron DLL compatibles",
+        "allUpToDate_one": "Todo actualizado · {count} archivo",
+        "allUpToDate_other": "Todo actualizado · {count} archivos",
+        "updatesReady_one": "{count} actualización lista",
+        "updatesReady_other": "{count} actualizaciones listas",
+        "aheadSuffix_one": " · {count} por delante del catálogo",
+        "aheadSuffix_other": " · {count} por delante del catálogo"
+      },
+      "status": {
+        "notInCatalog": "No está en el catálogo",
+        "disabled": "Desactivado",
+        "updatesReady": "Actualizaciones listas",
+        "updateReady": "Actualización lista",
+        "aheadOfCatalog": "Por delante del catálogo"
+      },
+      "anticheat": {
+        "learnMore": "Más información",
+        "learnMoreTitle": "Abrir la referencia de compatibilidad anti-trampas"
+      },
+      "loading": {
+        "scanning": "Escaneando DLL",
+        "rescanning": "Reescaneando"
+      },
+      "scanError": {
+        "title": "Escaneo fallido",
+        "hint": "Suele ser una condición de carrera de E/S transitoria durante el escaneo concurrente inicial. Haz clic abajo para reintentar solo este juego.",
+        "retry": "Reescanear este juego"
+      },
+      "empty": {
+        "title": "No se encontraron archivos de DLSS, FSR ni XeSS",
+        "body": "Escaneamos esta carpeta y no encontramos ninguna DLL de escalado compatible. Si el juego las incluye en una subcarpeta personalizada, prueba Reescanear o abre la carpeta para comprobarlo."
+      },
+      "stat": {
+        "files": "Archivos",
+        "updates": "Actualizaciones",
+        "selected": "Seleccionados"
+      },
+      "selectAllUpdates": "Seleccionar todas las actualizaciones ({count})",
+      "clearSelection": "Borrar selección",
+      "feature": {
+        "selectAll": "Seleccionar todas las actualizaciones de esta función",
+        "deselectAll": "Deseleccionar todo en esta función",
+        "reEnable": "Reactivar la función para este juego",
+        "disable": "Desactivar la función para este juego",
+        "toggleAria": "Alternar función"
+      },
+      "version": {
+        "pickDifferent": "Elegir otra versión",
+        "choose": "Elegir una versión",
+        "chooseVersion": "elegir versión",
+        "catalogAside": "· catálogo v{version}",
+        "pinned": "Fijada",
+        "pinnedTitle": "Fijada por ti"
+      },
+      "files": {
+        "showMany": "Mostrar archivos ({count})",
+        "hideMany": "Ocultar archivos",
+        "showOne": "Mostrar archivo",
+        "hideOne": "Ocultar archivo"
+      },
+      "fileStatus": {
+        "update": "Actualizar",
+        "ahead": "Adelantado",
+        "aheadTitle": "La versión instalada es más reciente que la que registra el catálogo",
+        "current": "Actual"
+      },
+      "dlss": {
+        "sub": "Fuerza el preajuste de DLSS y el modo de generación de fotogramas para este juego mediante su perfil de controlador NVIDIA.",
+        "locating": "Localizando el ejecutable del juego…",
+        "noExe": "No se pudo localizar automáticamente el ejecutable principal de este juego; usa la anulación global en Ajustes en su lugar."
+      },
+      "foot": {
+        "openFolderTitle": "Abrir carpeta de instalación",
+        "rescanTitle": "Reescanear la carpeta de instalación de este juego",
+        "restore": "Restaurar",
+        "hide": "Ocultar",
+        "aheadChip_one": "{count} por delante del catálogo",
+        "aheadChip_other": "{count} por delante del catálogo"
+      },
+      "streamlineSet": {
+        "title": "Actualizar el conjunto coincidente de complementos NVIDIA Streamline como una sola transacción atómica (todos los archivos, o ninguno).",
+        "label_one": "Actualizar conjunto de Streamline ({count})",
+        "label_other": "Actualizar conjunto de Streamline ({count})",
+        "labelVersion_one": "Actualizar conjunto de Streamline → v{version} ({count})",
+        "labelVersion_other": "Actualizar conjunto de Streamline → v{version} ({count})"
+      },
+      "applySelected_one": "Aplicar selección ({count})",
+      "applySelected_other": "Aplicar selección ({count})"
+    },
+    "flyout": {
+      "modulesSubtitle": "Entra en cualquier módulo para ver todas las versiones, copiar URLs de CDN o descargar directamente",
+      "advancedTech": "Tecnología avanzada de {vendor}",
+      "backToModules": "Volver a los módulos",
+      "filterModules": "Filtrar módulos…",
+      "moduleCount": "{shown} de {count} módulo",
+      "moduleCount_one": "{shown} de {count} módulo",
+      "moduleCount_other": "{shown} de {count} módulos",
+      "noModulesMatch": "Ningún módulo coincide.",
+      "viewVersionsOf": "Ver versiones de {name}",
+      "filterVersionsFilesNotes": "Filtrar versiones, archivos o notas…",
+      "stableOnly": "Solo estable",
+      "stableOnlyHidden": "Solo estable (-{count})",
+      "loadingVersions": "Cargando versiones…",
+      "failedToLoad": "Error al cargar: {error}",
+      "noVersionsTracked": "Aún no se rastrean versiones.",
+      "noVersionsTrackedDetail": "Esta tecnología aún no tiene versiones upstream rastreadas en el manifiesto de DLSSync.",
+      "noMatches": "Sin coincidencias.",
+      "noMatchesDetail": "Borra el filtro o incluye versiones beta.",
+      "latest": "Más reciente",
+      "beta": "Beta",
+      "signedByVendor": "Firmado por el proveedor",
+      "openDownloadUrlTitle": "Abrir la URL de descarga en el navegador",
+      "copyCdnUrlTitle": "Copiar la URL del CDN al portapapeles",
+      "versionCount": "{shown} de {count} versión",
+      "versionCount_one": "{shown} de {count} versión",
+      "versionCount_other": "{shown} de {count} versiones",
+      "toast": {
+        "noDownloadUrl": "No hay URL de descarga para esta versión",
+        "opening": "Abriendo {file} (v{version})…",
+        "openFailed": "Error al abrir: {error}",
+        "noUrl": "Esta versión no tiene URL",
+        "copiedUrl": "URL copiada para v{version}",
+        "copyFailed": "Error al copiar: {error}"
+      },
+      "whqlOnly": "Solo WHQL",
+      "whqlOnlyHidden": "Solo WHQL (-{count})",
+      "whqlOnlyAllWhql": "Solo WHQL · todos los controladores cargados son WHQL",
+      "driverHistoryAria": "Historial de controladores {vendor} para {model}",
+      "driverHistorySubtitle": "Todas las versiones de controlador conocidas como compatibles con esta GPU",
+      "filterVersionsNotes": "Filtrar versiones o notas de la versión…",
+      "loadingDriverHistory": "Cargando el historial de controladores del proveedor…",
+      "noHistoricalDrivers": "El proveedor no devolvió controladores históricos para esta GPU.",
+      "noVersionsMatchFilter": "Ninguna versión coincide con tu filtro.",
+      "latestUpper": "MÁS RECIENTE",
+      "notes": "Notas",
+      "openReleaseNotesPageTitle": "Abrir las notas oficiales de la versión / página del controlador",
+      "installing": "Instalando…",
+      "installFailed": "Error al instalar: {error}",
+      "advancedManualControl": "Tecnología avanzada: control manual",
+      "pickVersion": "Elegir versión",
+      "currentlyInstalled": "Instalada actualmente",
+      "notInCatalog": "No está en el catálogo",
+      "recommended": "Recomendada",
+      "recommendedUpdate": "Actualización recomendada",
+      "vendorRecommended": "Recomendada por el proveedor",
+      "latestStable": "Última estable",
+      "autoUpstreamRecommended": "Automático · recomendada por el proveedor upstream",
+      "useLatest": "Usar la última",
+      "keepCurrent": "Mantener la actual",
+      "filterVersionsOrNotes": "Filtrar versiones o notas…",
+      "stableOnlyTitle": "Ocultar versiones beta y experimentales",
+      "showOlder": "Mostrar anteriores",
+      "showOlderCount": "Mostrar anteriores ({count})",
+      "showOlderTitle": "Incluir versiones anteriores a la instalada actualmente",
+      "allVersions": "Todas las versiones",
+      "loadingReleaseHistory": "Cargando el historial de versiones…",
+      "noUpstreamCatalog": "Aún no hay catálogo upstream para este archivo.",
+      "noUpstreamCatalogDetail": "{file} aún no tiene una fuente de manifiesto rastreada en DLSSync. Consulta el portal del proveedor para ver versiones nuevas.",
+      "newerVersions": "Versiones más recientes",
+      "newer": "Más reciente",
+      "installed": "Instalada",
+      "olderVersions": "Versiones anteriores",
+      "older": "Anterior",
+      "noMatchesInView": "Sin coincidencias en esta vista.",
+      "noMatchesInViewDetail": "Borra el filtro, desactiva \"Solo estable\" o activa \"Mostrar anteriores\".",
+      "versionCountMatched": "{shown} de {count} versión coincidente",
+      "versionCountMatched_one": "{shown} de {count} versión coincidente",
+      "versionCountMatched_other": "{shown} de {count} versiones coincidentes"
+    },
+    "misc": {
+      "select": {
+        "placeholder": "Seleccionar…"
+      }
+    },
+    "notif": {
+      "title": "Notificaciones",
+      "empty": "Todo al día.",
+      "markAllRead": "Marcar todo como leído",
+      "dismissAria": "Descartar notificación",
+      "justNow": "ahora mismo",
+      "relativeAgo": "hace {dur}",
+      "entriesCount_one": "{count} entrada",
+      "entriesCount_other": "{count} entradas",
+      "link": {
+        "githubRelease": "Versión en GitHub",
+        "vendorPage": "Página del fabricante",
+        "nexusMods": "Nexus Mods"
+      }
+    },
+    "dlss": {
+      "heading": "Anulaciones de DLSS",
+      "headingGlobal": "Anulaciones de DLSS — predeterminado global",
+      "activeCount": "{count} activas",
+      "refresh": "Actualizar desde el controlador",
+      "refreshTitle": "Volver a leer los valores actuales del controlador NVIDIA",
+      "source": {
+        "fromDriver": "Desde el controlador NVIDIA",
+        "setInDriver": "Definido en el controlador NVIDIA",
+        "inheritedGlobal": "Heredado del predeterminado global"
+      },
+      "grdRequired": "Se necesita el Game Ready Driver 572.16 o más reciente para las anulaciones de DLSS 4.",
+      "superResolution": "Super Resolution",
+      "frameGeneration": "Frame Generation",
+      "forceLatestSrDll": "Forzar la DLL de DLSS instalada más reciente",
+      "forceLatestFgDll": "Forzar la DLL de Frame Generation instalada más reciente",
+      "modelPreset": "Ajuste del modelo",
+      "modelPresetAria": "Ajuste del modelo DLSS",
+      "noPresetOverride": "Sin anulación de ajuste",
+      "mode": "Modo",
+      "modeAria": "Modo de Frame Generation",
+      "noModeOverride": "Sin anulación de modo",
+      "needsDriver": "{label} — requiere el controlador {version}+",
+      "fixedMultiplier": "Multiplicador fijo",
+      "fixedMultiplierAria": "Multiplicador fijo",
+      "appControlled": "Controlado por la app",
+      "targetFrameRate": "Tasa de fotogramas objetivo",
+      "targetFrameRatePlaceholder": "p. ej. 240",
+      "dynamicHelp": "El modo dinámico apunta a esta tasa de fotogramas (o a la frecuencia máxima de tu monitor). Déjalo en blanco para igualar la pantalla. No es compatible con limitadores de fotogramas ni con V-Sync.",
+      "learnMore": "Más información ↗",
+      "working": "Procesando…",
+      "resetToDefault": "Restablecer a predeterminado",
+      "note": "Escribe un perfil de aplicación del controlador NVIDIA — el mismo mecanismo que usa la app de NVIDIA. Totalmente reversible con Restablecer. Los títulos multijugador con anti-trampas pueden marcar un perfil forzado; consulta primero la política del juego.",
+      "toast": {
+        "openLinkFailed": "No se pudo abrir el enlace: {error}",
+        "needsElevation": "Super Resolution aplicado. Las anulaciones de Frame Generation requieren administrador — reinicia DLSSync como administrador para aplicarlas.",
+        "applied": "Anulación de DLSS aplicada — reinicia el juego para que surta efecto.",
+        "applyFailed": "Error al aplicar: {error}",
+        "reset": "Anulación de DLSS restablecida al predeterminado del controlador.",
+        "resetFailed": "Error al restablecer: {error}"
+      }
+    },
+    "palette": {
+      "aria": "Paleta de comandos",
+      "placeholder": "Busca comandos o salta a una vista",
+      "tabToCycle": "Tab para alternar",
+      "recent": "Recientes",
+      "empty": {
+        "title": "Ningún comando coincide con “{q}”",
+        "hint": "Prueba con el nombre de una vista, un fabricante o una acción."
+      },
+      "footer": {
+        "navigate": "navegar",
+        "run": "ejecutar",
+        "category": "categoría",
+        "close": "cerrar"
+      },
+      "shortcuts": {
+        "title": "Atajos de teclado",
+        "closeAria": "Cerrar la ventana de atajos"
+      },
+      "scope": {
+        "global": "Global",
+        "library": "Biblioteca",
+        "drawer": "Panel del juego",
+        "modal": "Ventana modal",
+        "palette": "Paleta de comandos"
+      }
+    }
+  },
+  "toast": {
+    "scanGamesFound": "Se encontraron {count} juegos",
+    "scanFailed": "Error al escanear: {msg}",
+    "gamesFailedToScan_one": "{count} juego no se pudo escanear — ábrelo y vuelve a escanear para reintentar",
+    "gamesFailedToScan_other": "{count} juegos no se pudieron escanear — ábrelos y vuelve a escanear para reintentar",
+    "catalogRefreshFailed": "Error al actualizar el catálogo: {msg}",
+    "driverCheckFailed": "Error al comprobar controladores: {msg}",
+    "installFailed": "Error al instalar: {msg}",
+    "backupsLoadFailed": "No se pudieron cargar las copias de seguridad: {msg}",
+    "driverHistoryLoadFailed": "No se pudo cargar el historial de controladores: {msg}",
+    "systemDriverScanFailed": "Error al escanear controladores del sistema: {msg}",
+    "systemDriverInstalled": "{title} instalado.{reboot}",
+    "systemDriverInstalledReboot": " Es necesario reiniciar para finalizar.",
+    "settingsLoadFailed": "No se pudo cargar la configuración: {msg}",
+    "settingsSaveFailed": "No se pudo guardar la configuración: {msg}",
+    "saveFailed": "No se pudo guardar: {msg}",
+    "nothingSelected": "Nada seleccionado",
+    "queuedAcross": "{updates} en cola {games}",
+    "queuedUpdates_one": "{count} actualización",
+    "queuedUpdates_other": "{count} actualizaciones",
+    "queuedGames_one": "en {count} juego",
+    "queuedGames_other": "en {count} juegos",
+    "batchApplyFailed": "Error al aplicar el lote: {msg}",
+    "streamlineNoUpdates": "No hay actualizaciones de Streamline disponibles",
+    "streamlineUpdating_one": "Actualizando el conjunto de Streamline ({count} archivo)…",
+    "streamlineUpdating_other": "Actualizando el conjunto de Streamline ({count} archivos)…",
+    "streamlineUpdated_one": "Conjunto de Streamline actualizado ({count} archivo)",
+    "streamlineUpdated_other": "Conjunto de Streamline actualizado ({count} archivos)",
+    "streamlineRolledBack": " — se restauró el conjunto anterior",
+    "streamlineSetFailed": "Error en el conjunto de Streamline",
+    "streamlineUpdateFailed": "Error al actualizar el conjunto de Streamline: {error}{rolledBack}",
+    "unknownError": "desconocido",
+    "streamlineApplyFailed": "Error al aplicar el conjunto de Streamline: {msg}",
+    "trackerUpdatedTo": "Actualizado a v{version}",
+    "trackerUpdated": "Actualizado",
+    "trackerQueued": "En cola",
+    "trackerRetrying": "Reintentando…",
+    "starting": "Iniciando…"
+  },
+  "notif": {
+    "catalog": {
+      "available": "{label} {version} disponible",
+      "wasVersion": "Antes {version}",
+      "moreUpdates_one": "+{count} actualización de catálogo más",
+      "moreUpdates_other": "+{count} actualizaciones de catálogo más",
+      "familiesChanged_one": "{count} familia cambió en esta actualización",
+      "familiesChanged_other": "{count} familias cambiaron en esta actualización"
+    },
+    "driver": {
+      "title": "Controlador de GPU {version} — {model}",
+      "body": "Nuevo controlador de {vendor} disponible",
+      "latestFallback": "más reciente"
+    },
+    "systemDriver": {
+      "available_one": "{count} actualización de controlador del sistema disponible",
+      "available_other": "{count} actualizaciones de controladores del sistema disponibles",
+      "categories_one": "En {count} categoría de hardware",
+      "categories_other": "En {count} categorías de hardware"
+    },
+    "apply": {
+      "successTitle": "{gameLabel} actualizado",
+      "failureTitle": "Error al actualizar {gameLabel}",
+      "cancelledTitle": "Actualización de {gameLabel} cancelada",
+      "successBody": "{family} → {version}"
+    }
+  },
+  "anticheat": {
+    "banRisk": "Se detectó {names}. Intercambiar una DLL o forzar una anulación del perfil de controlador DLSS en un título con anti-trampas puede interpretarse como un archivo manipulado y hacer que expulsen o suspendan tu cuenta.",
+    "banRiskTamperSuffix": " La capa anti-manipulación también puede negarse a iniciar si la firma no coincide.",
+    "banRiskClose": " Revisa la política del juego antes de aplicar.",
+    "tamperRisk": "Se detectó {names}. Intercambiar una DLL o forzar una anulación de preset DLSS puede fallar la verificación de firma de protección anti-manipulación del juego e impedir que inicie. Las copias de seguridad de DLSSync restauran los originales al instante si eso ocurre.",
+    "drm": "Se detectó {names}. El DRM de la tienda de este juego valida sus archivos; un intercambio de DLL suele estar bien pero puede requerir una nueva verificación de integridad del lanzador. Las copias de seguridad de DLSSync restauran los originales.",
+    "linuxStatus": "Compatibilidad con Linux / Wine: {status}."
+  }
+}

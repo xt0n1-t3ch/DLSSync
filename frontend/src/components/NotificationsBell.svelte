@@ -12,6 +12,8 @@
   import { currentView } from "../lib/stores";
   import { formatDurationSecs } from "../lib/formatHuman";
   import { EXTERNAL_URLS } from "../lib/ux";
+  import { t, translate, locale } from "../lib/i18n/index";
+  import { get } from "svelte/store";
 
   let { open, onClose }: { open: boolean; onClose: () => void } = $props();
   let panelEl: HTMLDivElement | undefined = $state();
@@ -66,18 +68,19 @@
   }
 
   function linkActions(entry: NotificationEntry): { label: string; url: string }[] {
+    const loc = get(locale);
     const actions: { label: string; url: string }[] = [];
     if (entry.link) {
       const label =
         entry.kind === "app_update_available"
-          ? "GitHub release"
+          ? translate(loc, "component.notif.link.githubRelease")
           : entry.kind === "driver_update_available" || entry.kind === "system_driver_update_available"
-            ? "Vendor page"
-            : "Open";
+            ? translate(loc, "component.notif.link.vendorPage")
+            : translate(loc, "common.open");
       actions.push({ label, url: entry.link });
     }
     if (entry.kind === "app_update_available") {
-      actions.push({ label: "Nexus Mods", url: EXTERNAL_URLS.nexusMod });
+      actions.push({ label: translate(loc, "component.notif.link.nexusMods"), url: EXTERNAL_URLS.nexusMod });
     }
     return actions;
   }
@@ -110,10 +113,11 @@
   }
 
   function relativeTime(iso: string): string {
+    const loc = get(locale);
     const then = new Date(iso).getTime();
     const secs = Math.max(0, Math.floor((Date.now() - then) / 1000));
-    if (secs < 5) return "just now";
-    return `${formatDurationSecs(secs)} ago`;
+    if (secs < 5) return translate(loc, "component.notif.justNow");
+    return translate(loc, "component.notif.relativeAgo", { dur: formatDurationSecs(secs) });
   }
 
   function kindIcon(kind: NotificationKind): string {
@@ -148,32 +152,17 @@
     }
   }
 
-  function kindLabel(kind: NotificationKind): string {
-    switch (kind) {
-      case "apply_success": return "Update succeeded";
-      case "apply_failure": return "Update failed";
-      case "apply_cancelled": return "Update cancelled";
-      case "app_update_available": return "App update available";
-      case "catalog_update_available": return "New catalog version";
-      case "driver_update_available": return "GPU driver update";
-      case "system_driver_update_available": return "System driver update";
-      case "backup_restored": return "Backup restored";
-      case "scan_failed": return "Library scan failed";
-      case "catalog_refresh_failed": return "Catalog refresh failed";
-      default: return "Notification";
-    }
-  }
 </script>
 
 {#if open}
-  <div class="bell-panel glass-dialog" role="dialog" aria-label="Notifications" bind:this={panelEl}>
+  <div class="bell-panel glass-dialog" role="dialog" aria-label={$t("component.notif.title")} bind:this={panelEl}>
     <header class="bell-panel-header">
-      <span class="bell-panel-title">Notifications</span>
-      <span class="bell-panel-count" aria-label="{entries.length} entries">{entries.length}</span>
+      <span class="bell-panel-title">{$t("component.notif.title")}</span>
+      <span class="bell-panel-count" aria-label={$t("component.notif.entriesCount", { count: entries.length })}>{entries.length}</span>
     </header>
     <div class="bell-panel-list" role="list">
       {#if entries.length === 0}
-        <div class="bell-panel-empty">All caught up.</div>
+        <div class="bell-panel-empty">{$t("component.notif.empty")}</div>
       {:else}
         {#each entries as entry (entry.id)}
           <div
@@ -189,7 +178,7 @@
                 type="button"
                 class="bell-item-main"
                 onclick={() => handleItemClick(entry)}
-                aria-label="{kindLabel(entry.kind)}: {entry.title}"
+                aria-label="{$t('notifKind.' + entry.kind)}: {entry.title}"
               >
                 <span class="aura-badge bell-item-badge" data-tint={tintForKind(entry.kind)} aria-hidden="true">
                   {kindIcon(entry.kind)}
@@ -205,8 +194,8 @@
               <button
                 type="button"
                 class="bell-item-dismiss"
-                title="Dismiss"
-                aria-label="Dismiss notification"
+                title={$t("common.dismiss")}
+                aria-label={$t("component.notif.dismissAria")}
                 onclick={(ev) => handleDismiss(entry, ev)}
               >
                 ×
@@ -233,7 +222,7 @@
     {#if entries.length > 0}
       <footer class="bell-panel-footer">
         <button type="button" class="bell-panel-action" onclick={handleMarkAll}>
-          Mark all read
+          {$t("component.notif.markAllRead")}
         </button>
       </footer>
     {/if}

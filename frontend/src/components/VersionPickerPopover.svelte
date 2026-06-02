@@ -1,13 +1,13 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { fly } from "svelte/transition";
+  import { t } from "../lib/i18n/index";
   import { listReleases, type Release, type DllFamily } from "../lib/api";
   import {
     familyVendor,
     familyCatalogKey,
     familyShort,
     featureTitle,
-    featureBlurb,
     featureIconId,
     recordFeature,
   } from "../lib/labels";
@@ -41,7 +41,7 @@
 
   let feature = $derived(recordFeature({ family, path: filename, current_version: null, file_description: null, sha256: null }));
   let title = $derived(feature === "advanced" ? `${familyShort(family)}` : featureTitle(feature));
-  let subtitle = $derived(feature === "advanced" ? "Advanced technology — manual control" : featureBlurb(feature));
+  let subtitle = $derived(feature === "advanced" ? $t("component.flyout.advancedManualControl") : $t("feature." + feature + ".blurb"));
   let icon = $derived(featureIconId(feature));
 
   onMount(async () => {
@@ -157,7 +157,7 @@
 </script>
 
 <div class="picker-backdrop" role="presentation" onclick={onClose} onkeydown={handleKey} tabindex="-1"></div>
-<div class="picker glass-dialog" transition:fly={{ y: -6, duration: 140 }} onkeydown={handleKey} role="dialog" aria-label="Pick version" tabindex="-1">
+<div class="picker glass-dialog" transition:fly={{ y: -6, duration: 140 }} onkeydown={handleKey} role="dialog" aria-label={$t("component.flyout.pickVersion")} tabindex="-1">
   <header class="picker-head">
     <div class="picker-glyph" aria-hidden="true">
       <FeatureIcon id={icon} size={20} />
@@ -167,42 +167,42 @@
       <span class="subtitle-line">{subtitle}</span>
       <span class="file-line mono">{filename}</span>
     </div>
-    <button class="dialog-close" onclick={onClose} aria-label="Close">
+    <button class="dialog-close" onclick={onClose} aria-label={$t("common.close")}>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
   </header>
 
-  <section class="rank rank-1" aria-label="Currently installed">
-    <span class="rank-eyebrow">Currently installed</span>
+  <section class="rank rank-1" aria-label={$t("component.flyout.currentlyInstalled")}>
+    <span class="rank-eyebrow">{$t("component.flyout.currentlyInstalled")}</span>
     <div class="rank-1-row">
       <span class="installed-version mono">v{currentVersion ?? "—"}</span>
       {#if !currentVersion}
-        <span class="chip chip-neutral">Unknown</span>
+        <span class="chip chip-neutral">{$t("status.unknown")}</span>
       {:else if !currentInCatalog && !loading}
-        <span class="chip chip-neutral">Not in catalog</span>
+        <span class="chip chip-neutral">{$t("component.flyout.notInCatalog")}</span>
       {:else if recommendedIsNewer}
-        <span class="chip chip-update is-strong">Update available</span>
+        <span class="chip chip-update is-strong">{$t("status.outdated")}</span>
       {:else}
-        <span class="chip chip-success">Up to date</span>
+        <span class="chip chip-success">{$t("status.up_to_date")}</span>
       {/if}
     </div>
   </section>
 
   {#if recommendedVersion}
-    <section class="rank rank-2" aria-label="Recommended">
-      <span class="rank-eyebrow accent">{recommendedIsNewer ? "Recommended update" : "Vendor recommended"}</span>
+    <section class="rank rank-2" aria-label={$t("component.flyout.recommended")}>
+      <span class="rank-eyebrow accent">{recommendedIsNewer ? $t("component.flyout.recommendedUpdate") : $t("component.flyout.vendorRecommended")}</span>
       <button class="rec-tile" class:is-current={!recommendedIsNewer} onclick={() => pick(null)}>
         <div class="rec-meta">
-          <span class="rec-label">Latest stable</span>
+          <span class="rec-label">{$t("component.flyout.latestStable")}</span>
           <span class="rec-version mono">v{recommendedVersion}</span>
-          <span class="rec-sub">Auto · upstream vendor recommended</span>
+          <span class="rec-sub">{$t("component.flyout.autoUpstreamRecommended")}</span>
         </div>
         <div class="rec-cta">
           {#if recommendedIsNewer}
-            <span class="rec-cta-text">Use latest</span>
+            <span class="rec-cta-text">{$t("component.flyout.useLatest")}</span>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
           {:else}
-            <span class="rec-cta-text">Keep current</span>
+            <span class="rec-cta-text">{$t("component.flyout.keepCurrent")}</span>
           {/if}
         </div>
       </button>
@@ -212,32 +212,32 @@
   <div class="picker-toolbar">
     <input
       type="search"
-      placeholder="Filter versions or notes…"
+      placeholder={$t("component.flyout.filterVersionsOrNotes")}
       bind:value={query}
       class="picker-search"
     />
-    <label class="picker-toggle" title="Hide beta and experimental builds">
+    <label class="picker-toggle" title={$t("component.flyout.stableOnlyTitle")}>
       <input type="checkbox" bind:checked={stableOnly} />
-      <span>Stable only{hiddenByStable > 0 ? ` (-${hiddenByStable})` : ""}</span>
+      <span>{hiddenByStable > 0 ? $t("component.flyout.stableOnlyHidden", { count: hiddenByStable }) : $t("component.flyout.stableOnly")}</span>
     </label>
-    <label class="picker-toggle" title="Include versions older than the currently installed one">
+    <label class="picker-toggle" title={$t("component.flyout.showOlderTitle")}>
       <input type="checkbox" bind:checked={showOlder} />
-      <span>Show older{olderRows.length > 0 ? ` (${olderRows.length})` : ""}</span>
+      <span>{olderRows.length > 0 ? $t("component.flyout.showOlderCount", { count: olderRows.length }) : $t("component.flyout.showOlder")}</span>
     </label>
   </div>
 
-  <section class="rank rank-3" aria-label="All versions">
+  <section class="rank rank-3" aria-label={$t("component.flyout.allVersions")}>
     {#if loading}
       <div class="picker-state">
         <span class="spinner"></span>
-        <span>Loading release history…</span>
+        <span>{$t("component.flyout.loadingReleaseHistory")}</span>
       </div>
     {:else if error}
-      <div class="picker-state danger">Failed to load: {error}</div>
+      <div class="picker-state danger">{$t("component.flyout.failedToLoad", { error })}</div>
     {:else if releases.length === 0}
       <div class="picker-state">
-        <p><strong>No upstream catalog yet for this file.</strong></p>
-        <p class="small">{filename} doesn't have a tracked manifest source in DLSSync yet. Check the vendor portal for fresh releases.</p>
+        <p><strong>{$t("component.flyout.noUpstreamCatalog")}</strong></p>
+        <p class="small">{$t("component.flyout.noUpstreamCatalogDetail", { file: filename })}</p>
         {#if vendorPortal().url}
           <button class="btn btn-sm btn-accent" onclick={() => openExternal(vendorPortal().url)}>
             {vendorPortal().label}
@@ -248,7 +248,7 @@
       {#if newerRows.length > 0}
         <div class="group-head">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
-          Newer versions
+          {$t("component.flyout.newerVersions")}
           <span class="group-count">{newerRows.length}</span>
         </div>
         <ul class="picker-list">
@@ -267,13 +267,13 @@
                   </span>
                 </div>
                 <div class="row-tags">
-                  {#if r.release.channel === "experimental"}<span class="chip chip-warning small-chip">Beta</span>{/if}
+                  {#if r.release.channel === "experimental"}<span class="chip chip-warning small-chip">{$t("component.flyout.beta")}</span>{/if}
                   {#if r.release.signed}
-                    <span class="row-shield" title={r.release.signature_subject ?? "Signed by vendor"}>
+                    <span class="row-shield" title={r.release.signature_subject ?? $t("component.flyout.signedByVendor")}>
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
                     </span>
                   {/if}
-                  <span class="chip chip-update small-chip">Newer</span>
+                  <span class="chip chip-update small-chip">{$t("component.flyout.newer")}</span>
                 </div>
               </button>
             </li>
@@ -285,7 +285,7 @@
         {@const r = currentRow.release}
         <div class="group-head current">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>
-          Currently installed
+          {$t("component.flyout.currentlyInstalled")}
         </div>
         <ul class="picker-list">
           <li class="picker-row current" class:active={pickedVersion === r.version}>
@@ -302,11 +302,11 @@
               </div>
               <div class="row-tags">
                 {#if r.signed}
-                  <span class="row-shield" title={r.signature_subject ?? "Signed by vendor"}>
+                  <span class="row-shield" title={r.signature_subject ?? $t("component.flyout.signedByVendor")}>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
                   </span>
                 {/if}
-                <span class="chip chip-info small-chip">Installed</span>
+                <span class="chip chip-info small-chip">{$t("component.flyout.installed")}</span>
               </div>
             </button>
           </li>
@@ -316,7 +316,7 @@
       {#if olderRows.length > 0 && showOlder}
         <div class="group-head older">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
-          Older versions
+          {$t("component.flyout.olderVersions")}
           <span class="group-count">{olderRows.length}</span>
         </div>
         <ul class="picker-list">
@@ -335,8 +335,8 @@
                   </span>
                 </div>
                 <div class="row-tags">
-                  {#if r.release.channel === "experimental"}<span class="chip chip-warning small-chip">Beta</span>{/if}
-                  <span class="chip chip-neutral small-chip">Older</span>
+                  {#if r.release.channel === "experimental"}<span class="chip chip-warning small-chip">{$t("component.flyout.beta")}</span>{/if}
+                  <span class="chip chip-neutral small-chip">{$t("component.flyout.older")}</span>
                 </div>
               </button>
             </li>
@@ -346,15 +346,15 @@
 
       {#if newerRows.length === 0 && !currentRow && (olderRows.length === 0 || !showOlder)}
         <div class="picker-state">
-          <p>No matches in this view.</p>
-          <p class="small">Clear the filter, enable "Stable only" off, or toggle "Show older".</p>
+          <p>{$t("component.flyout.noMatchesInView")}</p>
+          <p class="small">{$t("component.flyout.noMatchesInViewDetail")}</p>
         </div>
       {/if}
     {/if}
   </section>
 
   <footer class="picker-foot">
-    <span class="foot-count">{filtered.length} of {releases.length} version{releases.length === 1 ? "" : "s"} matched</span>
+    <span class="foot-count">{$t("component.flyout.versionCountMatched", { shown: filtered.length, count: releases.length })}</span>
   </footer>
 </div>
 

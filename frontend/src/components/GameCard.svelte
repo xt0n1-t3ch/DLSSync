@@ -17,6 +17,7 @@
   import { dllRelation } from "../lib/relation";
   import { launcherIcon } from "../lib/launcherIcons";
   import { setActiveArt } from "../lib/artContext";
+  import { t } from "../lib/i18n/index";
   import FeatureIcon from "./FeatureIcon.svelte";
 
   let { game, hidden = false, onApply, onOpenFolder, onBlacklist, onClick, onContextMenu }: {
@@ -69,7 +70,7 @@
           count: 1,
           vendorAccent:
             f === "advanced" ? GROUP_ACCENT_VAR.advanced : vendorAccentVar(featureVendor(f)),
-          short: f === "advanced" ? "Other" : featureShort(f),
+          short: f === "advanced" ? $t("feature.advanced.short") : featureShort(f),
           iconId: featureIconId(f),
         });
       } else {
@@ -124,7 +125,7 @@
       <div class="art-fallback" class:is-empty-dotted={status === "no_dlls"}>
         <span class="art-fallback-text">{game.name.slice(0, 1).toUpperCase()}</span>
         {#if status === "no_dlls"}
-          <span class="art-empty-hint">Custom folder · DLLs may live elsewhere</span>
+          <span class="art-empty-hint">{$t("component.card.customFolderHint")}</span>
         {/if}
       </div>
     {/if}
@@ -137,35 +138,35 @@
         <span class="launcher-text">{launcherLabel(game.launcher)}</span>
       </span>
       {#if status === "scan_failed"}
-        <span class="status-pill is-danger" title="Scan failed — open and click Rescan" aria-label="Scan failed">
+        <span class="status-pill is-danger" title={$t("component.card.scanFailedTitle")} aria-label={$t("status.scan_failed")}>
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         </span>
       {:else if outdatedCount > 0}
-        <span class="status-count" aria-label={`${outdatedCount} update${outdatedCount === 1 ? "" : "s"} available`}>
+        <span class="status-count" aria-label={$t("component.card.updatesAvailable", { count: outdatedCount })}>
           {outdatedCount}
         </span>
       {/if}
     </div>
     {#if hidden}
-      <div class="hidden-ribbon" aria-label="Hidden">Hidden</div>
+      <div class="hidden-ribbon" aria-label={$t("component.card.hidden")}>{$t("component.card.hidden")}</div>
     {/if}
     <div class="art-hover-actions" onclick={(e) => e.stopPropagation()} role="presentation">
       {#if hidden}
-        <button class="hover-btn primary" onclick={() => onBlacklist(game)} title="Restore to library">
+        <button class="hover-btn primary" onclick={() => onBlacklist(game)} title={$t("component.card.restoreToLibrary")}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.93 6.63 2.46"/><polyline points="21 4 21 9 16 9"/></svg>
-          Restore
+          {$t("common.restore")}
         </button>
       {:else if status === "outdated"}
-        <button class="hover-btn primary" onclick={() => onApply(game)} title="Apply latest DLLs">
+        <button class="hover-btn primary" onclick={() => onApply(game)} title={$t("component.card.applyLatest")}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.93 6.63 2.46"/><polyline points="21 4 21 9 16 9"/></svg>
-          Apply
+          {$t("common.apply")}
         </button>
       {/if}
-      <button class="hover-btn round" onclick={() => onOpenFolder(game)} title="Open install folder" aria-label="Open install folder">
+      <button class="hover-btn round" onclick={() => onOpenFolder(game)} title={$t("component.card.openInstallFolder")} aria-label={$t("component.card.openInstallFolder")}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
       </button>
       {#if !hidden}
-        <button class="hover-btn round" onclick={() => onBlacklist(game)} title="Hide from list" aria-label="Hide from list">
+        <button class="hover-btn round" onclick={() => onBlacklist(game)} title={$t("component.card.hideFromList")} aria-label={$t("component.card.hideFromList")}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
         </button>
       {/if}
@@ -176,11 +177,11 @@
     {#if loading}
       <div class="loading-row">
         <span class="loading-dot"></span>
-        <span class="loading-text">Scanning</span>
+        <span class="loading-text">{$t("status.scanning")}</span>
       </div>
     {:else if dlls.length === 0}
       <div class="meta-row">
-        <span class="meta-text">No supported DLLs</span>
+        <span class="meta-text">{$t("component.card.noSupportedDlls")}</span>
       </div>
     {:else}
       <div class="feature-chips">
@@ -189,7 +190,7 @@
             class="feature-chip"
             class:outdated={fc.outdated}
             style:--chip-accent={fc.vendorAccent}
-            title="{fc.short}{fc.count > 1 ? ` · ${fc.count} files` : ''}{fc.outdated ? ' · update available' : ''}"
+            title="{fc.short}{fc.count > 1 ? $t('component.card.chipFilesSuffix', { count: fc.count }) : ''}{fc.outdated ? $t('component.card.chipUpdateSuffix') : ''}"
           >
             <span class="feature-chip-icon" aria-hidden="true">
               <FeatureIcon id={fc.iconId} size={12} strokeWidth={1.8} />
@@ -201,7 +202,7 @@
           </span>
         {/each}
         {#if hiddenChipCount > 0}
-          <span class="feature-chip overflow" title="{hiddenChipCount} more">+{hiddenChipCount}</span>
+          <span class="feature-chip overflow" title={$t("component.card.moreCount", { count: hiddenChipCount })}>+{hiddenChipCount}</span>
         {/if}
       </div>
     {/if}

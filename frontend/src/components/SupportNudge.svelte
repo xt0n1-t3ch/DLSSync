@@ -7,9 +7,11 @@
   import Share2 from "@lucide/svelte/icons/share-2";
   import NexusLogo from "./NexusLogo.svelte";
   import X from "@lucide/svelte/icons/x";
+  import { get } from "svelte/store";
   import { supportNudgeVisible, dismissNudge, dontShowAgain, shareDlssync } from "../lib/community";
   import { EXTERNAL_URLS } from "../lib/ux";
   import { showToast, updateBannerActive } from "../lib/stores";
+  import { t, locale, translate } from "../lib/i18n/index";
 
   // Yield the bottom-left corner to the update banner when both want it.
   let visible = $derived($supportNudgeVisible && !$updateBannerActive);
@@ -46,8 +48,8 @@
 
   async function share(): Promise<void> {
     const result = await shareDlssync();
-    if (result === "copied") showToast("success", "Link copied - share DLSSync with a friend");
-    else if (result === "failed") showToast("warning", "Could not copy the link");
+    if (result === "copied") showToast("success", translate(get(locale), "common.shareCopied"));
+    else if (result === "failed") showToast("warning", translate(get(locale), "common.shareFailed"));
     dismissNudge();
   }
 </script>
@@ -56,32 +58,32 @@
   <div
     class="support-card"
     role="region"
-    aria-label="Support DLSSync"
+    aria-label={$t("component.support.regionAria")}
     aria-live="polite"
     in:fly={{ y: 20, duration: 340, easing: cubicOut }}
     out:fly={{ y: 20, duration: 180 }}
   >
     <span class="edge" aria-hidden="true"></span>
-    <button class="close" onclick={dismissNudge} aria-label="Dismiss"><X size={13} strokeWidth={2.4} /></button>
+    <button class="close" onclick={dismissNudge} aria-label={$t("common.dismiss")}><X size={13} strokeWidth={2.4} /></button>
     <div class="head">
       <span class="medallion" aria-hidden="true"><Heart size={15} fill="currentColor" strokeWidth={2} /></span>
       <div class="head-text">
-        <p class="title">Enjoying DLSSync?</p>
-        <p class="sub">A star, a Nexus endorsement, or a share helps others find it.</p>
+        <p class="title">{$t("component.support.title")}</p>
+        <p class="sub">{$t("component.support.sub")}</p>
       </div>
     </div>
     <div class="actions">
-      <button class="act is-star" onclick={star} title="Star DLSSync on GitHub">
-        <Star size={15} fill="currentColor" strokeWidth={2} /> Star
+      <button class="act is-star" onclick={star} title={$t("component.support.starTitle")}>
+        <Star size={15} fill="currentColor" strokeWidth={2} /> {$t("component.support.star")}
       </button>
-      <button class="act is-endorse" onclick={endorse} title="Endorse DLSSync on Nexus Mods">
-        <NexusLogo size={15} /> Endorse
+      <button class="act is-endorse" onclick={endorse} title={$t("component.support.endorseTitle")}>
+        <NexusLogo size={15} /> {$t("component.support.endorse")}
       </button>
-      <button class="act is-share" onclick={share} title="Share DLSSync with a friend">
-        <Share2 size={15} strokeWidth={2.2} /> Share
+      <button class="act is-share" onclick={share} title={$t("component.support.shareTitle")}>
+        <Share2 size={15} strokeWidth={2.2} /> {$t("component.support.share")}
       </button>
     </div>
-    <button class="dont" onclick={() => void dontShowAgain()}>Don't show again</button>
+    <button class="dont" onclick={() => void dontShowAgain()}>{$t("component.support.dontShowAgain")}</button>
   </div>
 {/if}
 

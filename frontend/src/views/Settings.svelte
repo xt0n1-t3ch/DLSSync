@@ -23,6 +23,9 @@
   import { LAUNCHER_BRANDS, LAUNCHER_BRAND_ORDER, type LauncherBrandKey } from "../lib/launcherLogos";
   import { resetNudgeSession } from "../lib/community";
   import BrandMark from "../components/BrandMark.svelte";
+  import Select from "../components/Select.svelte";
+  import { t, locale, setLocale, translate, LOCALES, LOCALE_LABELS, type Locale } from "../lib/i18n/index";
+  import { get } from "svelte/store";
 
   let { onToggleTheme, currentTheme }: { onToggleTheme: () => void; currentTheme: string } = $props();
   let dlssOverlayLive = $state(false);
@@ -57,13 +60,29 @@
     await persistSettings({ ...$settings, ui_prefs: { ...$settings.ui_prefs, show_support_nudge: on } });
   }
 
-  const TABS: { id: TabId; label: string; icon: string }[] = [
-    { id: "general", label: "General", icon: "settings" },
-    { id: "updates", label: "Update preferences", icon: "sync" },
-    { id: "detection", label: "Detection", icon: "scan" },
-    { id: "art", label: "Game art", icon: "image" },
-    { id: "advanced", label: "Advanced", icon: "flask" },
+  const TABS: { id: TabId; labelKey: string; icon: string }[] = [
+    { id: "general", labelKey: "view.settings.tab.general", icon: "settings" },
+    { id: "updates", labelKey: "view.settings.tab.updates", icon: "sync" },
+    { id: "detection", labelKey: "view.settings.tab.detection", icon: "scan" },
+    { id: "art", labelKey: "view.settings.tab.art", icon: "image" },
+    { id: "advanced", labelKey: "view.settings.tab.advanced", icon: "flask" },
   ];
+
+  const localeOptions = LOCALES.map((loc) => ({ value: loc, label: LOCALE_LABELS[loc] }));
+  let localeChoice = $state<Locale>(get(locale));
+
+  $effect(() => {
+    localeChoice = $locale;
+  });
+
+  $effect(() => {
+    if (localeChoice === get(locale)) return;
+    const next = localeChoice;
+    setLocale(next);
+    if ($settings) {
+      void persistSettings({ ...$settings, ui_prefs: { ...$settings.ui_prefs, language: next } });
+    }
+  });
 
   onMount(async () => {
     await loadSettings();
@@ -97,12 +116,12 @@
       if (available) {
         window.dispatchEvent(new CustomEvent("dlssync:check-updates", { detail: { force: true } }));
         const v = (update as { version?: string }).version ?? "unknown";
-        showToast("info", `v${v} is available — see the banner.`);
+        showToast("info", translate(get(locale), "view.settings.updates.toast.available", { version: v }));
       } else {
-        showToast("success", `You're on the latest version (v${appVersion}).`);
+        showToast("success", translate(get(locale), "view.settings.updates.toast.latest", { version: appVersion }));
       }
     } catch (err: unknown) {
-      showToast("danger", `Update check failed: ${String(err)}`);
+      showToast("danger", translate(get(locale), "view.settings.updates.toast.checkFailed", { error: String(err) }));
     } finally {
       updateChecking = false;
     }
@@ -118,9 +137,9 @@
         ...$settings,
         advanced: { ...$settings.advanced, dlss_debug_overlay: next },
       });
-      showToast("success", `DLSS Debug Overlay ${next ? "enabled" : "disabled"}`);
+      showToast("success", translate(get(locale), next ? "view.settings.toast.overlayEnabled" : "view.settings.toast.overlayDisabled"));
     } catch (err: unknown) {
-      showToast("danger", `Registry write: ${String(err)}`);
+      showToast("danger", translate(get(locale), "view.settings.toast.registryWrite", { error: String(err) }));
     }
   }
 
@@ -163,7 +182,7 @@
     const raw = customFolderInput.trim();
     if (!raw) return;
     if ($settings.launcher_overrides.custom.includes(raw)) {
-      showToast("warning", "Folder already added");
+      showToast("warning", translate(get(locale), "view.settings.toast.folderAlreadyAdded"));
       return;
     }
     await persistSettings({
@@ -174,7 +193,7 @@
       },
     });
     customFolderInput = "";
-    showToast("success", "Custom folder added — rescan to apply");
+    showToast("success", translate(get(locale), "view.settings.toast.folderAdded"));
   }
 
   async function pickCustomFolder(): Promise<void> {
@@ -186,7 +205,7 @@
         await addCustomFolder();
       }
     } catch (err: unknown) {
-      showToast("danger", `Folder picker failed: ${String(err)}`);
+      showToast("danger", translate(get(locale), "view.settings.toast.folderPickerFailed", { error: String(err) }));
     }
   }
 
@@ -247,7 +266,7 @@
 
   async function revealConfigFile(): Promise<void> {
     if (!appPaths) {
-      showToast("warning", "Data paths not available yet");
+      showToast("warning", translate(get(locale), "view.settings.toast.pathsUnavailable"));
       return;
     }
     try {
@@ -256,7 +275,7 @@
       try {
         await openPath(appPaths.settings_dir);
       } catch (err2: unknown) {
-        showToast("danger", `Reveal failed: ${String(err2)}`);
+        showToast("danger", translate(get(locale), "view.settings.toast.revealFailed", { error: String(err2) }));
       }
     }
   }
@@ -266,7 +285,7 @@
     try {
       await openPath(appPaths.root);
     } catch (err: unknown) {
-      showToast("danger", `Open failed: ${String(err)}`);
+      showToast("danger", translate(get(locale), "view.settings.toast.openFailed", { error: String(err) }));
     }
   }
 
@@ -275,7 +294,7 @@
     try {
       await openPath(appPaths.backups_dir);
     } catch (err: unknown) {
-      showToast("danger", `Open failed: ${String(err)}`);
+      showToast("danger", translate(get(locale), "view.settings.toast.openFailed", { error: String(err) }));
     }
   }
 
@@ -287,26 +306,26 @@
       try {
         await openPath(appPaths.root);
       } catch {
-        showToast("danger", `Open failed: ${String(err)}`);
+        showToast("danger", translate(get(locale), "view.settings.toast.openFailed", { error: String(err) }));
       }
     }
   }
 
-  type FeatureToggle = { key: keyof UpdatePreferences; label: string; sub: string; files: string | null };
+  type FeatureToggle = { key: keyof UpdatePreferences; labelKey: string; subKey: string; files: string | null };
   const featureToggles: FeatureToggle[] = [
-    { key: "update_dlss", label: "DLSS Super Resolution", sub: "Sharper image at higher FPS — NVIDIA AI upscaling.", files: "nvngx_dlss.dll · sl.dlss.dll" },
-    { key: "update_dlss_fg", label: "DLSS Frame Generation", sub: "Extra interpolated frames for smoother motion on RTX 40+ GPUs.", files: "nvngx_dlssg.dll · sl.dlss_g.dll" },
-    { key: "update_dlss_rr", label: "DLSS Ray Reconstruction", sub: "Cleaner ray-traced reflections, shadows and global illumination.", files: "nvngx_dlssd.dll · sl.dlss_d.dll" },
-    { key: "update_streamline", label: "NVIDIA Streamline plug-ins (advanced)", sub: "Master switch for every sl.* Streamline DLL. Off by default — they are a version-locked set, so swapping them can crash games (especially with DLSS Enabler). NGX DLLs are unaffected.", files: "sl.interposer.dll · sl.common.dll · sl.dlss.dll · sl.dlss_g.dll · sl.reflex.dll · sl.pcl.dll · sl.directsr.dll" },
-    { key: "update_reflex", label: "NVIDIA Reflex", sub: "Lower input latency in supported titles.", files: "sl.reflex.dll" },
-    { key: "update_xess", label: "Intel XeSS", sub: "Intel AI upscaling — best on Arc GPUs, works elsewhere.", files: "libxess.dll · libxess_fg.dll · libxell.dll" },
-    { key: "update_fsr", label: "AMD FSR", sub: "AMD upscaling and frame generation — runs on any GPU.", files: "amd_fidelityfx_*.dll · ffx_*.dll" },
-    { key: "update_direct_storage", label: "Microsoft DirectStorage", sub: "Faster game loading via direct NVMe → GPU streaming.", files: "dstorage.dll · dstoragecore.dll" },
+    { key: "update_dlss", labelKey: "view.settings.feature.update_dlss.label", subKey: "view.settings.feature.update_dlss.sub", files: "nvngx_dlss.dll · sl.dlss.dll" },
+    { key: "update_dlss_fg", labelKey: "view.settings.feature.update_dlss_fg.label", subKey: "view.settings.feature.update_dlss_fg.sub", files: "nvngx_dlssg.dll · sl.dlss_g.dll" },
+    { key: "update_dlss_rr", labelKey: "view.settings.feature.update_dlss_rr.label", subKey: "view.settings.feature.update_dlss_rr.sub", files: "nvngx_dlssd.dll · sl.dlss_d.dll" },
+    { key: "update_streamline", labelKey: "view.settings.feature.update_streamline.label", subKey: "view.settings.feature.update_streamline.sub", files: "sl.interposer.dll · sl.common.dll · sl.dlss.dll · sl.dlss_g.dll · sl.reflex.dll · sl.pcl.dll · sl.directsr.dll" },
+    { key: "update_reflex", labelKey: "view.settings.feature.update_reflex.label", subKey: "view.settings.feature.update_reflex.sub", files: "sl.reflex.dll" },
+    { key: "update_xess", labelKey: "view.settings.feature.update_xess.label", subKey: "view.settings.feature.update_xess.sub", files: "libxess.dll · libxess_fg.dll · libxell.dll" },
+    { key: "update_fsr", labelKey: "view.settings.feature.update_fsr.label", subKey: "view.settings.feature.update_fsr.sub", files: "amd_fidelityfx_*.dll · ffx_*.dll" },
+    { key: "update_direct_storage", labelKey: "view.settings.feature.update_direct_storage.label", subKey: "view.settings.feature.update_direct_storage.sub", files: "dstorage.dll · dstoragecore.dll" },
   ];
 
   const updateBehaviorToggles: FeatureToggle[] = [
-    { key: "create_backups", label: "Create backups before applying", sub: "Highly recommended. Required for one-click restore.", files: null },
-    { key: "auto_apply_all_on_rescan", label: "Auto-apply updates on rescan", sub: "Off by default. Enable for unattended updates.", files: null },
+    { key: "create_backups", labelKey: "view.settings.feature.create_backups.label", subKey: "view.settings.feature.create_backups.sub", files: null },
+    { key: "auto_apply_all_on_rescan", labelKey: "view.settings.feature.auto_apply_all_on_rescan.label", subKey: "view.settings.feature.auto_apply_all_on_rescan.sub", files: null },
   ];
 
   let showFilesFor = $state<Record<string, boolean>>({});
@@ -328,61 +347,61 @@
 
 <header class="view-header">
   <div>
-    <h1 class="view-title">Settings</h1>
-    <p class="view-subtitle">Saved to <span class="mono">{appPaths ? appPaths.settings_file : "~/DLSSync/Settings/settings.json"}</span></p>
+    <h1 class="view-title">{$t("view.settings.title")}</h1>
+    <p class="view-subtitle">{$t("view.settings.savedTo")} <span class="mono">{appPaths ? appPaths.settings_file : "~/DLSSync/Settings/settings.json"}</span></p>
   </div>
 </header>
 
 {#if !$settings}
-  <div class="loading">Loading…</div>
+  <div class="loading">{$t("view.settings.loading")}</div>
 {:else}
   <section class="settings-hero" in:fly={{ y: 6, duration: 220 }}>
     <div class="hero-meta">
       <span class="hero-eyebrow">DLSSync</span>
       <div class="hero-title-row">
         <span class="hero-version mono">v{appVersion}</span>
-        <span class="hero-status chip chip-update is-strong">{enabledFeatureCount}/{featureToggles.length} technologies enabled</span>
+        <span class="hero-status chip chip-update is-strong">{$t("view.settings.hero.technologiesEnabled", { count: enabledFeatureCount, total: featureToggles.length })}</span>
       </div>
-      <p class="hero-sub">All changes save instantly. The config file is plain JSON — feel free to inspect or back up.</p>
+      <p class="hero-sub">{$t("view.settings.hero.sub")}</p>
     </div>
     <div class="hero-actions">
-      <button class="btn btn-sm btn-ghost" onclick={revealConfigFile} disabled={!appPaths} title="Reveal settings.json in Explorer">
+      <button class="btn btn-sm btn-ghost" onclick={revealConfigFile} disabled={!appPaths} title={$t("view.settings.hero.revealConfigTitle")}>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-        Reveal config
+        {$t("view.settings.hero.revealConfig")}
       </button>
-      <button class="btn btn-sm btn-ghost" onclick={openConfigDir} disabled={!appPaths} title="Open data folder root (~/DLSSync)">
+      <button class="btn btn-sm btn-ghost" onclick={openConfigDir} disabled={!appPaths} title={$t("view.settings.hero.dataFolderTitle")}>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-        Data folder
+        {$t("view.settings.hero.dataFolder")}
       </button>
-      <button class="btn btn-sm btn-ghost" onclick={openBackupsDir} disabled={!appPaths} title="Open Backups folder">
+      <button class="btn btn-sm btn-ghost" onclick={openBackupsDir} disabled={!appPaths} title={$t("view.settings.hero.backupsTitle")}>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5" rx="0.5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
-        Backups
+        {$t("view.settings.hero.backups")}
       </button>
-      <button class="btn btn-sm btn-ghost" onclick={openLogsDir} disabled={!appPaths} title="Open logs folder">
+      <button class="btn btn-sm btn-ghost" onclick={openLogsDir} disabled={!appPaths} title={$t("view.settings.hero.logsTitle")}>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 2 13 9 20 9"/><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
-        Logs
+        {$t("view.settings.hero.logs")}
       </button>
     </div>
   </section>
 
   <div class="settings-layout">
-    <nav class="side-nav" aria-label="Settings sections">
-      {#each TABS as t}
-        <button class="side-tab" class:active={activeTab === t.id} onclick={() => void setActiveTab(t.id)}>
+    <nav class="side-nav" aria-label={$t("view.settings.sectionsAria")}>
+      {#each TABS as tab}
+        <button class="side-tab" class:active={activeTab === tab.id} onclick={() => void setActiveTab(tab.id)}>
           <span class="side-tab-icon" aria-hidden="true">
-            {#if t.icon === "settings"}
+            {#if tab.icon === "settings"}
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-            {:else if t.icon === "sync"}
+            {:else if tab.icon === "sync"}
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-            {:else if t.icon === "scan"}
+            {:else if tab.icon === "scan"}
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V4a1 1 0 0 1 1-1h3M17 3h3a1 1 0 0 1 1 1v3M21 17v3a1 1 0 0 1-1 1h-3M7 21H4a1 1 0 0 1-1-1v-3"/><circle cx="12" cy="12" r="3"/></svg>
-            {:else if t.icon === "image"}
+            {:else if tab.icon === "image"}
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-            {:else if t.icon === "flask"}
+            {:else if tab.icon === "flask"}
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v6L4 20a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2L15 8V2"/><line x1="8" y1="2" x2="16" y2="2"/></svg>
             {/if}
           </span>
-          <span class="side-tab-label">{t.label}</span>
+          <span class="side-tab-label">{$t(tab.labelKey)}</span>
           <span class="side-tab-rail" aria-hidden="true"></span>
         </button>
       {/each}
@@ -392,38 +411,51 @@
     {#if activeTab === "general"}
       <section in:fly={{ y: 4, duration: 200 }}>
         <header class="section-head">
-          <h2 class="section-title-h">Appearance</h2>
-          <p class="section-help">Theme is persisted per machine; the picker is also live in the top bar.</p>
+          <h2 class="section-title-h">{$t("view.settings.general.appearance.title")}</h2>
+          <p class="section-help">{$t("view.settings.general.appearance.help")}</p>
         </header>
         <div class="card">
           <div class="row">
             <div class="row-text">
-              <div class="row-label">Dark theme</div>
-              <div class="row-sub">Pure-black background. OLED-friendly, lower glare at night.</div>
+              <div class="row-label">{$t("view.settings.general.darkTheme.label")}</div>
+              <div class="row-sub">{$t("view.settings.general.darkTheme.sub")}</div>
             </div>
             <label class="toggle">
               <input type="checkbox" checked={currentTheme === "dark"} onchange={onToggleTheme} />
               <span class="toggle-slider"></span>
             </label>
           </div>
+          <div class="row row-divider">
+            <div class="row-text">
+              <div class="row-label">{$t("language.label")}</div>
+              <div class="row-sub">{$t("view.settings.general.language.sub")}</div>
+            </div>
+            <div class="lang-select">
+              <Select
+                bind:value={localeChoice}
+                options={localeOptions}
+                ariaLabel={$t("language.switcherAria")}
+              />
+            </div>
+          </div>
         </div>
 
         <header class="section-head" style="margin-top: 20px;">
-          <h2 class="section-title-h">Performance &amp; startup</h2>
-          <p class="section-help">Footprint controls. With all three enabled, DLSSync sits in the tray with near-zero CPU between scheduled update checks.</p>
+          <h2 class="section-title-h">{$t("view.settings.general.performance.title")}</h2>
+          <p class="section-help">{$t("view.settings.general.performance.help")}</p>
         </header>
         <PerformanceToggles />
 
         <header class="section-head" style="margin-top: 20px;">
-          <h2 class="section-title-h">Update behavior</h2>
-          <p class="section-help">Safety and automation toggles. Backups are recommended; auto-apply is opt-in.</p>
+          <h2 class="section-title-h">{$t("view.settings.general.updateBehavior.title")}</h2>
+          <p class="section-help">{$t("view.settings.general.updateBehavior.help")}</p>
         </header>
         <div class="card">
           {#each updateBehaviorToggles as ft, i}
             <div class="row" class:row-divider={i > 0}>
               <div class="row-text">
-                <div class="row-label">{ft.label}</div>
-                <div class="row-sub">{ft.sub}</div>
+                <div class="row-label">{$t(ft.labelKey)}</div>
+                <div class="row-sub">{$t(ft.subKey)}</div>
               </div>
               <label class="toggle">
                 <input
@@ -438,14 +470,14 @@
         </div>
 
         <header class="section-head" style="margin-top: 20px;">
-          <h2 class="section-title-h">Support card</h2>
-          <p class="section-help">A small card that occasionally invites you to star, endorse or share DLSSync after a successful update. It never blocks anything.</p>
+          <h2 class="section-title-h">{$t("view.settings.general.support.title")}</h2>
+          <p class="section-help">{$t("view.settings.general.support.help")}</p>
         </header>
         <div class="card">
           <div class="row">
             <div class="row-text">
-              <div class="row-label">Show the support card</div>
-              <div class="row-sub">A gentle nudge bottom-left after an update lands. Turn it off here any time, or re-enable it later.</div>
+              <div class="row-label">{$t("view.settings.general.support.label")}</div>
+              <div class="row-sub">{$t("view.settings.general.support.sub")}</div>
             </div>
             <label class="toggle">
               <input
@@ -462,35 +494,35 @@
     {:else if activeTab === "updates"}
       <section in:fly={{ y: 4, duration: 200 }}>
         <header class="section-head">
-          <h2 class="section-title-h">Auto-update</h2>
-          <p class="section-help">DLSSync polls GitHub Releases every 6 hours. Trigger a manual check below.</p>
+          <h2 class="section-title-h">{$t("view.settings.updates.autoUpdate.title")}</h2>
+          <p class="section-help">{$t("view.settings.updates.autoUpdate.help")}</p>
         </header>
         <div class="card">
           <div class="row">
             <div class="row-text">
-              <div class="row-label">Current version</div>
-              <div class="row-sub mono">v{appVersion}{lastUpdateCheck ? `  ·  last check: ${lastUpdateCheck}` : ""}</div>
+              <div class="row-label">{$t("view.settings.updates.currentVersion.label")}</div>
+              <div class="row-sub mono">v{appVersion}{lastUpdateCheck ? `  ·  ${$t("view.settings.updates.lastCheck", { time: lastUpdateCheck })}` : ""}</div>
             </div>
             <button class="btn btn-primary" onclick={checkForUpdatesNow} disabled={updateChecking}>
-              {updateChecking ? "Checking…" : "Check for updates"}
+              {updateChecking ? $t("view.settings.updates.checking") : $t("view.settings.updates.checkNow")}
             </button>
           </div>
         </div>
 
         <header class="section-head" style="margin-top: 20px;">
-          <h2 class="section-title-h">Update preferences</h2>
-          <p class="section-help">Choose which technologies DLSSync will sync. Disabled families are still detected but never overwritten.</p>
+          <h2 class="section-title-h">{$t("view.settings.updates.prefs.title")}</h2>
+          <p class="section-help">{$t("view.settings.updates.prefs.help")}</p>
         </header>
         <div class="card">
           {#each featureToggles as ft, i}
             <div class="row" class:row-divider={i > 0}>
               <div class="row-text">
-                <div class="row-label">{ft.label}</div>
-                <div class="row-sub">{ft.sub}</div>
+                <div class="row-label">{$t(ft.labelKey)}</div>
+                <div class="row-sub">{$t(ft.subKey)}</div>
                 {#if ft.files}
                   <button class="files-disclosure" onclick={() => toggleFiles(ft.key)} aria-expanded={!!showFilesFor[ft.key]}>
                     <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="chev" class:open={!!showFilesFor[ft.key]}><polyline points="6 9 12 15 18 9"/></svg>
-                    {showFilesFor[ft.key] ? "Hide files" : "Show technical files"}
+                    {showFilesFor[ft.key] ? $t("view.settings.filesDisclosure.hide") : $t("view.settings.filesDisclosure.show")}
                   </button>
                   {#if showFilesFor[ft.key]}
                     <div class="files-meta mono">{ft.files}</div>
@@ -521,8 +553,8 @@
 
       <section in:fly={{ y: 4, duration: 200 }}>
         <header class="section-head">
-          <h2 class="section-title-h">Custom folders</h2>
-          <p class="section-help">Add directories where you keep games outside of standard launchers (e.g. <span class="mono">C:\Games</span>). Each subfolder will appear as a Manual entry in the Library.</p>
+          <h2 class="section-title-h">{$t("view.settings.detection.customFolders.title")}</h2>
+          <p class="section-help">{$t("view.settings.detection.customFolders.help", { path: "C:\\Games" })}</p>
         </header>
         <div class="card">
           <div class="folder-input-row">
@@ -537,16 +569,16 @@
             </div>
             <button class="aura-pill aura-pill-ghost" onclick={pickCustomFolder}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-              Browse
+              {$t("view.settings.detection.browse")}
             </button>
             <button class="aura-pill aura-pill-primary" onclick={addCustomFolder} disabled={!customFolderInput.trim()}>
-              Add folder
+              {$t("view.settings.detection.addFolder")}
             </button>
           </div>
           {#if $settings.launcher_overrides.custom.length === 0}
             <div class="empty-state">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity="0.4"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-              <span>No custom folders yet</span>
+              <span>{$t("view.settings.detection.noFolders")}</span>
             </div>
           {:else}
             <ul class="path-list">
@@ -556,10 +588,10 @@
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
                   </span>
                   <span class="path-text mono">{p}</span>
-                  <button class="path-action" title="Open folder" onclick={() => openPath(p).catch((err) => showToast("danger", `Open failed: ${String(err)}`))}>
+                  <button class="path-action" title={$t("view.settings.detection.openFolderTitle")} onclick={() => openPath(p).catch((err) => showToast("danger", translate(get(locale), "view.settings.toast.openFailed", { error: String(err) })))}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                   </button>
-                  <button class="path-action path-action-danger" title="Remove" onclick={() => removeCustomFolder(p)}>
+                  <button class="path-action path-action-danger" title={$t("view.settings.detection.removeTitle")} onclick={() => removeCustomFolder(p)}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
                   </button>
                 </li>
@@ -569,14 +601,14 @@
           <div class="row-actions">
             <button class="aura-pill aura-pill-ghost" onclick={() => scanGames()}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-              Rescan now
+              {$t("view.settings.detection.rescanNow")}
             </button>
           </div>
         </div>
 
         <header class="section-head" style="margin-top: 20px;">
-          <h2 class="section-title-h">Launcher overrides</h2>
-          <p class="section-help">Default paths come from the Windows registry. Add a manual fallback only if a launcher is installed outside its standard location.</p>
+          <h2 class="section-title-h">{$t("view.settings.detection.launcherOverrides.title")}</h2>
+          <p class="section-help">{$t("view.settings.detection.launcherOverrides.help")}</p>
         </header>
         <div class="card launcher-card">
           {#each LAUNCHER_KEYS as launcher, i}
@@ -586,7 +618,7 @@
                 {@render launcherLogo(launcher)}
                 <div class="launcher-head-text">
                   <div class="row-label">{launcherLabel(launcher)}</div>
-                  <div class="row-sub">{arr.length === 0 ? "Default (auto)" : `${arr.length} override${arr.length > 1 ? "s" : ""}`}</div>
+                  <div class="row-sub">{arr.length === 0 ? $t("view.settings.detection.launcher.defaultAuto") : $t("view.settings.detection.launcher.overrideCount", { count: arr.length })}</div>
                 </div>
               </div>
               <div class="launcher-input-col">
@@ -602,14 +634,14 @@
                         updateOverride(launcher as keyof LauncherOverrides, next);
                       }}
                     />
-                    <button class="path-remove" title="Remove path" onclick={() => updateOverride(launcher as keyof LauncherOverrides, arr.filter((_, j) => j !== idx))}>
+                    <button class="path-remove" title={$t("view.settings.detection.launcher.removePathTitle")} onclick={() => updateOverride(launcher as keyof LauncherOverrides, arr.filter((_, j) => j !== idx))}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/></svg>
                     </button>
                   </div>
                 {/each}
                 <button class="add-path-pill" onclick={() => updateOverride(launcher as keyof LauncherOverrides, [...arr, ""])}>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                  Add path
+                  {$t("view.settings.detection.launcher.addPath")}
                 </button>
               </div>
             </div>
@@ -620,36 +652,36 @@
     {:else if activeTab === "art"}
       <section in:fly={{ y: 4, duration: 200 }}>
         <header class="section-head">
-          <h2 class="section-title-h">Steam public CDN</h2>
-          <p class="section-help">Default. DLSSync resolves your manual/custom games against the Steam store search and fetches the public CDN art (header, hero, capsule). No key required.</p>
+          <h2 class="section-title-h">{$t("view.settings.art.steamCdn.title")}</h2>
+          <p class="section-help">{$t("view.settings.art.steamCdn.help")}</p>
         </header>
         <div class="card">
           <div class="row">
             <div class="row-text">
-              <div class="row-label">Always-on <span class="chip chip-success small-pill">no key required</span></div>
-              <div class="row-sub">Every game without art is resolved automatically. Falls back to letter glyph for titles Steam doesn't index.</div>
+              <div class="row-label">{$t("view.settings.art.steamCdn.alwaysOn")} <span class="chip chip-success small-pill">{$t("view.settings.art.steamCdn.noKeyRequired")}</span></div>
+              <div class="row-sub">{$t("view.settings.art.steamCdn.sub")}</div>
             </div>
           </div>
         </div>
 
         <header class="section-head" style="margin-top: 20px;">
-          <h2 class="section-title-h">SteamGridDB <span class="section-tag">fallback</span></h2>
-          <p class="section-help">For pirated, modded or super-niche titles that Steam doesn't index, SteamGridDB has community art. Free key on your SGDB profile.</p>
-          <p class="section-help muted">We don't ship a bundled key — SteamGridDB rate-limits per key (1,000 req/day free tier), so a shared key would exhaust the quota across all DLSSync users.</p>
+          <h2 class="section-title-h">SteamGridDB <span class="section-tag">{$t("view.settings.art.sgdb.fallback")}</span></h2>
+          <p class="section-help">{$t("view.settings.art.sgdb.help")}</p>
+          <p class="section-help muted">{$t("view.settings.art.sgdb.helpMuted")}</p>
         </header>
         <div class="card">
           <div class="row art-row">
             <div class="row-text">
-              <div class="row-label">SteamGridDB API key {#if sgdbKeyMasked}<span class="chip chip-update small-pill">Active · {sgdbKeyMasked}</span>{/if}</div>
-              <div class="row-sub">Used only as fallback. Stored locally in <span class="mono">settings.json</span>.</div>
+              <div class="row-label">{$t("view.settings.art.sgdb.label")} {#if sgdbKeyMasked}<span class="chip chip-update small-pill">{$t("view.settings.art.sgdb.active", { masked: sgdbKeyMasked })}</span>{/if}</div>
+              <div class="row-sub">{$t("view.settings.art.sgdb.sub", { file: "settings.json" })}</div>
               <button class="files-disclosure" onclick={openSgdbPrefs}>
                 <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                Get free key on steamgriddb.com
+                {$t("view.settings.art.sgdb.getKey")}
               </button>
             </div>
             <input
               type="password"
-              placeholder="Leave empty to use Steam CDN only"
+              placeholder={$t("view.settings.art.sgdb.placeholder")}
               value={$settings.steamgriddb.api_key}
               onchange={(e) => updateSgdb("api_key", (e.target as HTMLInputElement).value)}
             />
@@ -657,15 +689,15 @@
         </div>
 
         <header class="section-head" style="margin-top: 20px;">
-          <h2 class="section-title-h">Steam Web API <span class="section-tag">optional</span></h2>
-          <p class="section-help">Improves Steam title matching beyond what local <span class="mono">appmanifest_*.acf</span> already provides. Get a free key at <span class="mono">steamcommunity.com/dev/apikey</span>.</p>
-          <p class="section-help muted">We don't ship a bundled key — Valve's Steam Web API Terms §2 require each key holder to keep it confidential and not share with third parties. Each user's key stays in their own <span class="mono">settings.json</span>.</p>
+          <h2 class="section-title-h">Steam Web API <span class="section-tag">{$t("view.settings.art.steamApi.optional")}</span></h2>
+          <p class="section-help">{$t("view.settings.art.steamApi.help", { manifest: "appmanifest_*.acf", site: "steamcommunity.com/dev/apikey" })}</p>
+          <p class="section-help muted">{$t("view.settings.art.steamApi.helpMuted", { file: "settings.json" })}</p>
         </header>
         <div class="card">
           <div class="row art-row">
             <div class="row-text">
-              <div class="row-label">API key</div>
-              <div class="row-sub">32-character hex string.</div>
+              <div class="row-label">{$t("view.settings.art.steamApi.keyLabel")}</div>
+              <div class="row-sub">{$t("view.settings.art.steamApi.keySub")}</div>
               <button class="files-disclosure" onclick={openSteamKey}>
                 <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
                 steamcommunity.com/dev/apikey
@@ -673,15 +705,15 @@
             </div>
             <input
               type="password"
-              placeholder="Leave empty to use public CDN art"
+              placeholder={$t("view.settings.art.steamApi.keyPlaceholder")}
               value={$settings.steam_api.api_key}
               onchange={(e) => updateSteamApi("api_key", (e.target as HTMLInputElement).value)}
             />
           </div>
           <div class="row art-row row-divider">
             <div class="row-text">
-              <div class="row-label">Steam 64-bit ID</div>
-              <div class="row-sub">Auto-detected from <span class="mono">loginusers.vdf</span> when blank.</div>
+              <div class="row-label">{$t("view.settings.art.steamApi.idLabel")}</div>
+              <div class="row-sub">{$t("view.settings.art.steamApi.idSub", { file: "loginusers.vdf" })}</div>
             </div>
             <input
               type="text"
@@ -696,14 +728,14 @@
     {:else if activeTab === "advanced"}
       <section in:fly={{ y: 4, duration: 200 }} class="tab-section">
         <header class="section-head">
-          <h2 class="section-title-h">Power-user toggles</h2>
-          <p class="section-help">DLSS Debug Overlay writes to <span class="mono">HKCU\SOFTWARE\NVIDIA Corporation\Global\NGXCore</span>. Restart the game for changes to apply.</p>
+          <h2 class="section-title-h">{$t("view.settings.advanced.powerUser.title")}</h2>
+          <p class="section-help">{$t("view.settings.advanced.powerUser.help", { regPath: "HKCU\\SOFTWARE\\NVIDIA Corporation\\Global\\NGXCore" })}</p>
         </header>
         <div class="card">
           <div class="row">
             <div class="row-text">
-              <div class="row-label">DLSS Debug Overlay</div>
-              <div class="row-sub">Adds NVIDIA's on-screen overlay showing DLSS version, mode, and frame timing.</div>
+              <div class="row-label">{$t("view.settings.advanced.overlay.label")}</div>
+              <div class="row-sub">{$t("view.settings.advanced.overlay.sub")}</div>
             </div>
             <label class="toggle">
               <input type="checkbox" checked={dlssOverlayLive} onchange={toggleOverlay} />
@@ -712,8 +744,8 @@
           </div>
           <div class="row row-divider">
             <div class="row-text">
-              <div class="row-label">Verbose logs</div>
-              <div class="row-sub">Capture full debug output to <span class="mono">logs/</span> under the data folder.</div>
+              <div class="row-label">{$t("view.settings.advanced.verboseLogs.label")}</div>
+              <div class="row-sub">{$t("view.settings.advanced.verboseLogs.sub", { dir: "logs/" })}</div>
             </div>
             <label class="toggle">
               <input
@@ -726,8 +758,8 @@
           </div>
           <div class="row row-divider">
             <div class="row-text">
-              <div class="row-label">Prefer stable channel</div>
-              <div class="row-sub">Hide experimental and beta builds from the version picker. Recommended.</div>
+              <div class="row-label">{$t("view.settings.advanced.preferStable.label")}</div>
+              <div class="row-sub">{$t("view.settings.advanced.preferStable.sub")}</div>
             </div>
             <label class="toggle">
               <input
@@ -741,10 +773,10 @@
           <div class="row row-divider">
             <div class="row-text">
               <div class="row-label">
-                Allow unsigned DLLs
-                <span class="chip chip-warning small-pill">dev only</span>
+                {$t("view.settings.advanced.allowUnsigned.label")}
+                <span class="chip chip-warning small-pill">{$t("view.settings.advanced.allowUnsigned.devOnly")}</span>
               </div>
-              <div class="row-sub">Bypass the Authenticode publisher gate. Every apply still checks SHA-256, but the vendor signature is no longer required. Off by default.</div>
+              <div class="row-sub">{$t("view.settings.advanced.allowUnsigned.sub")}</div>
             </div>
             <label class="toggle">
               <input
@@ -757,8 +789,8 @@
           </div>
           <div class="row row-divider">
             <div class="row-text">
-              <div class="row-label">Parallel applies</div>
-              <div class="row-sub">How many vendor-archive groups to install in parallel. Higher = faster on fat connections, lower = gentler on flaky links. 1–4, default 2.</div>
+              <div class="row-label">{$t("view.settings.advanced.parallelApplies.label")}</div>
+              <div class="row-sub">{$t("view.settings.advanced.parallelApplies.sub")}</div>
             </div>
             <input
               type="number"
@@ -774,13 +806,13 @@
 
         <div class="settings-card" style="margin-top: 18px;">
           <header class="card-head">
-            <h3>Network</h3>
-            <p class="card-sub">Download client tunables — defaults are sane; tweak only if your link is unusual.</p>
+            <h3>{$t("view.settings.advanced.network.title")}</h3>
+            <p class="card-sub">{$t("view.settings.advanced.network.sub")}</p>
           </header>
           <div class="row">
             <div class="row-text">
-              <div class="row-label">Retry attempts per download</div>
-              <div class="row-sub">How many times a flaky archive download retries before failing. Exponential backoff between attempts. 1–6, default 3.</div>
+              <div class="row-label">{$t("view.settings.advanced.network.retry.label")}</div>
+              <div class="row-sub">{$t("view.settings.advanced.network.retry.sub")}</div>
             </div>
             <input
               type="number"
@@ -794,8 +826,8 @@
           </div>
           <div class="row row-divider">
             <div class="row-text">
-              <div class="row-label">Per-chunk timeout (seconds)</div>
-              <div class="row-sub">Maximum gap allowed between byte chunks before aborting and retrying. 10–600, default 60.</div>
+              <div class="row-label">{$t("view.settings.advanced.network.chunkTimeout.label")}</div>
+              <div class="row-sub">{$t("view.settings.advanced.network.chunkTimeout.sub")}</div>
             </div>
             <input
               type="number"
@@ -809,8 +841,8 @@
           </div>
           <div class="row row-divider">
             <div class="row-text">
-              <div class="row-label">Connect timeout (seconds)</div>
-              <div class="row-sub">Maximum TCP connection establishment time. 3–60, default 10.</div>
+              <div class="row-label">{$t("view.settings.advanced.network.connectTimeout.label")}</div>
+              <div class="row-sub">{$t("view.settings.advanced.network.connectTimeout.sub")}</div>
             </div>
             <input
               type="number"
@@ -824,8 +856,8 @@
           </div>
           <div class="row row-divider">
             <div class="row-text">
-              <div class="row-label">Download cache TTL (seconds)</div>
-              <div class="row-sub">How long a downloaded vendor archive stays in memory for sibling DLLs that share it. 60–3600, default 300.</div>
+              <div class="row-label">{$t("view.settings.advanced.network.cacheTtl.label")}</div>
+              <div class="row-sub">{$t("view.settings.advanced.network.cacheTtl.sub")}</div>
             </div>
             <input
               type="number"
@@ -841,10 +873,10 @@
 
         <div class="settings-card" style="margin-top: 18px;">
           <header class="card-head">
-            <h3>DLSS Overrides <span class="chip chip-update small-pill"><BrandMark key="nvidia" tone="mono" size={11} /></span></h3>
-            <p class="card-sub">DLSS preset and frame-generation overrides moved to the <strong>Drivers</strong> tab, alongside your GPU driver updates. Per-game overrides stay in each game's detail drawer.</p>
+            <h3>{$t("view.settings.advanced.dlssOverrides.title")} <span class="chip chip-update small-pill"><BrandMark key="nvidia" tone="mono" size={11} /></span></h3>
+            <p class="card-sub">{$t("view.settings.advanced.dlssOverrides.sub", { drivers: $t("view.settings.advanced.dlssOverrides.driversTabBold") })}</p>
           </header>
-          <button class="btn btn-primary" style="margin-top: 14px;" onclick={() => currentView.set("drivers")}>Open the Drivers tab</button>
+          <button class="btn btn-primary" style="margin-top: 14px;" onclick={() => currentView.set("drivers")}>{$t("view.settings.advanced.dlssOverrides.openDrivers")}</button>
         </div>
       </section>
     {/if}
@@ -988,6 +1020,7 @@
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-dim);
   }
+  .lang-select { width: 180px; flex-shrink: 0; }
   .row-label { font-size: var(--fs-base); font-weight: 500; color: var(--text-primary); display: inline-flex; align-items: center; gap: 8px; }
   .row-sub { font-size: var(--fs-xs); color: var(--text-secondary); margin-top: 3px; line-height: 1.5; }
   .row-text { min-width: 0; flex: 1; }

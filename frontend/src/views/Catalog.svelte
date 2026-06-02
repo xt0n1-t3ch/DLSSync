@@ -11,13 +11,12 @@
     loadDriverUpdates,
     type CatalogFamily,
   } from "../lib/stores";
-  import { driverStatusLabel, driverStatusTone } from "../lib/drivers";
+  import { driverStatusTone } from "../lib/drivers";
   import {
     featureFromFamily,
     featureTitle,
     featureIconId,
     FEATURE_ORDER,
-    GROUP_LABELS,
     vendorAccent,
     vendorPortal,
     type FeatureSlot,
@@ -25,6 +24,7 @@
   import FeatureIcon from "./../components/FeatureIcon.svelte";
   import CatalogVersionsFlyout from "./../components/CatalogVersionsFlyout.svelte";
   import BrandMark from "./../components/BrandMark.svelte";
+  import { t, locale, translate } from "../lib/i18n/index";
 
   let refreshing = $state(false);
   let flyoutTarget = $state<{
@@ -107,8 +107,8 @@
         rows.push({
           id: `${v.vendor}-advanced`,
           iconId: "advanced",
-          title: GROUP_LABELS.advanced,
-          latest: `${advReleases} total`,
+          title: $t("feature.advanced.title"),
+          latest: `${advReleases}`,
           releaseCount: advFamiliesList.length,
           isAdvanced: true,
           featureSlot: "advanced",
@@ -191,63 +191,64 @@
   }
 
   let freshnessAgo = $derived.by(() => {
+    const loc = $locale;
     if (!$manifestUpdatedAt) return null;
     const parsed = new Date(`${$manifestUpdatedAt.replace(" ", "T")}:00Z`).getTime();
     if (Number.isNaN(parsed)) return null;
     const diffMs = Date.now() - parsed;
     const minutes = Math.floor(diffMs / 60000);
-    if (minutes < 1) return "just now";
-    if (minutes < 60) return `${minutes}m ago`;
+    if (minutes < 1) return translate(loc, "view.catalog.freshness.justNow");
+    if (minutes < 60) return translate(loc, "view.catalog.freshness.minutes", { count: minutes });
     const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h ago`;
+    if (hours < 24) return translate(loc, "view.catalog.freshness.hours", { count: hours });
     const days = Math.floor(hours / 24);
-    return `${days}d ago`;
+    return translate(loc, "view.catalog.freshness.days", { count: days });
   });
 </script>
 
 <div class="catalog-page">
 <header class="view-header">
   <div>
-    <h1 class="view-title">Catalog</h1>
-    <p class="view-subtitle">Every upscaling and frame-generation technology DLSSync tracks. Click a feature to inspect every version, copy a CDN URL, or jump straight to a download.</p>
+    <h1 class="view-title">{$t("view.catalog.title")}</h1>
+    <p class="view-subtitle">{$t("view.catalog.subtitle")}</p>
   </div>
   <button class="btn btn-primary" onclick={refresh} disabled={refreshing}>
     {#if refreshing}
       <span class="spin"></span>
-      Refreshing
+      {$t("view.catalog.refreshing")}
     {:else}
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-      Refresh manifest
+      {$t("view.catalog.refreshManifest")}
     {/if}
   </button>
 </header>
 
 <section class="info-bar edge-accent" in:fade={{ duration: 200 }}>
   <div class="info-item">
-    <span class="info-item-label">Versions</span>
+    <span class="info-item-label">{$t("view.catalog.stat.versions")}</span>
     <span class="info-item-value">{totals.releases.toLocaleString()}</span>
   </div>
   <div class="info-item">
-    <span class="info-item-label">Features</span>
+    <span class="info-item-label">{$t("view.catalog.stat.features")}</span>
     <span class="info-item-value">{totals.features}</span>
   </div>
   <div class="info-item">
-    <span class="info-item-label">Vendors</span>
+    <span class="info-item-label">{$t("view.catalog.stat.vendors")}</span>
     <span class="info-item-value">{totals.vendors}</span>
   </div>
   <div class="info-item">
-    <span class="info-item-label">Updated</span>
+    <span class="info-item-label">{$t("view.catalog.stat.updated")}</span>
     <span class="info-item-value is-mono">{$manifestUpdatedAt || "—"}</span>
   </div>
 </section>
 
 <section class="driver-catalog" in:fade={{ duration: 200 }}>
   <div class="driver-cat-head">
-    <h2 class="driver-cat-title">GPU Drivers</h2>
-    <span class="driver-cat-sub">Latest published driver per detected GPU, resolved live from the vendor.</span>
+    <h2 class="driver-cat-title">{$t("view.catalog.gpuDrivers.title")}</h2>
+    <span class="driver-cat-sub">{$t("view.catalog.gpuDrivers.sub")}</span>
   </div>
   {#if $driverReports.length === 0}
-    <p class="driver-cat-empty">{$driverCheckInProgress ? "Checking the vendor for the latest drivers…" : "No GPUs detected."}</p>
+    <p class="driver-cat-empty">{$driverCheckInProgress ? $t("view.catalog.gpuDrivers.checking") : $t("view.catalog.gpuDrivers.none")}</p>
   {:else}
     <ul class="driver-cat-list">
       {#each $driverReports as report (report.device.model)}
@@ -255,7 +256,7 @@
         <li class="driver-cat-row">
           <span class="driver-cat-vendor" data-vendor={report.device.vendor}>
             {#if report.device.vendor === "other"}
-              GPU
+              {$t("view.catalog.gpuDrivers.genericVendor")}
             {:else}
               <BrandMark key={report.device.vendor} tone="mono" size={11} />
             {/if}
@@ -265,7 +266,7 @@
             {report.installed.display}
             {#if report.latest}<span class="driver-cat-arrow">→</span><span class="driver-cat-next">{report.latest.version.display}</span>{/if}
           </span>
-          <span class="driver-cat-badge" data-tone={tone}>{driverStatusLabel(report.status)}</span>
+          <span class="driver-cat-badge" data-tone={tone}>{$t("driverStatus." + report.status)}</span>
         </li>
       {/each}
     </ul>
@@ -275,29 +276,29 @@
 {#if view.length === 0}
   <div class="empty">
     <p class="section-sub">
-      Catalog is empty. The manifest worker hasn't published a payload yet — click <strong>Refresh manifest</strong> above to pull from upstream sources, or wait for the bundled cache to land.
+      {$t("view.catalog.empty.before")} <strong>{$t("view.catalog.refreshManifest")}</strong> {$t("view.catalog.empty.after")}
     </p>
   </div>
 {:else}
   <div class="section-head">
-    <h2 class="section-title">Upscaling Libraries &amp; Technologies</h2>
-    <span class="section-sub">Every DLSS, FSR and XeSS DLL family DLSSync tracks. Click one to browse every version, copy a CDN URL, or download direct.</span>
+    <h2 class="section-title">{$t("view.catalog.libraries.title")}</h2>
+    <span class="section-sub">{$t("view.catalog.libraries.sub")}</span>
   </div>
   <div class="catalog-toolbar">
     <div class="runtime-search">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="search-icon"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       <input
         type="search"
-        placeholder="Filter technologies, vendors, or DLL families…"
+        placeholder={$t("view.catalog.filterPlaceholder")}
         bind:value={runtimeQuery}
       />
       {#if runtimeQuery}
-        <button class="search-clear" onclick={() => (runtimeQuery = "")} aria-label="Clear search">
+        <button class="search-clear" onclick={() => (runtimeQuery = "")} aria-label={$t("view.catalog.clearSearch")}>
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       {/if}
     </div>
-    <span class="toolbar-summary">{filteredView.reduce((a, v) => a + v.rows.length, 0)} technolog{filteredView.reduce((a, v) => a + v.rows.length, 0) === 1 ? "y" : "ies"} shown</span>
+    <span class="toolbar-summary">{$t("view.catalog.technologiesShown", { count: filteredView.reduce((a, v) => a + v.rows.length, 0) })}</span>
   </div>
 
   <div class="catalog-grid">
@@ -308,9 +309,9 @@
         <header class="vendor-head">
           <div class="vendor-dot" style:background={v.accent} style:box-shadow="0 0 14px {v.accent}80"></div>
           <h3 class="vendor-name"><BrandMark key={v.vendor} label={v.label} size={16} /></h3>
-          <span class="chip chip-neutral vendor-pill">{v.totalReleases} versions</span>
+          <span class="chip chip-neutral vendor-pill">{$t("view.catalog.versionsCount", { count: v.totalReleases })}</span>
           {#if portal}
-            <button class="vendor-portal" onclick={() => openExternal(portal.url)} title={portal.label} aria-label={`Open ${portal.label}`}>
+            <button class="vendor-portal" onclick={() => openExternal(portal.url)} title={portal.label} aria-label={$t("view.catalog.openPortal", { name: portal.label })}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
             </button>
           {/if}
@@ -324,15 +325,15 @@
                 class:is-advanced={f.isAdvanced}
                 onclick={() => openFlyout(v.vendor, v.label, f)}
                 onkeydown={(e) => rowKey(e, v.vendor, v.label, f)}
-                aria-label={f.isAdvanced ? `Browse ${f.title} modules` : `View ${f.title} versions`}
+                aria-label={f.isAdvanced ? $t("view.catalog.browseModulesAria", { name: f.title }) : $t("view.catalog.viewVersionsAria", { name: f.title })}
               >
                 <span class="feature-glyph" style:color={v.accent} aria-hidden="true"><FeatureIcon id={f.iconId} size={16} /></span>
                 <div class="feature-meta-col">
                   <span class="feature-title">{f.title}</span>
                   {#if f.isAdvanced}
-                    <span class="feature-sub">{f.releaseCount} module{f.releaseCount === 1 ? "" : "s"} · {f.latest}</span>
+                    <span class="feature-sub">{$t("view.catalog.modulesSummary", { count: f.releaseCount, detail: f.latest })}</span>
                   {:else}
-                    <span class="feature-sub">{f.releaseCount} version{f.releaseCount === 1 ? "" : "s"} · latest v{f.latest}</span>
+                    <span class="feature-sub">{$t("view.catalog.versionsSummary", { count: f.releaseCount, latest: f.latest })}</span>
                   {/if}
                 </div>
                 {#if !f.isAdvanced}
@@ -352,21 +353,21 @@
   <footer class="catalog-foot">
     <div class="foot-status">
       <span class="status-dot is-{$catalogStatus.kind}" aria-hidden="true"></span>
-      <span class="foot-status-text">Catalog {$catalogStatus.label}</span>
+      <span class="foot-status-text">{$t("view.catalog.foot.status", { status: $catalogStatus.label })}</span>
       {#if freshnessAgo}
         <span class="foot-sep" aria-hidden="true"></span>
-        <span class="foot-meta">updated {freshnessAgo}</span>
+        <span class="foot-meta">{$t("view.catalog.foot.updated", { ago: freshnessAgo })}</span>
       {/if}
     </div>
     <div class="foot-actions">
-      <span class="foot-meta">auto-refresh every 6 h</span>
-      <button class="foot-refresh" onclick={refresh} disabled={refreshing} title="Pull the manifest from upstream now">
+      <span class="foot-meta">{$t("view.catalog.foot.autoRefresh")}</span>
+      <button class="foot-refresh" onclick={refresh} disabled={refreshing} title={$t("view.catalog.foot.refreshTitle")}>
         {#if refreshing}
           <span class="spin"></span>
-          Refreshing
+          {$t("view.catalog.refreshing")}
         {:else}
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-          Refresh now
+          {$t("view.catalog.foot.refreshNow")}
         {/if}
       </button>
     </div>

@@ -1,4 +1,5 @@
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { get } from "svelte/store";
 import {
   APPLY_INFLIGHT_EVENT,
   APPLY_PROGRESS_EVENT,
@@ -8,6 +9,7 @@ import {
   type GroupDownloadProgress,
   type InflightSnapshot,
 } from "./api";
+import { translate, locale } from "./i18n/index";
 import { activeApplies, downloadProgressByGroup, inflightCount, type ApplyTracker } from "./stores";
 import {
   installNotificationsListener,
@@ -35,15 +37,17 @@ function buildTerminalEntry(
   const gameLabel = tracker.game_label || tracker.game_id;
   const family = tracker.family;
   const targetVersion = tracker.target_version;
-  const title =
+  const loc = get(locale);
+  const titleKey =
     kind === "apply_success"
-      ? `${gameLabel} updated`
+      ? "notif.apply.successTitle"
       : kind === "apply_failure"
-        ? `${gameLabel} update failed`
-        : `${gameLabel} update cancelled`;
+        ? "notif.apply.failureTitle"
+        : "notif.apply.cancelledTitle";
+  const title = translate(loc, titleKey, { gameLabel });
   const body =
     kind === "apply_success"
-      ? `${family} → ${targetVersion}`
+      ? translate(loc, "notif.apply.successBody", { family, version: targetVersion })
       : kind === "apply_failure"
         ? (p.error ?? null)
         : null;

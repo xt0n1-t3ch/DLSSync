@@ -255,6 +255,7 @@ export interface UiPreferences {
   settings_active_tab: SettingsTab;
   command_palette_recent: string[];
   show_support_nudge: boolean;
+  language: string;
 }
 
 export type LibraryViewMode = "grid" | "list";

@@ -7,7 +7,7 @@
     notificationsOpen,
     notificationsUnreadCount,
   } from "../lib/stores";
-  import { viewTitle } from "../lib/labels";
+  import { t } from "../lib/i18n/index";
 
   let { onToggleTheme, theme }: { onToggleTheme: () => void; theme: string } = $props();
 
@@ -51,7 +51,7 @@
   }
 
   let showSearch = $derived($currentView === "library");
-  let pageTitle = $derived(showSearch ? "" : viewTitle($currentView));
+  let pageTitle = $derived(showSearch ? "" : $t("view." + $currentView + ".title"));
   let unread = $derived($notificationsUnreadCount);
   let modKeyLabel = $derived(typeof navigator !== "undefined" && navigator.platform.toLowerCase().includes("mac") ? "⌘" : "Ctrl");
 </script>
@@ -66,7 +66,7 @@
         <input
           bind:this={searchInput}
           type="search"
-          placeholder="Search games"
+          placeholder={$t("component.chrome.topbar.searchPlaceholder")}
           bind:value={$searchQuery}
         />
         <span class="kbd">/</span>
@@ -77,7 +77,7 @@
   </div>
 
   <div class="topbar-right">
-    <button class="topbar-btn palette-btn" title={`Command palette (${modKeyLabel}K)`} onclick={openPalette} aria-label="Open command palette">
+    <button class="topbar-btn palette-btn" title={$t("component.chrome.topbar.commandPaletteTitle", { mod: modKeyLabel })} onclick={openPalette} aria-label={$t("component.chrome.topbar.commandPaletteAria")}>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
       </svg>
@@ -86,12 +86,12 @@
     <div class="bell-wrap">
       <button
         class="topbar-btn bell-btn"
-        title="Notifications"
+        title={$t("component.chrome.topbar.notifications")}
         data-notifications-toggle
         onclick={() => notificationsOpen.update((v) => !v)}
         aria-haspopup="dialog"
         aria-expanded={$notificationsOpen}
-        aria-label={unread > 0 ? `${unread} unread notifications` : "Notifications"}
+        aria-label={unread > 0 ? $t("component.chrome.topbar.unreadNotifications", { count: unread }) : $t("component.chrome.topbar.notifications")}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/>
@@ -103,7 +103,7 @@
       </button>
     </div>
 
-    <button class="topbar-btn" title="Toggle theme" onclick={onToggleTheme} aria-label="Toggle theme">
+    <button class="topbar-btn" title={$t("component.chrome.topbar.toggleTheme")} onclick={onToggleTheme} aria-label={$t("component.chrome.topbar.toggleTheme")}>
       {#if theme === "dark"}
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
       {:else}
@@ -112,13 +112,13 @@
     </button>
 
     <div class="window-controls">
-      <button class="win-btn win-quiet" title="Minimize" onclick={minimize} aria-label="Minimize window">
+      <button class="win-btn win-quiet" title={$t("component.chrome.topbar.minimize")} onclick={minimize} aria-label={$t("component.chrome.topbar.minimizeAria")}>
         <svg width="12" height="12" viewBox="0 0 12 12"><line x1="2" y1="6" x2="10" y2="6" stroke="currentColor" stroke-width="1.5"/></svg>
       </button>
-      <button class="win-btn win-quiet" title="Maximize" onclick={toggleMaximize} aria-label="Maximize window">
+      <button class="win-btn win-quiet" title={$t("component.chrome.topbar.maximize")} onclick={toggleMaximize} aria-label={$t("component.chrome.topbar.maximizeAria")}>
         <svg width="12" height="12" viewBox="0 0 12 12"><rect x="2" y="2" width="8" height="8" stroke="currentColor" stroke-width="1.5" fill="none" rx="1"/></svg>
       </button>
-      <button class="win-btn win-close" title="Close" onclick={close} aria-label="Close window">
+      <button class="win-btn win-close" title={$t("common.close")} onclick={close} aria-label={$t("component.chrome.topbar.closeAria")}>
         <svg width="12" height="12" viewBox="0 0 12 12"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.5"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.5"/></svg>
       </button>
     </div>

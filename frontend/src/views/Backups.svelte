@@ -15,6 +15,8 @@
     DEFAULT_VENDOR_ACCENT,
   } from "../lib/labels";
   import FeatureIcon from "./../components/FeatureIcon.svelte";
+  import { get } from "svelte/store";
+  import { t, locale, translate } from "../lib/i18n/index";
 
   onMount(() => {
     void loadBackups();
@@ -138,20 +140,36 @@
 
   async function doDriverRestore(b: BackupEntry): Promise<void> {
     if (restoringDriverId) return;
+    const loc = get(locale);
     const ok = await confirm(
-      `Roll ${b.driver_provider ?? "this"} ${(b.device_class ?? "driver").toLowerCase()} driver back to v${b.previous_version ?? "?"}?\n\nDLSSync re-installs the snapshot it took before the update. Windows will ask for Administrator approval, and a reboot may be needed.`,
-      { title: "Roll back driver", kind: "warning", okLabel: "Roll back", cancelLabel: "Cancel" },
+      translate(loc, "view.backups.driver.confirmRollback.body", {
+        provider: b.driver_provider ?? translate(loc, "view.backups.driver.thisDriver"),
+        deviceClass: (b.device_class ?? translate(loc, "view.backups.driver.driverWord")).toLowerCase(),
+        version: b.previous_version ?? "?",
+      }),
+      {
+        title: translate(loc, "view.backups.driver.confirmRollback.title"),
+        kind: "warning",
+        okLabel: translate(loc, "view.backups.driver.rollBack"),
+        cancelLabel: translate(loc, "view.backups.cancel"),
+      },
     );
     if (!ok) return;
     restoringDriverId = b.id;
     try {
       const outcome = await restoreSystemDriver(b.id);
       if (outcome.success) {
-        showToast("success", `Rolled back ${b.dll_filename}${outcome.reboot_required ? " — reboot to finish" : ""}`);
+        showToast(
+          "success",
+          translate(loc, "view.backups.driver.toastRolledBack", { file: b.dll_filename }) +
+            (outcome.reboot_required ? translate(loc, "view.backups.driver.rebootSuffix") : ""),
+        );
         void pushNotification(
           makeNotificationEntry(
             "backup_restored",
-            `Rolled back ${b.device_class ?? "driver"} driver`,
+            translate(loc, "view.backups.driver.notifTitle", {
+              deviceClass: b.device_class ?? translate(loc, "view.backups.driver.driverWord"),
+            }),
             `${b.driver_provider ?? ""} ${b.dll_filename}`.trim(),
           ),
         ).catch((err) => console.warn("[dlssync] push driver-rollback notification failed:", err));
@@ -160,7 +178,7 @@
         showToast("danger", outcome.message);
       }
     } catch (err: unknown) {
-      showToast("danger", `Rollback failed: ${String(err)}`);
+      showToast("danger", translate(loc, "view.backups.driver.toastRollbackFailed", { error: String(err) }));
     } finally {
       restoringDriverId = null;
     }
@@ -235,21 +253,22 @@
 
   async function doRestore(b: BackupEntry): Promise<void> {
     if (restoringId) return;
+    const loc = get(locale);
     restoringId = b.id;
     try {
       await restoreBackup(b.id);
-      showToast("success", `Restored ${b.dll_filename}`);
+      showToast("success", translate(loc, "view.backups.toastRestoredFile", { file: b.dll_filename }));
       void pushNotification(
         makeNotificationEntry(
           "backup_restored",
-          `Restored ${b.dll_filename}`,
+          translate(loc, "view.backups.toastRestoredFile", { file: b.dll_filename }),
           gameById.get(b.game_id)?.name ?? b.game_id,
           { game_id: b.game_id },
         ),
       ).catch((err) => console.warn("[dlssync] push backup-restored notification failed:", err));
       await loadBackups();
     } catch (err: unknown) {
-      showToast("danger", `Restore failed: ${String(err)}`);
+      showToast("danger", translate(loc, "view.backups.toastRestoreFailed", { error: String(err) }));
     } finally {
       restoringId = null;
     }
@@ -261,9 +280,10 @@
 
   async function bulkRestore(): Promise<void> {
     if (bulkRunning) return;
+    const loc = get(locale);
     const targets = selectedEntries.filter((e) => !e.restored_at && !isMissing(e));
     if (targets.length === 0) {
-      showToast("info", "Nothing to restore — selected snapshots are already restored or missing from disk");
+      showToast("info", translate(loc, "view.backups.toastNothingToRestore"));
       return;
     }
     bulkRunning = "restore";
@@ -284,23 +304,37 @@
       void pushNotification(
         makeNotificationEntry(
           "backup_restored",
-          `Restored ${ok} snapshot${ok === 1 ? "" : "s"}`,
-          fail > 0 ? `${fail} failed to restore` : "All selected snapshots restored",
+          translate(loc, "view.backups.toastRestoredCount", { count: ok }),
+          fail > 0
+            ? translate(loc, "view.backups.toastFailedToRestore", { count: fail })
+            : translate(loc, "view.backups.toastAllRestored"),
         ),
       ).catch((err) => console.warn("[dlssync] push backup-restored notification failed:", err));
     }
-    if (fail === 0) showToast("success", `Restored ${ok} snapshot${ok === 1 ? "" : "s"}`);
-    else if (ok === 0) showToast("danger", `Restore failed for all ${fail} snapshots`);
-    else showToast("warning", `Restored ${ok}, ${fail} failed`);
+    if (fail === 0) showToast("success", translate(loc, "view.backups.toastRestoredCount", { count: ok }));
+    else if (ok === 0) showToast("danger", translate(loc, "view.backups.toastRestoreFailedAll", { count: fail }));
+    else showToast("warning", translate(loc, "view.backups.toastRestorePartial", { ok, fail }));
   }
 
   async function bulkDelete(): Promise<void> {
     if (bulkRunning) return;
     if (selectedEntries.length === 0) return;
-    const sizeLabel = selectedTotalBytes > 0 ? ` totalling ${fmtBytes(selectedTotalBytes)}` : "";
+    const loc = get(locale);
+    const sizeLabel =
+      selectedTotalBytes > 0
+        ? translate(loc, "view.backups.confirmDeleteMany.sizeSuffix", { size: fmtBytes(selectedTotalBytes) })
+        : "";
     const ok = await confirm(
-      `Delete ${selectedEntries.length} backup snapshot${selectedEntries.length === 1 ? "" : "s"}${sizeLabel}?\n\nThis removes the snapshot files from disk. You will NOT be able to restore the originals afterwards. This action is irreversible.`,
-      { title: "Delete backups", kind: "warning", okLabel: `Delete ${selectedEntries.length}`, cancelLabel: "Cancel" },
+      translate(loc, "view.backups.confirmDeleteMany.body", {
+        count: selectedEntries.length,
+        sizeSuffix: sizeLabel,
+      }),
+      {
+        title: translate(loc, "view.backups.confirmDeleteMany.title"),
+        kind: "warning",
+        okLabel: translate(loc, "view.backups.deleteCount", { count: selectedEntries.length }),
+        cancelLabel: translate(loc, "view.backups.cancel"),
+      },
     );
     if (!ok) return;
     bulkRunning = "delete";
@@ -318,30 +352,41 @@
     bulkRunning = null;
     selectedIds = new Set();
     await loadBackups();
-    if (fail === 0) showToast("success", `Deleted ${removed} snapshot${removed === 1 ? "" : "s"}`);
-    else if (removed === 0) showToast("danger", `Delete failed for all ${fail} snapshots`);
-    else showToast("warning", `Deleted ${removed}, ${fail} failed`);
+    if (fail === 0) showToast("success", translate(loc, "view.backups.toastDeletedCount", { count: removed }));
+    else if (removed === 0) showToast("danger", translate(loc, "view.backups.toastDeleteFailedAll", { count: fail }));
+    else showToast("warning", translate(loc, "view.backups.toastDeletePartial", { removed, fail }));
   }
 
   async function doDelete(b: BackupEntry): Promise<void> {
     if (deletingId) return;
-    const sizeLabel = b.size_bytes ? ` (${fmtBytes(b.size_bytes)})` : "";
+    const loc = get(locale);
+    const sizeLabel = b.size_bytes
+      ? translate(loc, "view.backups.confirmDeleteOne.sizeSuffix", { size: fmtBytes(b.size_bytes) })
+      : "";
     const ok = await confirm(
-      `Delete backup of ${b.dll_filename}${sizeLabel}?\n\nThis removes the snapshot file from disk. You will NOT be able to restore this DLL afterwards.`,
-      { title: "Delete backup", kind: "warning", okLabel: "Delete", cancelLabel: "Cancel" },
+      translate(loc, "view.backups.confirmDeleteOne.body", {
+        file: b.dll_filename,
+        sizeSuffix: sizeLabel,
+      }),
+      {
+        title: translate(loc, "view.backups.confirmDeleteOne.title"),
+        kind: "warning",
+        okLabel: translate(loc, "view.backups.delete"),
+        cancelLabel: translate(loc, "view.backups.cancel"),
+      },
     );
     if (!ok) return;
     deletingId = b.id;
     try {
       const outcome = await deleteBackup(b.id);
       if (outcome.file_error) {
-        showToast("warning", `Row removed, file delete failed: ${outcome.file_error}`);
+        showToast("warning", translate(loc, "view.backups.toastRowRemovedFileFailed", { error: outcome.file_error }));
       } else {
-        showToast("success", `Deleted ${b.dll_filename}`);
+        showToast("success", translate(loc, "view.backups.toastDeletedFile", { file: b.dll_filename }));
       }
       await loadBackups();
     } catch (err: unknown) {
-      showToast("danger", `Delete failed: ${String(err)}`);
+      showToast("danger", translate(loc, "view.backups.toastDeleteFailed", { error: String(err) }));
     } finally {
       deletingId = null;
     }
@@ -354,21 +399,22 @@
       const { revealPath } = await import("../lib/api");
       await revealPath(b.backup_path);
     } catch (err: unknown) {
-      showToast("danger", `Reveal failed: ${String(err)}`);
+      showToast("danger", translate(get(locale), "view.backups.toastRevealFailed", { error: String(err) }));
     } finally {
       openingPath = null;
     }
   }
 
   async function openGameFolder(g: GroupedBackup): Promise<void> {
+    const loc = get(locale);
     if (!g.game) {
-      showToast("warning", "Game install path not available — game may have been uninstalled");
+      showToast("warning", translate(loc, "view.backups.toastInstallPathUnavailable"));
       return;
     }
     try {
       await openPath(g.game.install_dir);
     } catch (err: unknown) {
-      showToast("danger", `Open folder: ${String(err)}`);
+      showToast("danger", translate(loc, "view.backups.toastOpenFolderFailed", { error: String(err) }));
     }
   }
 
@@ -409,13 +455,13 @@
 
 <header class="view-header">
   <div>
-    <h1 class="view-title">Backups</h1>
-    <p class="view-subtitle">Every DLL replaced by DLSSync is snapshotted first. Restore any time, one click.</p>
+    <h1 class="view-title">{$t("view.backups.title")}</h1>
+    <p class="view-subtitle">{$t("view.backups.subtitle")}</p>
   </div>
   <div class="header-actions">
     {#if filtered.length > 0}
-      <button class="btn btn-ghost btn-sm" onclick={expandAll}>Expand all</button>
-      <button class="btn btn-ghost btn-sm" onclick={collapseAll}>Collapse all</button>
+      <button class="btn btn-ghost btn-sm" onclick={expandAll}>{$t("view.backups.expandAll")}</button>
+      <button class="btn btn-ghost btn-sm" onclick={collapseAll}>{$t("view.backups.collapseAll")}</button>
     {/if}
   </div>
 </header>
@@ -423,8 +469,8 @@
 {#if $backups.length === 0}
   <div class="empty">
     <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5" rx="0.5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
-    <h3 class="empty-title">No backups yet</h3>
-    <p class="section-sub">Backups are created automatically when you apply a DLL update or a System &amp; Components driver. Open any game from the Library, pick DLLs, and click Apply selected.</p>
+    <h3 class="empty-title">{$t("view.backups.emptyTitle")}</h3>
+    <p class="section-sub">{$t("view.backups.emptyBody")}</p>
   </div>
 {:else}
   {#if dllBackups.length > 0}
@@ -436,7 +482,7 @@
         </span>
         <div class="bk-stat-text">
           <span class="bk-stat-num">{dllBackups.length.toLocaleString()}</span>
-          <span class="bk-stat-lbl">Total backups</span>
+          <span class="bk-stat-lbl">{$t("view.backups.kpi.total")}</span>
         </div>
       </div>
       <div class="bk-stat">
@@ -445,7 +491,7 @@
         </span>
         <div class="bk-stat-text">
           <span class="bk-stat-num">{fmtBytes(totalBytes)}</span>
-          <span class="bk-stat-lbl">Disk used</span>
+          <span class="bk-stat-lbl">{$t("view.backups.kpi.diskUsed")}</span>
         </div>
       </div>
       <div class="bk-stat">
@@ -454,7 +500,7 @@
         </span>
         <div class="bk-stat-text">
           <span class="bk-stat-num is-update">{totalRestorable}</span>
-          <span class="bk-stat-lbl">Restorable</span>
+          <span class="bk-stat-lbl">{$t("view.backups.kpi.restorable")}</span>
         </div>
       </div>
       <div class="bk-stat">
@@ -463,30 +509,30 @@
         </span>
         <div class="bk-stat-text">
           <span class="bk-stat-num is-success">{totalRestored}</span>
-          <span class="bk-stat-lbl">Already restored</span>
+          <span class="bk-stat-lbl">{$t("view.backups.kpi.alreadyRestored")}</span>
         </div>
       </div>
     </div>
     <div class="hero-meta-strip">
       <span class="hero-meta-item">
-        <span class="hero-meta-label">Games covered</span>
+        <span class="hero-meta-label">{$t("view.backups.meta.gamesCovered")}</span>
         <span class="hero-meta-value">{uniqueGames}</span>
       </span>
       <span class="hero-meta-sep"></span>
       <span class="hero-meta-item">
-        <span class="hero-meta-label">Newest</span>
+        <span class="hero-meta-label">{$t("view.backups.meta.newest")}</span>
         <span class="hero-meta-value mono">{newestDate ? fmtDateShort(newestDate) : "—"}</span>
       </span>
       <span class="hero-meta-sep"></span>
       <span class="hero-meta-item">
-        <span class="hero-meta-label">Oldest</span>
+        <span class="hero-meta-label">{$t("view.backups.meta.oldest")}</span>
         <span class="hero-meta-value mono">{oldestDate ? fmtDateShort(oldestDate) : "—"}</span>
       </span>
       {#if totalMissing > 0}
         <span class="hero-meta-sep"></span>
-        <span class="hero-meta-item hero-meta-warn" title="Snapshot files no longer present on disk — they were moved or deleted outside DLSSync. Delete the rows to tidy up.">
+        <span class="hero-meta-item hero-meta-warn" title={$t("view.backups.meta.missingHint")}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          <span class="hero-meta-value">{totalMissing} missing</span>
+          <span class="hero-meta-value">{$t("view.backups.meta.missingCount", { count: totalMissing })}</span>
         </span>
       {/if}
     </div>
@@ -494,31 +540,31 @@
 
   {#if selectedIds.size > 0}
     <div class="bulk-bar" in:fly={{ y: -4, duration: 180 }}>
-      <span class="bulk-count">{selectedIds.size} selected</span>
+      <span class="bulk-count">{$t("view.backups.bulk.selected", { count: selectedIds.size })}</span>
       {#if selectedTotalBytes > 0}
         <span class="bulk-meta">{fmtBytes(selectedTotalBytes)}</span>
       {/if}
       {#if selectedActiveCount > 0 && selectedActiveCount !== selectedIds.size}
-        <span class="bulk-meta">{selectedActiveCount} restorable</span>
+        <span class="bulk-meta">{$t("view.backups.bulk.restorable", { count: selectedActiveCount })}</span>
       {/if}
       <div class="bulk-spacer"></div>
-      <button class="btn btn-sm btn-ghost" onclick={clearSelection} disabled={bulkRunning !== null}>Clear</button>
+      <button class="btn btn-sm btn-ghost" onclick={clearSelection} disabled={bulkRunning !== null}>{$t("view.backups.bulk.clear")}</button>
       <button class="btn btn-sm btn-accent" onclick={bulkRestore} disabled={selectedActiveCount === 0 || bulkRunning !== null}>
         {#if bulkRunning === "restore"}
           <span class="spin"></span>
-          Restoring {selectedActiveCount}…
+          {$t("view.backups.bulk.restoring", { count: selectedActiveCount })}
         {:else}
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9c-2.52 0-4.85.93-6.63 2.46"/><polyline points="3 4 3 9 8 9"/></svg>
-          Restore {selectedActiveCount}
+          {$t("view.backups.bulk.restore", { count: selectedActiveCount })}
         {/if}
       </button>
       <button class="btn btn-sm btn-danger-ghost" onclick={bulkDelete} disabled={bulkRunning !== null}>
         {#if bulkRunning === "delete"}
           <span class="spin"></span>
-          Deleting {selectedIds.size}…
+          {$t("view.backups.bulk.deleting", { count: selectedIds.size })}
         {:else}
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
-          Delete {selectedIds.size}
+          {$t("view.backups.bulk.delete", { count: selectedIds.size })}
         {/if}
       </button>
     </div>
@@ -529,28 +575,28 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="search-icon"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       <input
         type="search"
-        placeholder="Search by game, DLL file, feature, or version…"
+        placeholder={$t("view.backups.searchPlaceholder")}
         bind:value={query}
       />
       {#if query}
-        <button class="search-clear" onclick={() => (query = "")} aria-label="Clear search">
+        <button class="search-clear" onclick={() => (query = "")} aria-label={$t("view.backups.clearSearchAria")}>
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       {/if}
     </div>
-    <div class="group-by-toggle" role="group" aria-label="Group backups by">
-      <button class="seg-btn" class:active={groupBy === "game"} onclick={() => void setGroupBy("game")} aria-pressed={groupBy === "game"}>Game</button>
-      <button class="seg-btn" class:active={groupBy === "date"} onclick={() => void setGroupBy("date")} aria-pressed={groupBy === "date"}>Date</button>
+    <div class="group-by-toggle" role="group" aria-label={$t("view.backups.groupByAria")}>
+      <button class="seg-btn" class:active={groupBy === "game"} onclick={() => void setGroupBy("game")} aria-pressed={groupBy === "game"}>{$t("view.backups.groupBy.game")}</button>
+      <button class="seg-btn" class:active={groupBy === "date"} onclick={() => void setGroupBy("date")} aria-pressed={groupBy === "date"}>{$t("view.backups.groupBy.date")}</button>
     </div>
     <span class="toolbar-summary">
-      {filtered.reduce((a, g) => a + g.entries.length, 0)} of {dllBackups.length} backup{dllBackups.length === 1 ? "" : "s"}{filtered.length !== grouped.length ? ` · ${filtered.length} ${groupBy === "date" ? "day" : "game"}${filtered.length === 1 ? "" : "s"}` : ""}
+      {$t("view.backups.summaryCount", { shown: filtered.reduce((a, g) => a + g.entries.length, 0), count: dllBackups.length })}{filtered.length !== grouped.length ? ` · ${groupBy === "date" ? $t("view.backups.summaryDays", { count: filtered.length }) : $t("view.backups.summaryGames", { count: filtered.length })}` : ""}
     </span>
   </div>
 
   {#if filtered.length === 0}
     <div class="empty small">
-      <p class="section-sub">No backups match your search.</p>
-      <button class="btn btn-accent" onclick={() => (query = "")}>Clear search</button>
+      <p class="section-sub">{$t("view.backups.noMatch")}</p>
+      <button class="btn btn-accent" onclick={() => (query = "")}>{$t("view.backups.clearSearch")}</button>
     </div>
   {:else}
     <div class="groups">
@@ -559,7 +605,7 @@
         {@const groupSel = groupSelectionState(g)}
         <section class="group" in:fly={{ y: 6, duration: 260, delay: 40 + i * 30 }}>
           <div class="group-row">
-            <label class="group-check" title={groupSel === "all" ? "Deselect all in this game" : "Select all in this game"}>
+            <label class="group-check" title={groupSel === "all" ? $t("view.backups.group.deselectAll") : $t("view.backups.group.selectAll")}>
               <input
                 type="checkbox"
                 checked={groupSel === "all"}
@@ -588,12 +634,12 @@
                 {/if}
               </div>
               <div class="group-stats">
-                <span class="stat-line"><strong>{g.entries.length}</strong> snapshot{g.entries.length === 1 ? "" : "s"}</span>
-                {#if g.activeCount > 0}<span class="dot"></span><span class="stat-line is-update">{g.activeCount} restorable</span>{/if}
-                {#if g.restoredCount > 0}<span class="dot"></span><span class="stat-line is-success">{g.restoredCount} restored</span>{/if}
-                {#if g.missingCount > 0}<span class="dot"></span><span class="stat-line is-missing">{g.missingCount} missing</span>{/if}
+                <span class="stat-line">{@html $t("view.backups.group.snapshots", { count: g.entries.length })}</span>
+                {#if g.activeCount > 0}<span class="dot"></span><span class="stat-line is-update">{$t("view.backups.group.restorable", { count: g.activeCount })}</span>{/if}
+                {#if g.restoredCount > 0}<span class="dot"></span><span class="stat-line is-success">{$t("view.backups.group.restored", { count: g.restoredCount })}</span>{/if}
+                {#if g.missingCount > 0}<span class="dot"></span><span class="stat-line is-missing">{$t("view.backups.group.missing", { count: g.missingCount })}</span>{/if}
                 {#if g.sizeBytes > 0}<span class="dot"></span><span class="stat-line">{fmtBytes(g.sizeBytes)}</span>{/if}
-                <span class="dot"></span><span class="stat-line">latest {fmtDateShort(g.latestAt)}</span>
+                <span class="dot"></span><span class="stat-line">{$t("view.backups.group.latest", { date: fmtDateShort(g.latestAt) })}</span>
               </div>
             </div>
             <svg
@@ -613,9 +659,9 @@
           {#if expanded[g.game_id]}
             <div class="group-actions">
               {#if g.game}
-                <button class="btn btn-sm btn-ghost" onclick={() => openGameFolder(g)} title="Open install folder">
+                <button class="btn btn-sm btn-ghost" onclick={() => openGameFolder(g)} title={$t("view.backups.openInstallFolder")}>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                  Open install folder
+                  {$t("view.backups.openInstallFolder")}
                 </button>
               {/if}
             </div>
@@ -624,7 +670,7 @@
                 {@const fSlot = featureFromFamily(b.dll_family)}
                 {@const missing = isMissing(b)}
                 <li class="entry" class:restored={b.restored_at} class:missing class:is-selected={selectedIds.has(b.id)}>
-                  <label class="entry-check" title="Select for bulk restore/delete">
+                  <label class="entry-check" title={$t("view.backups.entry.selectHint")}>
                     <input
                       type="checkbox"
                       checked={selectedIds.has(b.id)}
@@ -639,11 +685,11 @@
                     <div class="entry-head">
                       <span class="entry-title">{featureTitle(fSlot)}</span>
                       {#if missing}
-                        <span class="chip chip-danger small-chip" title="The snapshot file is no longer on disk — it was moved or deleted outside DLSSync. This snapshot can't be restored; delete the row to tidy the list.">Snapshot missing</span>
+                        <span class="chip chip-danger small-chip" title={$t("view.backups.entry.missingHint")}>{$t("view.backups.entry.snapshotMissing")}</span>
                       {:else if b.restored_at}
-                        <span class="chip chip-success small-chip" title={`Restored ${fmtDate(b.restored_at)} — the snapshot is still on disk, so you can restore it again if you applied a newer DLL since.`}>Restored</span>
+                        <span class="chip chip-success small-chip" title={$t("view.backups.entry.restoredHint", { date: fmtDate(b.restored_at) })}>{$t("view.backups.entry.restored")}</span>
                       {:else}
-                        <span class="chip chip-update small-chip" title="The original DLL is snapshotted and ready to roll back at any time.">Active backup</span>
+                        <span class="chip chip-update small-chip" title={$t("view.backups.entry.activeHint")}>{$t("view.backups.entry.activeBackup")}</span>
                       {/if}
                     </div>
                     <div class="entry-meta mono">
@@ -653,7 +699,7 @@
                       <span class="sep">·</span>
                       <span title={b.previous_sha256 ?? ""}>sha {shortSha(b.previous_sha256)}</span>
                       <span class="sep">·</span>
-                      <span class:is-missing={missing}>{missing ? "gone" : fmtBytes(b.size_bytes)}</span>
+                      <span class:is-missing={missing}>{missing ? $t("view.backups.entry.gone") : fmtBytes(b.size_bytes)}</span>
                       <span class="sep">·</span>
                       <span title={b.created_at}>{fmtDate(b.created_at)}</span>
                     </div>
@@ -663,7 +709,7 @@
                     <button
                       class="btn btn-sm btn-ghost"
                       onclick={() => revealBackup(b)}
-                      title={missing ? "Open the snapshot folder (file no longer on disk)" : "Reveal snapshot file in Explorer"}
+                      title={missing ? $t("view.backups.entry.revealMissing") : $t("view.backups.entry.reveal")}
                       disabled={openingPath === b.id}
                     >
                       {#if openingPath === b.id}
@@ -675,7 +721,7 @@
                     <button
                       class="btn btn-sm btn-ghost btn-danger-ghost"
                       onclick={() => doDelete(b)}
-                      title="Delete backup snapshot from disk"
+                      title={$t("view.backups.entry.deleteHint")}
                       disabled={deletingId === b.id}
                     >
                       {#if deletingId === b.id}
@@ -685,22 +731,22 @@
                       {/if}
                     </button>
                     {#if missing}
-                      <button class="btn btn-sm btn-ghost" disabled title="Can't restore — snapshot file is gone from disk">
-                        Unavailable
+                      <button class="btn btn-sm btn-ghost" disabled title={$t("view.backups.entry.unavailableHint")}>
+                        {$t("view.backups.entry.unavailable")}
                       </button>
                     {:else if b.restored_at}
                       <button
                         class="btn btn-sm btn-ghost"
                         disabled={restoringId === b.id}
                         onclick={() => doRestore(b)}
-                        title="Restore this snapshot again — useful if you applied a newer DLL after the last restore"
+                        title={$t("view.backups.entry.restoreAgainHint")}
                       >
                         {#if restoringId === b.id}
                           <span class="spin"></span>
-                          Restoring
+                          {$t("view.backups.entry.restoring")}
                         {:else}
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9c-2.52 0-4.85.93-6.63 2.46"/><polyline points="3 4 3 9 8 9"/></svg>
-                          Restore again
+                          {$t("view.backups.entry.restoreAgain")}
                         {/if}
                       </button>
                     {:else}
@@ -708,14 +754,14 @@
                         class="btn btn-sm btn-accent"
                         disabled={restoringId === b.id}
                         onclick={() => doRestore(b)}
-                        title="Roll the original DLL back into the game folder"
+                        title={$t("view.backups.entry.restoreHint")}
                       >
                         {#if restoringId === b.id}
                           <span class="spin"></span>
-                          Restoring
+                          {$t("view.backups.entry.restoring")}
                         {:else}
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9c-2.52 0-4.85.93-6.63 2.46"/><polyline points="3 4 3 9 8 9"/></svg>
-                          Restore
+                          {$t("view.backups.entry.restore")}
                         {/if}
                       </button>
                     {/if}
@@ -733,28 +779,26 @@
   {#if driverBackups.length > 0}
     <section class="driver-section" in:fly={{ y: 6, duration: 220 }}>
       <div class="section-head driver-head">
-        <h2 class="section-title">System Drivers</h2>
+        <h2 class="section-title">{$t("view.backups.driver.sectionTitle")}</h2>
         <span class="section-count">{driverBackups.length}</span>
       </div>
       <p class="section-sub driver-sub">
-        Pre-update snapshots of your audio, network, Bluetooth, chipset, and other
-        component drivers. Roll any one back if an update misbehaves — Windows asks
-        for Administrator approval, and a reboot may be needed.
+        {$t("view.backups.driver.sectionSub")}
       </p>
 
       <div class="driver-toolbar">
         <div class="backup-search">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="search-icon"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input type="search" placeholder="Search by component, vendor, INF, or hardware id…" bind:value={driverQuery} />
+          <input type="search" placeholder={$t("view.backups.driver.searchPlaceholder")} bind:value={driverQuery} />
           {#if driverQuery}
-            <button class="search-clear" onclick={() => (driverQuery = "")} aria-label="Clear search">
+            <button class="search-clear" onclick={() => (driverQuery = "")} aria-label={$t("view.backups.clearSearchAria")}>
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           {/if}
         </div>
         {#if driverClasses.length > 1}
-          <div class="pills" role="group" aria-label="Filter drivers by component">
-            <button class="pill" class:active={driverClassFilter === "all"} onclick={() => (driverClassFilter = "all")}>All</button>
+          <div class="pills" role="group" aria-label={$t("view.backups.driver.filterAria")}>
+            <button class="pill" class:active={driverClassFilter === "all"} onclick={() => (driverClassFilter = "all")}>{$t("view.backups.driver.filterAll")}</button>
             {#each driverClasses as c (c)}
               <button class="pill" class:active={driverClassFilter === c} onclick={() => (driverClassFilter = c)}>{c}</button>
             {/each}
@@ -764,7 +808,7 @@
 
       {#if driverGroups.length === 0}
         <div class="empty small">
-          <p class="section-sub">No driver backups match your filter.</p>
+          <p class="section-sub">{$t("view.backups.driver.noMatch")}</p>
         </div>
       {:else}
         <div class="groups">
@@ -782,11 +826,11 @@
                     </div>
                     <div class="entry-main">
                       <div class="entry-head">
-                        <span class="entry-title">{b.driver_provider ?? "Driver"}</span>
+                        <span class="entry-title">{b.driver_provider ?? $t("view.backups.driver.driverWord")}</span>
                         {#if b.restored_at}
-                          <span class="chip chip-success small-chip" title={`Rolled back ${fmtDate(b.restored_at)}`}>Rolled back</span>
+                          <span class="chip chip-success small-chip" title={$t("view.backups.driver.rolledBackHint", { date: fmtDate(b.restored_at) })}>{$t("view.backups.driver.rolledBack")}</span>
                         {:else}
-                          <span class="chip chip-update small-chip" title="The driver in place before the update is snapshotted and ready to roll back.">Snapshot</span>
+                          <span class="chip chip-update small-chip" title={$t("view.backups.driver.snapshotHint")}>{$t("view.backups.driver.snapshot")}</span>
                         {/if}
                       </div>
                       <div class="entry-meta mono">
@@ -803,7 +847,7 @@
                       <button
                         class="btn btn-sm btn-ghost"
                         onclick={() => revealBackup(b)}
-                        title="Open the snapshot folder in Explorer"
+                        title={$t("view.backups.driver.revealHint")}
                         disabled={openingPath === b.id}
                       >
                         {#if openingPath === b.id}
@@ -816,14 +860,14 @@
                         class="btn btn-sm btn-accent"
                         disabled={restoringDriverId === b.id}
                         onclick={() => doDriverRestore(b)}
-                        title="Re-install the driver that was in place before the update (Administrator approval required)"
+                        title={$t("view.backups.driver.rollBackHint")}
                       >
                         {#if restoringDriverId === b.id}
                           <span class="spin"></span>
-                          Rolling back
+                          {$t("view.backups.driver.rollingBack")}
                         {:else}
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9c-2.52 0-4.85.93-6.63 2.46"/><polyline points="3 4 3 9 8 9"/></svg>
-                          Roll back
+                          {$t("view.backups.driver.rollBack")}
                         {/if}
                       </button>
                     </div>
@@ -1038,7 +1082,7 @@
   .group-name { font-size: var(--fs-md); font-weight: 600; letter-spacing: var(--letter-tight); }
   .group-launcher { font-size: var(--fs-2xs); padding: 1px 7px; }
   .group-stats { display: flex; align-items: center; gap: 6px; font-size: var(--fs-xs); color: var(--text-muted); flex-wrap: wrap; }
-  .group-stats strong { color: var(--text-secondary); font-weight: 600; }
+  .group-stats :global(strong) { color: var(--text-secondary); font-weight: 600; }
   .stat-line.is-update { color: var(--update); }
   .stat-line.is-success { color: var(--success); }
   .stat-line.is-missing { color: var(--danger); }

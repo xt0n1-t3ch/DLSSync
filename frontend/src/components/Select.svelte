@@ -1,10 +1,12 @@
 <script lang="ts" generics="V extends string | null">
+  import { t } from "../lib/i18n/index";
+
   type Opt = { value: V; label: string; disabled?: boolean };
 
   let {
     value = $bindable(),
     options,
-    placeholder = "Select…",
+    placeholder,
     disabled = false,
     ariaLabel,
   }: {
@@ -14,6 +16,8 @@
     disabled?: boolean;
     ariaLabel?: string;
   } = $props();
+
+  let placeholderText = $derived(placeholder ?? $t("component.misc.select.placeholder"));
 
   let open = $state(false);
   let activeIndex = $state(-1);
@@ -92,7 +96,7 @@
     onclick={() => (open ? close() : openMenu())}
     onkeydown={onTriggerKey}
   >
-    <span class="sel-value" class:is-placeholder={!selected}>{selected ? selected.label : placeholder}</span>
+    <span class="sel-value" class:is-placeholder={!selected}>{selected ? selected.label : placeholderText}</span>
     <svg class="sel-chev" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
   </button>
   {#if open}

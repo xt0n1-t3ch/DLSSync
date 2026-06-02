@@ -5,6 +5,18 @@ All notable changes to DLSSync are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.3] - 2026-06-01
+
+DLSSync speaks your language now, and it stops standing between you and the DLSS Enabler.
+
+### Added
+
+- Language support. The whole interface switches between English and Spanish from a globe button at the bottom of the sidebar, and your choice survives a restart. Every word on screen lives in a plain JSON file, so adding a language is a copy-and-rewrite job with no code and no build tools — there is a step-by-step guide for translators in [docs/translations.md](docs/translations.md).
+
+### Fixed
+
+- Under a detected DLSS Enabler, DLSSync updates the Streamline plug-in set within the same major version again, instead of locking it as "Managed by Enabler". The Enabler needs Streamline 2.11 or newer but never updates Streamline itself, so the previous lock kept you from giving the Enabler the version it asks for. Same-major updates are offered again; a cross-major swap — your 2.x set jumping to the driver's 310.x line — is still blocked, because mixing majors crashes the game on launch. Raised on Nexus for Subnautica 2.
+
 ## [1.6.2] - 2026-05-30
 
 Two small additions to help DLSSync find its people: a support card you can turn off, and a Nexus Mods link in About.
@@ -82,6 +94,7 @@ of the Arc desktop package, and install progress no longer breaks when you switc
 - AMD opens its official download page instead of a constructed installer URL. The direct `.exe` is gated behind a license prompt and its filename changes per release, so a fabricated link was unreliable; version and changelog detection are unchanged.
 - Vendor installer exit codes are reported with a readable message. Intel's "no compatible device" (exit code 8) now explains the GPU may be OEM-locked or need a different driver branch, pointing to the manufacturer or Windows Update.
 
+[1.6.3]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.3
 [1.6.2]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.2
 [1.6.1]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.1
 [1.5.2]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.5.2

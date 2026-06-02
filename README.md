@@ -21,7 +21,7 @@
 </p>
 
 <p align="center">
-  <sub><b>New in v1.6.2:</b> DLSSync updates NVIDIA's Streamline plug-ins as one matched, version-locked set — a game's <code>sl.dlss*</code> plug-ins and their <code>sl.interposer</code>/<code>sl.common</code>/<code>sl.pcl</code> runtime move to one official, Authenticode-verified SDK version atomically (every file, or none, since a partial swap crashes the game on launch). Offers are scheme-aware: a driver-managed plug-in is left alone, so your NVIDIA App overrides keep working. DLSSync hosts nothing — binaries come from NVIDIA's own signed SDK. See <a href="CHANGELOG.md#162---2026-05-30">CHANGELOG</a>.</sub>
+  <sub><b>New in v1.6.3:</b> DLSSync now speaks English and Spanish — switch from the globe button in the sidebar, and translate it into any language by editing a plain JSON file (<a href="docs/translations.md">guide</a>). Under a detected DLSS Enabler it also updates the Streamline set within the same major version again, so you can give the Enabler the Streamline 2.11+ it needs without the cross-major swap that crashes games. See <a href="CHANGELOG.md#163---2026-06-01">CHANGELOG</a>.</sub>
 </p>
 
 <p align="center">

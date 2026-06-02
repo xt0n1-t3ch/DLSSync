@@ -78,6 +78,8 @@ pub struct UiPreferences {
     pub command_palette_recent: Vec<String>,
     #[serde(default = "default_true")]
     pub show_support_nudge: bool,
+    #[serde(default)]
+    pub language: String,
 }
 
 pub const DEFAULT_LIBRARY_VIEW_MODE: &str = "grid";
@@ -118,6 +120,7 @@ impl Default for UiPreferences {
             settings_active_tab: DEFAULT_SETTINGS_ACTIVE_TAB.into(),
             command_palette_recent: Vec::new(),
             show_support_nudge: true,
+            language: String::new(),
         }
     }
 }
@@ -400,6 +403,7 @@ mod ui_prefs_tests {
         assert_eq!(prefs.backups_group_by, DEFAULT_BACKUPS_GROUP_BY);
         assert_eq!(prefs.settings_active_tab, DEFAULT_SETTINGS_ACTIVE_TAB);
         assert!(prefs.command_palette_recent.is_empty());
+        assert!(prefs.language.is_empty());
     }
 
     #[test]
@@ -419,6 +423,7 @@ mod ui_prefs_tests {
         assert_eq!(prefs.backups_group_by, DEFAULT_BACKUPS_GROUP_BY);
         assert_eq!(prefs.settings_active_tab, DEFAULT_SETTINGS_ACTIVE_TAB);
         assert!(prefs.command_palette_recent.is_empty());
+        assert!(prefs.language.is_empty());
     }
 
     #[test]

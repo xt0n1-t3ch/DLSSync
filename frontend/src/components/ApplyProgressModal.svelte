@@ -3,6 +3,7 @@
   import { fly, fade, slide } from "svelte/transition";
   import { get } from "svelte/store";
   import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+  import { t, locale, translate } from "../lib/i18n/index";
   import {
     activeApplies,
     downloadProgressByGroup,
@@ -34,7 +35,6 @@
   import FeatureIcon from "./FeatureIcon.svelte";
   import {
     classifyApplyError,
-    ERROR_CLASS_LABEL,
     ERROR_CLASS_TONE,
   } from "../lib/applyErrorClass";
   import {
@@ -355,9 +355,14 @@
         };
         try {
           await persistSettings(next);
-          showToast("info", "Unsigned DLL bypass enabled");
+          showToast("info", translate(get(locale), "component.applyModal.toast.unsignedEnabled"));
         } catch (err: unknown) {
-          showToast("danger", `Could not enable unsigned bypass: ${String(err)}`);
+          showToast(
+            "danger",
+            translate(get(locale), "component.applyModal.toast.unsignedFailed", {
+              error: String(err),
+            }),
+          );
           return;
         }
       }
@@ -367,7 +372,7 @@
           classifyApplyError(e.error).kind === "signature",
       );
       if (targets.length === 0) {
-        showToast("info", "No signature failures to retry");
+        showToast("info", translate(get(locale), "component.applyModal.toast.noSignatureFailures"));
         return;
       }
       await retryFailedTrackers(targets);
@@ -393,16 +398,18 @@
   function copyError(message: string | null): void {
     if (!message) return;
     void navigator.clipboard?.writeText(message).then(
-      () => showToast("success", "Error copied"),
-      () => showToast("warning", "Clipboard unavailable"),
+      () => showToast("success", translate(get(locale), "component.applyModal.toast.errorCopied")),
+      () =>
+        showToast("warning", translate(get(locale), "component.applyModal.toast.clipboardUnavailable")),
     );
   }
 
   function copyReport(): void {
     const report = buildReport();
     void navigator.clipboard?.writeText(report).then(
-      () => showToast("success", "Report copied"),
-      () => showToast("warning", "Clipboard unavailable"),
+      () => showToast("success", translate(get(locale), "component.applyModal.toast.reportCopied")),
+      () =>
+        showToast("warning", translate(get(locale), "component.applyModal.toast.clipboardUnavailable")),
     );
   }
 
@@ -415,7 +422,10 @@
       const { open } = await import("@tauri-apps/plugin-shell");
       await open(report.url);
     } catch (err: unknown) {
-      showToast("danger", `Could not open issue report: ${String(err)}`);
+      showToast(
+        "danger",
+        translate(get(locale), "component.applyModal.toast.issueFailed", { error: String(err) }),
+      );
     } finally {
       reportingIssue = false;
     }
@@ -454,21 +464,30 @@
   }
 
   function statusLabel(g: ApplyGroup): string {
-    if (g.status === "done") return "Updated";
-    if (g.status === "failed") return "Failed";
-    if (g.status === "partial") return `${g.doneCount}/${g.items.length} updated`;
+    if (g.status === "done") return translate(get(locale), "component.applyModal.status.updated");
+    if (g.status === "failed") return translate(get(locale), "component.applyModal.status.failed");
+    if (g.status === "partial")
+      return translate(get(locale), "component.applyModal.status.partialUpdated", {
+        done: g.doneCount,
+        total: g.items.length,
+      });
     return `${g.doneCount}/${g.items.length}`;
   }
 
   function currentStageLabel(entry: ApplyTracker): string {
-    if (entry.stage === "complete") return "Done";
-    if (entry.stage === "cancelled") return "Cancelled";
+    const loc = get(locale);
+    if (entry.stage === "complete") return translate(loc, "component.applyModal.status.done");
+    if (entry.stage === "cancelled") return translate(loc, "component.applyModal.status.cancelled");
     if (entry.stage === "failed") {
       const failed = APPLY_STAGES.find((s) => s.id === entry.failed_at_stage);
-      return failed ? `Failed at ${failed.label.toLowerCase()}` : "Failed";
+      return failed
+        ? translate(loc, "component.applyModal.failedAtStage", {
+            stage: translate(loc, "applyStage." + failed.id).toLowerCase(),
+          })
+        : translate(loc, "component.applyModal.status.failed");
     }
     const cur = APPLY_STAGES.find((s) => s.id === entry.stage);
-    return cur ? `${cur.label}…` : entry.stage;
+    return cur ? translate(loc, "applyStage." + cur.id) + "…" : entry.stage;
   }
 
   function stageStepIndex(entry: ApplyTracker): number {
@@ -482,9 +501,20 @@
   }
 
   function headlineText(): string {
-    if (allDone) return failedGroups > 0 ? `${doneGroups} of ${totalGroups} updated` : `${totalGroups} feature${totalGroups === 1 ? "" : "s"} updated`;
-    if (runningGroups > 0) return `Updating ${runningGroups} of ${totalGroups}`;
-    return `${totalGroups} feature${totalGroups === 1 ? "" : "s"} queued`;
+    const loc = get(locale);
+    if (allDone)
+      return failedGroups > 0
+        ? translate(loc, "component.applyModal.headline.someUpdated", {
+            done: doneGroups,
+            total: totalGroups,
+          })
+        : translate(loc, "component.applyModal.headline.allUpdated", { count: totalGroups });
+    if (runningGroups > 0)
+      return translate(loc, "component.applyModal.headline.updating", {
+        running: runningGroups,
+        total: totalGroups,
+      });
+    return translate(loc, "component.applyModal.headline.queued", { count: totalGroups });
   }
 
   function groupElapsed(g: ApplyGroup): string {
@@ -522,9 +552,11 @@
       <div class="head-eyebrow-row">
         <span class="head-eyebrow">
           {#if allDone}
-            {failedGroups > 0 ? "Apply completed with failures" : "Apply complete"}
+            {failedGroups > 0
+              ? $t("component.applyModal.eyebrow.completedWithFailures")
+              : $t("component.applyModal.eyebrow.complete")}
           {:else}
-            Applying updates
+            {$t("component.applyModal.eyebrow.applying")}
           {/if}
         </span>
         <span class="head-elapsed mono">{elapsedDisplay}</span>
@@ -532,19 +564,19 @@
       <h2 id="apply-modal-title" class="head-title">{headlineText()}</h2>
       <div class="head-stats">
         {#if doneGroups > 0}
-          <span class="stat-chip stat-success"><span class="stat-num">{doneGroups}</span><span class="stat-word">done</span></span>
+          <span class="stat-chip stat-success"><span class="stat-num">{doneGroups}</span><span class="stat-word">{$t("component.applyModal.stat.done")}</span></span>
         {/if}
         {#if runningGroups > 0}
-          <span class="stat-chip stat-running"><span class="stat-num">{runningGroups}</span><span class="stat-word">in flight</span></span>
+          <span class="stat-chip stat-running"><span class="stat-num">{runningGroups}</span><span class="stat-word">{$t("component.applyModal.stat.inFlight")}</span></span>
         {/if}
         {#if failedGroups > 0}
-          <span class="stat-chip stat-failed"><span class="stat-num">{failedGroups}</span><span class="stat-word">failed</span></span>
+          <span class="stat-chip stat-failed"><span class="stat-num">{failedGroups}</span><span class="stat-word">{$t("component.applyModal.stat.failed")}</span></span>
         {/if}
-        <span class="stat-chip stat-total"><span class="stat-num">{totalGroups}</span><span class="stat-word">total</span></span>
+        <span class="stat-chip stat-total"><span class="stat-num">{totalGroups}</span><span class="stat-word">{$t("component.applyModal.stat.total")}</span></span>
         <span class="head-files-summary mono">
-          {doneItems}/{totalItems} file{totalItems === 1 ? "" : "s"}
+          {$t("component.applyModal.filesSummary", { done: doneItems, count: totalItems })}
           {#if totalBytesTotal !== null && totalBytesTotal > 0}
-            · {formatBytes(totalBytesDownloaded)} of {formatBytes(totalBytesTotal)}
+            · {formatBytes(totalBytesDownloaded)} {$t("component.applyModal.of")} {formatBytes(totalBytesTotal)}
           {/if}
           {#if anyRunning && aggregateSpeed > 0}
             · {formatSpeed(aggregateSpeed)}
@@ -556,8 +588,8 @@
       class="dialog-close"
       onclick={() => allDone && dismiss()}
       disabled={!allDone}
-      title={allDone ? "Close" : "Cancel running applies first"}
-      aria-label="Close"
+      title={allDone ? $t("common.close") : $t("component.applyModal.closeBlockedTitle")}
+      aria-label={$t("common.close")}
     >
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
@@ -575,7 +607,7 @@
   <main class="modal-body">
     <aside class="rail">
       <div class="filter-row">
-        {#each [{ id: "all", label: `All ${totalGroups}` }, { id: "failed", label: `Failed ${failedGroups}` }, { id: "running", label: `Running ${runningGroups}` }, { id: "done", label: `Done ${doneGroups}` }] as f (f.id)}
+        {#each [{ id: "all", label: `${$t("component.applyModal.filter.all")} ${totalGroups}` }, { id: "failed", label: `${$t("component.applyModal.filter.failed")} ${failedGroups}` }, { id: "running", label: `${$t("component.applyModal.filter.running")} ${runningGroups}` }, { id: "done", label: `${$t("component.applyModal.filter.done")} ${doneGroups}` }] as f (f.id)}
           <button
             class="filter-chip"
             class:active={filter === f.id}
@@ -618,13 +650,13 @@
                     {formatBytes(g.download.bytes_downloaded)}
                     {#if g.download.bytes_total}/{formatBytes(g.download.bytes_total)}{/if}
                     · {formatSpeed(g.download.bytes_per_sec)}
-                    {#if g.download.bytes_total}· ETA {formatEta(g.download.bytes_downloaded, g.download.bytes_total, g.download.bytes_per_sec)}{/if}
+                    {#if g.download.bytes_total}· {$t("component.applyModal.eta")} {formatEta(g.download.bytes_downloaded, g.download.bytes_total, g.download.bytes_per_sec)}{/if}
                   </div>
                 </div>
               {/if}
               {#if g.status !== "running" && g.primaryErrorClass}
                 <div class="tile-error-chip" data-tone={ERROR_CLASS_TONE[g.primaryErrorClass]}>
-                  {ERROR_CLASS_LABEL[g.primaryErrorClass]}
+                  {$t("errorClass." + g.primaryErrorClass + ".label")}
                 </div>
               {/if}
             </div>
@@ -632,10 +664,10 @@
               {#if g.status === "done"}
                 <span class="status-pill is-success">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                  Updated
+                  {$t("component.applyModal.status.updated")}
                 </span>
               {:else if g.status === "failed"}
-                <span class="status-pill is-danger">Failed</span>
+                <span class="status-pill is-danger">{$t("component.applyModal.status.failed")}</span>
               {:else if g.status === "partial"}
                 <span class="status-pill is-warning">{statusLabel(g)}</span>
               {:else}
@@ -645,7 +677,7 @@
           </button>
         {/each}
         {#if filteredGroups.length === 0}
-          <p class="rail-empty">No items match this filter.</p>
+          <p class="rail-empty">{$t("component.applyModal.noItemsMatch")}</p>
         {/if}
       </div>
     </aside>
@@ -666,36 +698,36 @@
               <span class="dot"></span>
               <span class="vendor-pill">{vendorLabel(g.vendorKey)}</span>
               <span class="dot"></span>
-              <span>{g.items.length} file{g.items.length === 1 ? "" : "s"}</span>
+              <span>{$t("component.applyModal.fileCount", { count: g.items.length })}</span>
             </p>
           </div>
           <button
             class="detail-toggle"
             onclick={() => toggleExpand(g.key)}
-            title="Toggle per-file stage detail"
+            title={$t("component.applyModal.toggleDetailTitle")}
             aria-expanded={!!expanded[g.key]}
           >
             <svg class="detail-chevron" class:open={expanded[g.key]} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-            {expanded[g.key] ? "Hide detail" : "Show detail"}
+            {expanded[g.key] ? $t("component.applyModal.hideDetail") : $t("component.applyModal.showDetail")}
           </button>
         </header>
 
         <div class="pane-head-stats">
           <div class="phs-chips">
             {#if g.doneCount > 0}
-              <span class="phs-chip phs-done"><span class="phs-num">{g.doneCount}</span> done</span>
+              <span class="phs-chip phs-done"><span class="phs-num">{g.doneCount}</span> {$t("component.applyModal.stat.done")}</span>
             {/if}
             {#if g.runningCount > 0}
-              <span class="phs-chip phs-running"><span class="phs-num">{g.runningCount}</span> running</span>
+              <span class="phs-chip phs-running"><span class="phs-num">{g.runningCount}</span> {$t("component.applyModal.stat.running")}</span>
             {/if}
             {#if g.failedCount > 0}
-              <span class="phs-chip phs-failed"><span class="phs-num">{g.failedCount}</span> failed</span>
+              <span class="phs-chip phs-failed"><span class="phs-num">{g.failedCount}</span> {$t("component.applyModal.stat.failed")}</span>
             {/if}
             {#if g.cancelledCount > 0}
-              <span class="phs-chip phs-muted"><span class="phs-num">{g.cancelledCount}</span> cancelled</span>
+              <span class="phs-chip phs-muted"><span class="phs-num">{g.cancelledCount}</span> {$t("component.applyModal.stat.cancelled")}</span>
             {/if}
           </div>
-          <span class="phs-time mono" title="Elapsed time for this feature">
+          <span class="phs-time mono" title={$t("component.applyModal.elapsedTitle")}>
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             {groupElapsed(g)}
           </span>
@@ -712,8 +744,8 @@
         {#if g.download && g.status === "running"}
           <div class="group-download-block">
             <div class="block-label">
-              <span>Downloading shared archive</span>
-              <span class="mono attempt">attempt {g.download.attempt}</span>
+              <span>{$t("component.applyModal.downloadingArchive")}</span>
+              <span class="mono attempt">{$t("component.applyModal.attempt", { count: g.download.attempt })}</span>
             </div>
             <div class="block-progress">
               <div
@@ -722,10 +754,10 @@
               ></div>
             </div>
             <div class="block-stats mono">
-              <span>{formatBytes(g.download.bytes_downloaded)}{#if g.download.bytes_total} of {formatBytes(g.download.bytes_total)}{/if}</span>
+              <span>{formatBytes(g.download.bytes_downloaded)}{#if g.download.bytes_total} {$t("component.applyModal.of")} {formatBytes(g.download.bytes_total)}{/if}</span>
               <span>{formatSpeed(g.download.bytes_per_sec)}</span>
               {#if g.download.bytes_total}
-                <span>ETA {formatEta(g.download.bytes_downloaded, g.download.bytes_total, g.download.bytes_per_sec)}</span>
+                <span>{$t("component.applyModal.eta")} {formatEta(g.download.bytes_downloaded, g.download.bytes_total, g.download.bytes_per_sec)}</span>
               {/if}
             </div>
           </div>
@@ -737,25 +769,25 @@
               {@const klass = classifyApplyError(de.message)}
               <div class="error-block" data-tone={ERROR_CLASS_TONE[de.class]}>
                 <div class="error-block-head">
-                  <span class="error-block-kind">{ERROR_CLASS_LABEL[de.class]}</span>
-                  <span class="error-block-affected">× {de.affected.length} file{de.affected.length === 1 ? "" : "s"}</span>
-                  <button class="btn btn-ghost btn-xs" onclick={() => copyError(de.message)} title="Copy this error">Copy</button>
+                  <span class="error-block-kind">{$t("errorClass." + de.class + ".label")}</span>
+                  <span class="error-block-affected">{$t("component.applyModal.affectedFiles", { count: de.affected.length })}</span>
+                  <button class="btn btn-ghost btn-xs" onclick={() => copyError(de.message)} title={$t("component.applyModal.copyThisErrorTitle")}>{$t("common.copy")}</button>
                 </div>
                 <pre class="error-block-msg">{de.message}</pre>
-                <p class="error-block-hint">{klass.hint}</p>
+                <p class="error-block-hint">{$t("errorClass." + de.class + ".hint")}</p>
                 <div class="error-block-actions">
                   {#if klass.action === "allow_unsigned_and_retry"}
-                    <button class="btn btn-accent btn-sm" disabled={busy} onclick={handleAllowUnsignedAndRetry}>Allow unsigned &amp; retry</button>
+                    <button class="btn btn-accent btn-sm" disabled={busy} onclick={handleAllowUnsignedAndRetry}>{$t("component.applyModal.action.allowUnsignedRetry")}</button>
                   {:else if klass.action === "refresh_catalog"}
-                    <button class="btn btn-accent btn-sm" disabled={busy} onclick={() => handleRetryGroup(g)}>Retry this group</button>
+                    <button class="btn btn-accent btn-sm" disabled={busy} onclick={() => handleRetryGroup(g)}>{$t("component.applyModal.action.retryGroup")}</button>
                   {:else if klass.action === "close_game_and_retry"}
-                    <button class="btn btn-accent btn-sm" disabled={busy} onclick={() => handleRetryGroup(g)}>Retry (after closing)</button>
+                    <button class="btn btn-accent btn-sm" disabled={busy} onclick={() => handleRetryGroup(g)}>{$t("component.applyModal.action.retryAfterClosing")}</button>
                   {:else if klass.action === "report"}
-                    <button class="btn btn-ghost btn-sm" onclick={copyReport}>Copy report</button>
+                    <button class="btn btn-ghost btn-sm" onclick={copyReport}>{$t("component.applyModal.action.copyReport")}</button>
                   {:else if klass.action === "elevate"}
-                    <button class="btn btn-ghost btn-sm" onclick={() => copyError(de.message)}>Copy error</button>
+                    <button class="btn btn-ghost btn-sm" onclick={() => copyError(de.message)}>{$t("component.applyModal.action.copyError")}</button>
                   {:else if klass.action === "retry"}
-                    <button class="btn btn-accent btn-sm" disabled={busy} onclick={() => handleRetryGroup(g)}>Retry</button>
+                    <button class="btn btn-accent btn-sm" disabled={busy} onclick={() => handleRetryGroup(g)}>{$t("common.retry")}</button>
                   {/if}
                 </div>
               </div>
@@ -775,12 +807,12 @@
                 <span class="file-status">
                   {#if isDone}
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                    Done · {formatElapsedSince(e.started_at, e.ended_at)}
+                    {$t("component.applyModal.status.done")} · {formatElapsedSince(e.started_at, e.ended_at)}
                   {:else if e.stage === "cancelled"}
-                    Cancelled
+                    {$t("component.applyModal.status.cancelled")}
                   {:else if isFailed}
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                    Failed · {formatElapsedSince(e.started_at, e.ended_at)}
+                    {$t("component.applyModal.status.failed")} · {formatElapsedSince(e.started_at, e.ended_at)}
                   {:else}
                     <span class="spinner-tiny"></span>
                     {e.message}
@@ -791,7 +823,7 @@
                 <div class="file-stage" class:done={isDone} class:failed={isFailed} transition:slide={{ duration: 140 }}>
                   <span class="file-stage-label">{currentStageLabel(e)}</span>
                   {#if !isDone && !isFailed}
-                    <span class="file-stage-step mono">step {stageStepIndex(e) + 1} of {APPLY_STAGES.length}</span>
+                    <span class="file-stage-step mono">{$t("component.applyModal.stageStep", { current: stageStepIndex(e) + 1, total: APPLY_STAGES.length })}</span>
                   {/if}
                   <div class="file-stage-bar" aria-hidden="true">
                     <div class="file-stage-bar-fill" style:width="{(stageStepIndex(e) / APPLY_STAGES.length) * 100}%"></div>
@@ -800,12 +832,12 @@
               {/if}
               <div class="file-actions">
                 {#if isRunning}
-                  <button class="btn btn-ghost btn-xs" onclick={() => handleCancelOne(e)}>Cancel</button>
+                  <button class="btn btn-ghost btn-xs" onclick={() => handleCancelOne(e)}>{$t("common.cancel")}</button>
                 {/if}
                 {#if isFailed}
-                  <button class="btn btn-ghost btn-xs" disabled={!e.error} onclick={() => copyError(e.error)}>Copy error</button>
+                  <button class="btn btn-ghost btn-xs" disabled={!e.error} onclick={() => copyError(e.error)}>{$t("component.applyModal.action.copyError")}</button>
                   <button class="btn btn-accent btn-xs" disabled={retryingId === e.apply_id} onclick={() => handleRetrySingle(e)}>
-                    {#if retryingId === e.apply_id}<span class="spinner-tiny"></span>Retrying{:else}Retry{/if}
+                    {#if retryingId === e.apply_id}<span class="spinner-tiny"></span>{$t("component.applyModal.retrying")}{:else}{$t("common.retry")}{/if}
                   </button>
                 {/if}
               </div>
@@ -814,8 +846,8 @@
         </div>
       {:else}
         <div class="pane-empty">
-          <h3>No group selected</h3>
-          <p>Pick a group on the left to see per-file stages and errors.</p>
+          <h3>{$t("component.applyModal.empty.title")}</h3>
+          <p>{$t("component.applyModal.empty.body")}</p>
         </div>
       {/if}
     </section>
@@ -824,52 +856,52 @@
   <footer class="action-bar">
     <div class="action-info">
       {#if anyRunning}
-        <span>Updates running — closing DLSSync now will cancel them.</span>
+        <span>{$t("component.applyModal.info.running")}</span>
       {:else if failedGroups > 0}
-        <span>{failedGroups} feature{failedGroups === 1 ? "" : "s"} failed — categorized below.</span>
+        <span>{$t("component.applyModal.info.failed", { count: failedGroups })}</span>
       {:else if allDone}
-        <span>Applied {doneItems} update{doneItems === 1 ? "" : "s"} across {uniqueGameCount} game{uniqueGameCount === 1 ? "" : "s"} · auto-backup created.</span>
+        <span>{$t("component.applyModal.info.applied", { count: doneItems, games: $t("component.applyModal.info.appliedGames", { count: uniqueGameCount }) })}</span>
       {/if}
     </div>
     <div class="action-cta">
       {#if anyRunning}
-        <button class="aura-pill aura-pill-ghost" disabled={busy} onclick={handleCancelAll}>Cancel all</button>
+        <button class="aura-pill aura-pill-ghost" disabled={busy} onclick={handleCancelAll}>{$t("component.applyModal.action.cancelAll")}</button>
       {/if}
       {#if failedSignatureCount > 0}
         <button class="aura-pill aura-pill-ghost" disabled={busy} onclick={handleAllowUnsignedAndRetry}>
-          Allow unsigned &amp; retry ({failedSignatureCount})
+          {$t("component.applyModal.action.allowUnsignedRetryCount", { count: failedSignatureCount })}
         </button>
       {/if}
       {#if failedGroups > 0 && !anyRunning}
-        <button class="aura-pill aura-pill-primary" disabled={busy} onclick={handleRetryAllFailed}>Retry all failed</button>
+        <button class="aura-pill aura-pill-primary" disabled={busy} onclick={handleRetryAllFailed}>{$t("component.applyModal.action.retryAllFailed")}</button>
       {/if}
       {#if failedGroups > 0 || allDone}
         <button class="aura-pill aura-pill-ghost" onclick={copyReport}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-          Copy report
+          {$t("component.applyModal.action.copyReport")}
         </button>
       {/if}
       {#if failedGroups > 0 && !anyRunning}
-        <button class="aura-pill aura-pill-ghost" onclick={reportIssue} disabled={reportingIssue} title="Open a pre-filled GitHub issue with this report, your app version, OS, and recent logs">
+        <button class="aura-pill aura-pill-ghost" onclick={reportIssue} disabled={reportingIssue} title={$t("component.applyModal.action.reportIssueTitle")}>
           {#if reportingIssue}
             <span class="spinner-tiny"></span>
-            Preparing
+            {$t("component.applyModal.action.preparing")}
           {:else}
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 2 1.88 1.88"/><path d="M14.12 3.88 16 2"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"/><path d="M12 20v-9"/><path d="M6.53 9C4.6 8.8 3 7.1 3 5"/><path d="M6 13H2"/><path d="M3 21c0-2.1 1.7-3.9 3.8-4"/><path d="M20.97 5c0 2.1-1.6 3.8-3.5 4"/><path d="M22 13h-4"/><path d="M17.2 17c2.1.1 3.8 1.9 3.8 4"/></svg>
-            Report issue
+            {$t("component.applyModal.action.reportIssue")}
           {/if}
         </button>
       {/if}
       {#if allDone && failedGroups === 0 && uniqueGameCount > 0}
-        <button class="aura-pill aura-pill-ghost" onclick={goToBackups} title="See the snapshots just created">
+        <button class="aura-pill aura-pill-ghost" onclick={goToBackups} title={$t("component.applyModal.action.viewBackupsTitle")}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5" rx="0.5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
-          View backups
+          {$t("component.applyModal.action.viewBackups")}
         </button>
       {/if}
       {#if allDone}
         <button class="aura-pill aura-pill-primary" onclick={dismiss}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-          Dismiss
+          {$t("common.dismiss")}
         </button>
       {/if}
     </div>

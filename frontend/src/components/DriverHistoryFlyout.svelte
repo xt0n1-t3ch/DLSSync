@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { get } from "svelte/store";
   import { fly } from "svelte/transition";
+  import { t, locale, translate } from "../lib/i18n/index";
   import Checkbox from "./Checkbox.svelte";
   import {
     driverHistory,
@@ -24,7 +26,9 @@
     onClose: () => void;
   } = $props();
 
-  let vendorName = $derived(vendor === "other" ? "GPU" : BRANDS[vendor].label);
+  let vendorName = $derived(
+    vendor === "other" ? $t("view.catalog.gpuDrivers.genericVendor") : BRANDS[vendor].label,
+  );
 
   let query = $state("");
   let whqlOnly = $state(false);
@@ -42,8 +46,10 @@
   let betaCount = $derived(releases.filter((r) => r.is_beta).length);
   let hiddenByWhql = $derived(whqlOnly ? betaCount : 0);
   let whqlToggleLabel = $derived.by(() => {
-    if (betaCount === 0) return "WHQL only · all loaded drivers WHQL";
-    return `WHQL only${hiddenByWhql > 0 ? ` (-${hiddenByWhql})` : ""}`;
+    if (betaCount === 0) return $t("component.flyout.whqlOnlyAllWhql");
+    return hiddenByWhql > 0
+      ? $t("component.flyout.whqlOnlyHidden", { count: hiddenByWhql })
+      : $t("component.flyout.whqlOnly");
   });
 
   let filtered = $derived.by<DriverReleaseDto[]>(() => {
@@ -78,7 +84,7 @@
     try {
       await openUrl(url);
     } catch (err) {
-      showToast("warning", `Open link failed: ${String(err)}`);
+      showToast("warning", translate(get(locale), "view.drivers.openLinkFailed", { error: String(err) }));
     }
   }
 
@@ -95,7 +101,7 @@
         showToast("danger", outcome.message);
       }
     } catch (err) {
-      showToast("danger", `Install failed: ${err}`);
+      showToast("danger", translate(get(locale), "component.flyout.installFailed", { error: String(err) }));
     } finally {
       installingVersion = null;
     }
@@ -118,7 +124,7 @@
   transition:fly={{ y: -8, duration: 160 }}
   style:--edge-color={accent}
   role="dialog"
-  aria-label={`${vendorName} driver history for ${model}`}
+  aria-label={$t("component.flyout.driverHistoryAria", { vendor: vendorName, model })}
   tabindex="-1"
   onkeydown={handleKey}
 >
@@ -132,9 +138,9 @@
     </span>
     <div class="flyout-title">
       <span class="title-line">{model}</span>
-      <span class="subtitle-line">Every driver version known compatible with this GPU</span>
+      <span class="subtitle-line">{$t("component.flyout.driverHistorySubtitle")}</span>
     </div>
-    <button class="dialog-close" onclick={onClose} aria-label="Close">
+    <button class="dialog-close" onclick={onClose} aria-label={$t("common.close")}>
       <svg
         width="14"
         height="14"
@@ -152,7 +158,7 @@
   <div class="flyout-toolbar">
     <input
       type="search"
-      placeholder="Filter versions or release notes…"
+      placeholder={$t("component.flyout.filterVersionsNotes")}
       bind:value={query}
       class="flyout-search"
     />
@@ -167,14 +173,14 @@
     {#if loading}
       <div class="flyout-state">
         <span class="spinner"></span>
-        <span>Loading driver history from the vendor…</span>
+        <span>{$t("component.flyout.loadingDriverHistory")}</span>
       </div>
     {:else if releases.length === 0}
       <div class="flyout-state">
-        <p>The vendor returned no historical drivers for this GPU.</p>
+        <p>{$t("component.flyout.noHistoricalDrivers")}</p>
       </div>
     {:else if filtered.length === 0}
-      <div class="flyout-state">No versions match your filter.</div>
+      <div class="flyout-state">{$t("component.flyout.noVersionsMatchFilter")}</div>
     {:else}
       <ul class="release-list">
         {#each filtered as release, i (release.version.raw + i)}
@@ -183,10 +189,10 @@
           {@const latest = i === 0 && !query && !whqlOnly}
           <li class="release-row">
             <div class="release-main">
-              {#if latest}<span class="latest-badge" style:color={accent}>LATEST</span>{/if}
+              {#if latest}<span class="latest-badge" style:color={accent}>{$t("component.flyout.latestUpper")}</span>{/if}
               <span class="release-ver mono">v{release.version.display}</span>
-              {#if release.is_beta}<span class="chan-chip beta">Beta</span>{:else}<span
-                  class="chan-chip whql">WHQL</span
+              {#if release.is_beta}<span class="chan-chip beta">{$t("view.drivers.channelBeta")}</span>{:else}<span
+                  class="chan-chip whql">{$t("view.drivers.channelWhql")}</span
                 >{/if}
               {#if release.display_version}
                 <span class="release-display">{release.display_version}</span>
@@ -202,9 +208,9 @@
                 <button
                   class="link-btn"
                   onclick={() => openNotes(release.release_notes_url)}
-                  title="Open the official release notes / driver page"
+                  title={$t("component.flyout.openReleaseNotesPageTitle")}
                 >
-                  Notes ↗
+                  {$t("component.flyout.notes")} ↗
                 </button>
               {/if}
               {#if release.download_url}
@@ -213,7 +219,7 @@
                   onclick={() => install(release)}
                   disabled={!!installingVersion}
                 >
-                  {#if installing}<span class="spinner small"></span>Installing…{:else}Install{/if}
+                  {#if installing}<span class="spinner small"></span>{$t("component.flyout.installing")}{:else}{$t("common.install")}{/if}
                 </button>
               {/if}
             </div>
@@ -224,7 +230,7 @@
   </div>
 
   <footer class="flyout-foot">
-    <span>{filtered.length} of {releases.length} version{releases.length === 1 ? "" : "s"}</span>
+    <span>{$t("component.flyout.versionCount", { shown: filtered.length, count: releases.length })}</span>
   </footer>
 </div>
 

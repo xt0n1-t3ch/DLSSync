@@ -15,7 +15,6 @@
   } from "../lib/stores";
   import {
     COMMANDS,
-    COMMAND_CATEGORY_LABELS,
     COMMAND_PALETTE_MAX_HEIGHT_PX,
     COMMAND_PALETTE_MAX_WIDTH_PX,
     LIBRARY_VIEW_MODES,
@@ -29,6 +28,7 @@
     type CommandCategory,
   } from "../lib/ux";
   import { getAppPaths, revealPath } from "../lib/api";
+  import { t } from "../lib/i18n/index";
   import Search from "@lucide/svelte/icons/search";
   import Command from "@lucide/svelte/icons/command";
   import LayoutGrid from "@lucide/svelte/icons/layout-grid";
@@ -86,6 +86,17 @@
 
   let recentIds = $derived($settings?.ui_prefs.command_palette_recent ?? []);
 
+  function cmdTitle(cmd: PaletteCommand): string {
+    return $t("command." + cmd.id + ".title");
+  }
+  function cmdHint(cmd: PaletteCommand): string | undefined {
+    if (cmd.hint === undefined) return undefined;
+    return $t("command." + cmd.id + ".hint");
+  }
+  function categoryLabel(cat: "all" | CommandCategory): string {
+    return $t("commandCategory." + cat);
+  }
+
   interface ResultItem {
     cmd: PaletteCommand;
     ranges: number[];
@@ -107,14 +118,14 @@
           .map((id) => COMMANDS.find((c) => c.id === id))
           .filter((c): c is PaletteCommand => c !== undefined);
         if (recents.length > 0) {
-          raw.push({ key: "recent", label: "Recent", cmds: recents.map((cmd) => ({ cmd, ranges: [] })) });
+          raw.push({ key: "recent", label: $t("component.palette.recent"), cmds: recents.map((cmd) => ({ cmd, ranges: [] })) });
         }
       }
       const exclude = new Set(category === "all" ? recentIds : []);
       for (const cat of RESULT_CATEGORIES) {
         if (category !== "all" && category !== cat) continue;
         const cmds = COMMANDS.filter((c) => c.category === cat && !exclude.has(c.id)).map((cmd) => ({ cmd, ranges: [] as number[] }));
-        if (cmds.length > 0) raw.push({ key: cat, label: COMMAND_CATEGORY_LABELS[cat], cmds });
+        if (cmds.length > 0) raw.push({ key: cat, label: categoryLabel(cat), cmds });
       }
     } else {
       const pool = category === "all" ? COMMANDS : COMMANDS.filter((c) => c.category === category);
@@ -123,8 +134,8 @@
         if (category !== "all" && category !== cat) continue;
         const cmds = matches
           .filter((m) => m.command.category === cat)
-          .map((m) => ({ cmd: m.command, ranges: matchedIndices(q, m.command.title) }));
-        if (cmds.length > 0) raw.push({ key: cat, label: COMMAND_CATEGORY_LABELS[cat], cmds });
+          .map((m) => ({ cmd: m.command, ranges: matchedIndices(q, cmdTitle(m.command)) }));
+        if (cmds.length > 0) raw.push({ key: cat, label: categoryLabel(cat), cmds });
       }
     }
 
@@ -318,7 +329,7 @@
     class="palette-backdrop"
     role="dialog"
     aria-modal="true"
-    aria-label="Command palette"
+    aria-label={$t("component.palette.aria")}
     onclick={onBackdropClick}
     onkeydown={(e) => { if (e.key === "Escape") close(); }}
     tabindex="-1"
@@ -331,7 +342,7 @@
           bind:value={query}
           onkeydown={onKeydown}
           type="text"
-          placeholder="Search commands or jump to a view"
+          placeholder={$t("component.palette.placeholder")}
           spellcheck="false"
           autocomplete="off"
         />
@@ -344,17 +355,17 @@
             class="category"
             class:active={category === cat}
             onclick={() => { category = cat; selectedIndex = 0; inputEl?.focus(); }}
-          >{COMMAND_CATEGORY_LABELS[cat]}</button>
+          >{categoryLabel(cat)}</button>
         {/each}
-        <span class="tab-hint">Tab to cycle</span>
+        <span class="tab-hint">{$t("component.palette.tabToCycle")}</span>
       </div>
 
       <div class="palette-results" bind:this={resultsEl}>
         {#if flat.length === 0}
           <div class="palette-empty">
             <span class="palette-empty-mark" aria-hidden="true"><Command size={20} strokeWidth={2} /></span>
-            <span class="palette-empty-title">No commands match “{query.trim()}”</span>
-            <span class="palette-empty-hint">Try a view name, a vendor, or an action.</span>
+            <span class="palette-empty-title">{$t("component.palette.empty.title", { q: query.trim() })}</span>
+            <span class="palette-empty-hint">{$t("component.palette.empty.hint")}</span>
           </div>
         {:else}
           {#each groups as group (group.key)}
@@ -372,12 +383,12 @@
                   <span class="result-icon" data-cat={item.cmd.category} aria-hidden="true"><Icon size={16} strokeWidth={2} /></span>
                   <span class="result-text">
                     <span class="result-title">
-                      {#each highlightSegments(item.cmd.title, item.ranges) as seg}
+                      {#each highlightSegments(cmdTitle(item.cmd), item.ranges) as seg}
                         {#if seg.hit}<mark class="result-hl">{seg.text}</mark>{:else}{seg.text}{/if}
                       {/each}
                     </span>
                     {#if item.cmd.hint}
-                      <span class="result-hint">{item.cmd.hint}</span>
+                      <span class="result-hint">{cmdHint(item.cmd)}</span>
                     {/if}
                   </span>
                   {#if item.cmd.shortcut}
@@ -398,10 +409,10 @@
       </div>
 
       <div class="palette-footer">
-        <span class="footer-hint"><span class="kbd">↑</span><span class="kbd">↓</span> navigate</span>
-        <span class="footer-hint"><span class="kbd">↵</span> run</span>
-        <span class="footer-hint"><span class="kbd">Tab</span> category</span>
-        <span class="footer-hint"><span class="kbd">Esc</span> close</span>
+        <span class="footer-hint"><span class="kbd">↑</span><span class="kbd">↓</span> {$t("component.palette.footer.navigate")}</span>
+        <span class="footer-hint"><span class="kbd">↵</span> {$t("component.palette.footer.run")}</span>
+        <span class="footer-hint"><span class="kbd">Tab</span> {$t("component.palette.footer.category")}</span>
+        <span class="footer-hint"><span class="kbd">Esc</span> {$t("component.palette.footer.close")}</span>
       </div>
     </div>
   </div>

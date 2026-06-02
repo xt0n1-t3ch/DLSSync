@@ -1,4 +1,5 @@
 import { writable, derived, get, type Writable, type Readable } from "svelte/store";
+import { translate, locale } from "./i18n/index";
 import {
   scanLibraries,
   refreshCatalog,
@@ -76,12 +77,13 @@ function emitCatalogUpdateNotifications(
   if (fresh.length === 0) return;
   const head = fresh.slice(0, CATALOG_UPDATE_NOTIFICATION_CAP);
   const overflow = fresh.length - head.length;
+  const loc = get(locale);
   for (const d of head) {
     const label = familyShort(d.family);
     const entry = makeNotificationEntry(
       "catalog_update_available",
-      `${label} ${d.newVersion} available`,
-      `Was ${d.oldVersion}`,
+      translate(loc, "notif.catalog.available", { label, version: d.newVersion }),
+      translate(loc, "notif.catalog.wasVersion", { version: d.oldVersion }),
     );
     pushNotification(entry).catch((err) =>
       console.warn("[dlssync] push catalog-update notification failed:", err),
@@ -90,8 +92,8 @@ function emitCatalogUpdateNotifications(
   if (overflow > 0) {
     const entry = makeNotificationEntry(
       "catalog_update_available",
-      `+${overflow} more catalog update${overflow === 1 ? "" : "s"}`,
-      `${head.length + overflow} families changed in this refresh`,
+      translate(loc, "notif.catalog.moreUpdates", { count: overflow }),
+      translate(loc, "notif.catalog.familiesChanged", { count: head.length + overflow }),
     );
     pushNotification(entry).catch((err) =>
       console.warn("[dlssync] push catalog-update summary failed:", err),
@@ -107,12 +109,13 @@ function emitDriverUpdateNotifications(reports: DriverStatusReport[]): void {
     .filter(
       (r) => !alreadyEmitted("driver_update_available", `${r.device.model} ${r.latest?.version.display ?? ""}`),
     );
+  const loc = get(locale);
   for (const report of fresh.slice(0, DRIVER_UPDATE_NOTIFICATION_CAP)) {
-    const version = report.latest?.version.display ?? "latest";
+    const version = report.latest?.version.display ?? translate(loc, "notif.driver.latestFallback");
     const entry = makeNotificationEntry(
       "driver_update_available",
-      `GPU driver ${version} — ${report.device.model}`,
-      `New ${vendorLabel(report.device.vendor)} driver available`,
+      translate(loc, "notif.driver.title", { version, model: report.device.model }),
+      translate(loc, "notif.driver.body", { vendor: vendorLabel(report.device.vendor) }),
       { link: driverPageUrl(report) },
     );
     pushNotification(entry).catch((err) =>
@@ -124,13 +127,14 @@ function emitDriverUpdateNotifications(reports: DriverStatusReport[]): void {
 function emitSystemDriverUpdateNotification(groups: SystemDeviceGroup[]): void {
   const count = groups.reduce((total, group) => total + group.updates.length, 0);
   if (count === 0) return;
-  const noun = `${count} system driver update${count === 1 ? "" : "s"}`;
-  if (alreadyEmitted("system_driver_update_available", noun)) return;
+  const loc = get(locale);
+  const title = translate(loc, "notif.systemDriver.available", { count });
+  if (alreadyEmitted("system_driver_update_available", title)) return;
   const categories = groups.filter((group) => group.updates.length > 0).length;
   const entry = makeNotificationEntry(
     "system_driver_update_available",
-    `${noun} available`,
-    `Across ${categories} hardware categor${categories === 1 ? "y" : "ies"}`,
+    title,
+    translate(loc, "notif.systemDriver.categories", { count: categories }),
   );
   pushNotification(entry).catch((err) =>
     console.warn("[dlssync] push system-driver notification failed:", err),
@@ -229,7 +233,7 @@ export async function optimisticToggle(opts: {
     opts.revert();
   };
   const toastId = showActionToast("info", opts.message, {
-    label: opts.undoLabel ?? "Undo",
+    label: opts.undoLabel ?? translate(get(locale), "common.undo"),
     run: () => {
       undo();
       dismissToast(toastId);
@@ -241,7 +245,7 @@ export async function optimisticToggle(opts: {
     if (!reverted) {
       undo();
       dismissToast(toastId);
-      showToast("danger", `Could not save: ${formatError(err)}`);
+      showToast("danger", translate(get(locale), "toast.saveFailed", { msg: formatError(err) }));
     }
   }
 }
@@ -304,20 +308,13 @@ export const relationContext: Readable<RelationContext> = derived(
 );
 
 export const gameStatuses: Readable<GameStatusMap> = derived(
-  [games, gameDlls, gameDllErrors, relationContext, settings, gameDlssEnabler],
-  ([$games, $dlls, $errs, $ctx, $settings, $enabler]) => {
+  [games, gameDlls, gameDllErrors, relationContext, settings],
+  ([$games, $dlls, $errs, $ctx, $settings]) => {
     const out: GameStatusMap = {};
     const prefs = $settings?.update_prefs ?? null;
     for (const g of $games) {
       const disabled = $settings?.game_preferences[g.id]?.disabled_families ?? [];
-      out[g.id] = gameStatusFromRecords(
-        $dlls[g.id],
-        $ctx,
-        disabled,
-        $errs[g.id] ?? null,
-        prefs,
-        $enabler[g.id] ?? false,
-      );
+      out[g.id] = gameStatusFromRecords($dlls[g.id], $ctx, disabled, $errs[g.id] ?? null, prefs);
     }
     return out;
   },
@@ -397,6 +394,7 @@ export const sidebarCounts: Readable<SidebarCounts> = derived(
 
 export const commandPaletteOpen: Writable<boolean> = writable(false);
 export const notificationsOpen: Writable<boolean> = writable(false);
+export const languageMenuOpen: Writable<boolean> = writable(false);
 export const shortcutOverlayOpen: Writable<boolean> = writable(false);
 /** Set by UpdateBanner while it occupies the bottom-left corner, so the support
  * card can yield and avoid overlapping it. */
@@ -422,13 +420,17 @@ export async function scanGames(): Promise<void> {
   try {
     const result = await scanLibraries();
     games.set(result);
-    showToast("success", `Found ${result.length} games`);
+    showToast("success", translate(get(locale), "toast.scanGamesFound", { count: result.length }));
     void loadAllDlls(result);
     void enrichManualArt(result);
   } catch (err: unknown) {
     const message = formatError(err);
-    showToast("danger", `Scan failed: ${message}`);
-    emitFailureNotification("scan_failed", "Library scan failed", message);
+    showToast("danger", translate(get(locale), "toast.scanFailed", { msg: message }));
+    emitFailureNotification(
+      "scan_failed",
+      translate(get(locale), "notifKind.scan_failed"),
+      message,
+    );
   } finally {
     scanInProgress.set(false);
   }
@@ -512,7 +514,7 @@ async function loadAllDlls(list: DetectedGame[]): Promise<void> {
   gameDllErrors.subscribe((m) => { errCount = Object.values(m).filter(Boolean).length; })();
   if (errCount > 0 && !failureToastShown) {
     failureToastShown = true;
-    showToast("warning", `${errCount} game${errCount === 1 ? "" : "s"} failed to scan — open and Rescan to retry`);
+    showToast("warning", translate(get(locale), "toast.gamesFailedToScan", { count: errCount }));
   }
 }
 
@@ -572,8 +574,12 @@ export async function loadCatalog(): Promise<void> {
   } catch (err: unknown) {
     catalogStatus.set({ kind: "danger", label: "error" });
     const message = formatError(err);
-    showToast("danger", `Catalog refresh failed: ${message}`);
-    emitFailureNotification("catalog_refresh_failed", "Catalog refresh failed", message);
+    showToast("danger", translate(get(locale), "toast.catalogRefreshFailed", { msg: message }));
+    emitFailureNotification(
+      "catalog_refresh_failed",
+      translate(get(locale), "notifKind.catalog_refresh_failed"),
+      message,
+    );
   }
 }
 
@@ -591,7 +597,7 @@ export async function loadBackups(): Promise<void> {
     const result = await listBackups();
     backups.set(result);
   } catch (err: unknown) {
-    showToast("warning", `Could not load backups: ${formatError(err)}`);
+    showToast("warning", translate(get(locale), "toast.backupsLoadFailed", { msg: formatError(err) }));
   }
 }
 
@@ -609,7 +615,7 @@ export async function loadDriverUpdates(): Promise<void> {
   } catch (err: unknown) {
     const message = formatError(err);
     driverCheckError.set(message);
-    showToast("danger", `Driver check failed: ${message}`);
+    showToast("danger", translate(get(locale), "toast.driverCheckFailed", { msg: message }));
   } finally {
     driverCheckInProgress.set(false);
   }
@@ -651,7 +657,7 @@ export async function startDriverInstall(report: DriverStatusReport): Promise<vo
   driverInstall.set({
     vendor: report.device.vendor,
     stage: "downloading",
-    message: "Starting…",
+    message: translate(get(locale), "toast.starting"),
     fraction: null,
   });
   try {
@@ -665,7 +671,7 @@ export async function startDriverInstall(report: DriverStatusReport): Promise<vo
       showToast("danger", outcome.message);
     }
   } catch (err: unknown) {
-    showToast("danger", `Install failed: ${formatError(err)}`);
+    showToast("danger", translate(get(locale), "toast.installFailed", { msg: formatError(err) }));
   } finally {
     driverInstall.set({ ...DRIVER_INSTALL_IDLE });
   }
@@ -685,7 +691,7 @@ export async function loadDriverHistory(
     const releases = await listDriverHistory(model, vendor);
     driverHistory.update((m) => ({ ...m, [model]: releases }));
   } catch (err: unknown) {
-    showToast("warning", `Could not load driver history: ${formatError(err)}`);
+    showToast("warning", translate(get(locale), "toast.driverHistoryLoadFailed", { msg: formatError(err) }));
   } finally {
     driverHistoryLoading.update((m) => ({ ...m, [model]: false }));
   }
@@ -708,7 +714,7 @@ export async function loadSystemDrivers(): Promise<void> {
   } catch (err: unknown) {
     const message = formatError(err);
     systemScanError.set(message);
-    showToast("danger", `System driver scan failed: ${message}`);
+    showToast("danger", translate(get(locale), "toast.systemDriverScanFailed", { msg: message }));
   } finally {
     systemScanInProgress.set(false);
   }
@@ -761,7 +767,7 @@ export async function startSystemDriverInstall(
   systemDriverInstall.set({
     updateId: update.update_id,
     stage: "downloading",
-    message: "Starting…",
+    message: translate(get(locale), "toast.starting"),
     fraction: null,
   });
   try {
@@ -770,8 +776,9 @@ export async function startSystemDriverInstall(
       driverInstallContext(update, deviceClassLabel ?? update.class),
     );
     if (outcome.success) {
-      const reboot = outcome.reboot_required ? " A restart is required to finish." : "";
-      showToast("success", `${update.title} installed.${reboot}`);
+      const loc = get(locale);
+      const reboot = outcome.reboot_required ? translate(loc, "toast.systemDriverInstalledReboot") : "";
+      showToast("success", translate(loc, "toast.systemDriverInstalled", { title: update.title, reboot }));
       systemDriverInstall.set({ ...SYSTEM_DRIVER_IDLE });
       await loadSystemDrivers();
     } else {
@@ -779,7 +786,7 @@ export async function startSystemDriverInstall(
       failSystemDriverInstall(update.update_id, outcome.message);
     }
   } catch (err: unknown) {
-    const message = `Install failed: ${formatError(err)}`;
+    const message = translate(get(locale), "toast.installFailed", { msg: formatError(err) });
     showToast("danger", message);
     failSystemDriverInstall(update.update_id, message);
   }
@@ -851,7 +858,7 @@ export async function loadSettings(): Promise<void> {
     const result = await getSettings();
     settings.set(result);
   } catch (err: unknown) {
-    showToast("danger", `Could not load settings: ${formatError(err)}`);
+    showToast("danger", translate(get(locale), "toast.settingsLoadFailed", { msg: formatError(err) }));
   }
 }
 
@@ -860,7 +867,7 @@ export async function persistSettings(next: AppSettings): Promise<void> {
     await saveSettings(next);
     settings.set(next);
   } catch (err: unknown) {
-    showToast("danger", `Could not save settings: ${formatError(err)}`);
+    showToast("danger", translate(get(locale), "toast.settingsSaveFailed", { msg: formatError(err) }));
   }
 }
 

@@ -8,12 +8,12 @@
     featureVendor,
     VENDOR_ACCENTS,
     GROUP_ACCENT,
-    STATUS_LABELS,
     type UpdateStatus,
   } from "../lib/labels";
   import { gameDlls, gameDllsLoading, gameStatuses, relationContext } from "../lib/stores";
   import { dllRelation, targetVersion } from "../lib/relation";
   import { launcherIcon } from "../lib/launcherIcons";
+  import { t } from "../lib/i18n/index";
 
   let { game, hidden = false, onApply, onOpenFolder, onBlacklist, onClick, onContextMenu }: {
     game: DetectedGame;
@@ -48,7 +48,7 @@
       if (seen.has(f)) continue;
       seen.add(f);
       chips.push({
-        label: f === "advanced" ? "Other" : featureShort(f),
+        label: f === "advanced" ? $t("feature.advanced.short") : featureShort(f),
         accent: f === "advanced" ? GROUP_ACCENT.advanced : VENDOR_ACCENTS[featureVendor(f)] ?? GROUP_ACCENT.advanced,
       });
     }
@@ -79,7 +79,7 @@
   class:is-hidden={hidden}
   role="button"
   tabindex="0"
-  aria-label={`${game.name}, ${STATUS_LABELS[status] ?? status}`}
+  aria-label={$t("component.card.rowAria", { name: game.name, status: $t("status." + status) })}
   onclick={() => onClick(game)}
   oncontextmenu={onContextMenu ? (e) => { e.preventDefault(); onContextMenu(game, e); } : undefined}
   onkeydown={onKey}
@@ -104,17 +104,17 @@
 
   <div class="status">
     {#if loading}
-      <span class="chip chip-neutral">Scanning</span>
+      <span class="chip chip-neutral">{$t("status.scanning")}</span>
     {:else if status === "outdated"}
-      <span class="chip chip-update is-strong">{outdatedDlls.length} update{outdatedDlls.length === 1 ? "" : "s"}</span>
+      <span class="chip chip-update is-strong">{$t("component.card.updatesShort", { count: outdatedDlls.length })}</span>
     {:else if status === "up_to_date"}
-      <span class="chip chip-success">Up to date</span>
+      <span class="chip chip-success">{$t("status.up_to_date")}</span>
     {:else if status === "scan_failed"}
-      <span class="chip chip-danger">Scan failed</span>
+      <span class="chip chip-danger">{$t("status.scan_failed")}</span>
     {:else if status === "no_dlls"}
-      <span class="chip chip-neutral">No DLLs</span>
+      <span class="chip chip-neutral">{$t("status.no_dlls")}</span>
     {:else}
-      <span class="chip chip-neutral">Unknown</span>
+      <span class="chip chip-neutral">{$t("status.unknown")}</span>
     {/if}
   </div>
 
@@ -127,7 +127,7 @@
     {/if}
   </div>
 
-  <div class="version-diff mono" title="Primary version diff">
+  <div class="version-diff mono" title={$t("component.card.versionDiffTitle")}>
     {#if primaryOutdated && primaryTarget}
       <span class="ver-old">v{primaryOutdated.current_version ?? "?"}</span>
       <span class="arrow" aria-hidden="true">→</span>
@@ -139,15 +139,15 @@
 
   <div class="actions" onclick={(e) => e.stopPropagation()} role="presentation">
     {#if status === "outdated" && !hidden}
-      <button class="btn btn-primary btn-sm" onclick={() => onApply(game)} title="Apply latest DLLs">
+      <button class="btn btn-primary btn-sm" onclick={() => onApply(game)} title={$t("component.card.applyLatest")}>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-        Apply
+        {$t("common.apply")}
       </button>
     {/if}
-    <button class="btn btn-ghost btn-sm" onclick={() => onOpenFolder(game)} title="Open install folder" aria-label="Open install folder">
+    <button class="btn btn-ghost btn-sm" onclick={() => onOpenFolder(game)} title={$t("component.card.openInstallFolder")} aria-label={$t("component.card.openInstallFolder")}>
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
     </button>
-    <button class="btn btn-ghost btn-sm" onclick={() => onBlacklist(game)} title={hidden ? "Restore to library" : "Hide from list"} aria-label={hidden ? "Restore" : "Hide"}>
+    <button class="btn btn-ghost btn-sm" onclick={() => onBlacklist(game)} title={hidden ? $t("component.card.restoreToLibrary") : $t("component.card.hideFromList")} aria-label={hidden ? $t("common.restore") : $t("component.card.hide")}>
       {#if hidden}
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.93 6.63 2.46"/><polyline points="21 4 21 9 16 9"/></svg>
       {:else}

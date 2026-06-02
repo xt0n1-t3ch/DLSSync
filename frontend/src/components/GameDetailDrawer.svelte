@@ -1,7 +1,9 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
+  import { get } from "svelte/store";
+  import { t, locale, translate } from "../lib/i18n/index";
   import { setActiveArt, clearActiveArt } from "../lib/artContext";
-  import { EXTERNAL_URLS, ENABLER_MANAGED_LABEL, ENABLER_MANAGED_NOTE, STREAMLINE_OVERRIDE_NOTE } from "../lib/ux";
+  import { EXTERNAL_URLS, STREAMLINE_OVERRIDE_NOTE } from "../lib/ux";
   import {
     games,
     gameDlls,
@@ -30,12 +32,9 @@
     launcherLabel,
     recordFeature,
     featureTitle,
-    featureBlurb,
     featureIconId,
     featureVendor,
     FEATURE_ORDER,
-    GROUP_LABELS,
-    GROUP_SUB,
     GROUP_ACCENT,
     VENDOR_ACCENTS,
     filenameFromPath,
@@ -72,8 +71,8 @@
     rescanning = true;
     try {
       await rescanGame(gameId);
-      if (!scanError) showToast("success", "Rescan complete");
-      else showToast("danger", `Rescan failed: ${scanError}`);
+      if (!scanError) showToast("success", translate(get(locale), "component.gameDrawer.toast.rescanComplete"));
+      else showToast("danger", translate(get(locale), "component.gameDrawer.toast.rescanFailed", { error: scanError }));
     } finally {
       rescanning = false;
     }
@@ -140,12 +139,8 @@
   }
 
   function isOutdated(r: DllRecord): boolean {
-    if (!recordUpdatable(r, $settings?.update_prefs ?? null, dlssEnabler)) return false;
+    if (!recordUpdatable(r, $settings?.update_prefs ?? null)) return false;
     return relation(r) === "outdated";
-  }
-
-  function enablerManagedSl(r: DllRecord): boolean {
-    return dlssEnabler && isStreamlinePlugin(filenameFromPath(r.path));
   }
 
   function targetFor(r: DllRecord): string | null {
@@ -177,12 +172,16 @@
     }
     prefs[gameId] = { ...cur, disabled_families: next };
     const after: AppSettings = { ...before, game_preferences: prefs };
-    const featureName = recs.length > 0 ? familyShort(recs[0].family) : "Feature";
+    const loc = get(locale);
+    const featureName = recs.length > 0 ? familyShort(recs[0].family) : translate(loc, "component.gameDrawer.featureFallback");
     await optimisticToggle({
       applyOptimistic: () => settings.set(after),
       revert: () => settings.set(before),
       commit: () => saveSettings(after),
-      message: `${featureName} ${wasAllDisabled ? "enabled" : "disabled"} for ${game?.name ?? "this game"}`,
+      message: translate(loc, wasAllDisabled ? "component.gameDrawer.toast.featureEnabled" : "component.gameDrawer.toast.featureDisabled", {
+        feature: featureName,
+        game: game?.name ?? translate(loc, "component.gameDrawer.thisGame"),
+      }),
     });
   }
 
@@ -257,18 +256,19 @@
       const inCatalog = recs.filter((r) => relation(r) !== "no-target");
       const allUpToDate = inCatalog.length > 0 && inCatalog.every((r) => relation(r) === "same");
       const allDisabled = recs.every((r) => disabledFamilies.includes(r.family));
-      let label = "Not in catalog";
+      const tr = $t;
+      let label = tr("component.gameDrawer.status.notInCatalog");
       let tone: FeatureBucket["statusTone"] = "neutral";
-      if (allDisabled) { label = "Disabled"; tone = "neutral"; }
-      else if (anyOutdated) { label = recs.length > 1 ? "Updates ready" : "Update ready"; tone = "update"; }
-      else if (anyAhead) { label = "Ahead of catalog"; tone = "info"; }
-      else if (allUpToDate) { label = "Up to date"; tone = "success"; }
+      if (allDisabled) { label = tr("component.gameDrawer.status.disabled"); tone = "neutral"; }
+      else if (anyOutdated) { label = recs.length > 1 ? tr("component.gameDrawer.status.updatesReady") : tr("component.gameDrawer.status.updateReady"); tone = "update"; }
+      else if (anyAhead) { label = tr("component.gameDrawer.status.aheadOfCatalog"); tone = "info"; }
+      else if (allUpToDate) { label = tr("status.up_to_date"); tone = "success"; }
       out.push({
         feature: fid,
         records: recs,
         primary,
         title: featureTitle(fid),
-        blurb: featureBlurb(fid),
+        blurb: $t("feature." + fid + ".blurb"),
         iconId: featureIconId(fid),
         accent: VENDOR_ACCENTS[featureVendor(fid)] ?? "#94a3b8",
         anyOutdated,
@@ -342,7 +342,6 @@
     for (const r of records) {
       if (!selected[rowKey(r)]) continue;
       if (disabledFamilies.includes(r.family)) continue;
-      if (enablerManagedSl(r)) continue;
       const tgt = targetFor(r);
       if (!tgt) continue;
       out.push({ record: r, target: tgt });
@@ -354,7 +353,7 @@
     if (!game) return;
     const items = selectedRecords();
     if (items.length === 0) {
-      showToast("warning", "Nothing selected");
+      showToast("warning", translate(get(locale), "component.gameDrawer.toast.nothingSelected"));
       return;
     }
     const game_label = `${launcherLabel(game.launcher)} - ${game.name}`;
@@ -371,15 +370,13 @@
     } catch (err: unknown) {
       showToast(
         "warning",
-        `Rescan after apply failed: ${String(err)} — close and re-open the game to refresh`,
+        translate(get(locale), "component.gameDrawer.toast.rescanAfterApplyFailed", { error: String(err) }),
       );
     }
   }
 
   let streamlineSetMembers = $derived(
-    records.filter(
-      (r) => isStreamlinePlugin(filenameFromPath(r.path)) && isOutdated(r) && !enablerManagedSl(r),
-    ),
+    records.filter((r) => isStreamlinePlugin(filenameFromPath(r.path)) && isOutdated(r)),
   );
   let streamlineSetTarget = $derived(
     streamlineSetMembers.length ? targetFor(streamlineSetMembers[0]) : null,
@@ -401,18 +398,18 @@
     } catch (err: unknown) {
       showToast(
         "warning",
-        `Rescan after apply failed: ${String(err)} — close and re-open the game to refresh`,
+        translate(get(locale), "component.gameDrawer.toast.rescanAfterApplyFailed", { error: String(err) }),
       );
     }
   }
 
   let rowMenu = $state<{ x: number; y: number; primaryKey: string } | null>(null);
-  const rowMenuItems = [
-    { action: "open_folder" as ContextMenuAction, label: "Open folder" },
-    { action: "scan" as ContextMenuAction, label: "Rescan" },
-    { action: "pin" as ContextMenuAction, label: "Pin a version…" },
-    { action: "hide" as ContextMenuAction, label: "Hide game" },
-  ];
+  let rowMenuItems = $derived([
+    { action: "open_folder" as ContextMenuAction, label: $t("view.library.menu.openFolder") },
+    { action: "scan" as ContextMenuAction, label: $t("component.gameDrawer.menu.rescan") },
+    { action: "pin" as ContextMenuAction, label: $t("view.library.menu.pin") },
+    { action: "hide" as ContextMenuAction, label: $t("component.gameDrawer.menu.hideGame") },
+  ]);
 
   function openRowMenu(primaryKey: string, e: MouseEvent): void {
     e.preventDefault();
@@ -443,7 +440,7 @@
       const { openPath } = await import("../lib/api");
       await openPath(game.install_dir);
     } catch (err: unknown) {
-      showToast("danger", `Open folder: ${String(err)}`);
+      showToast("danger", translate(get(locale), "component.gameDrawer.toast.openFolderFailed", { error: String(err) }));
     }
   }
 
@@ -452,13 +449,17 @@
   async function toggleHidden(): Promise<void> {
     if (!game) return;
     const wasHidden = isHidden;
+    const loc = get(locale);
     try {
       const next = wasHidden ? await removeBlacklistEntry(game.id) : await addBlacklistEntry(game.id);
       if ($settings) settings.set({ ...$settings, blacklist: next });
-      showToast(wasHidden ? "success" : "info", `${game.name} ${wasHidden ? "restored" : "hidden"}`);
+      showToast(
+        wasHidden ? "success" : "info",
+        translate(loc, wasHidden ? "view.library.toast.gameRestored" : "view.library.toast.gameHidden", { name: game.name }),
+      );
       if (!wasHidden) onClose();
     } catch (err: unknown) {
-      showToast("danger", `${wasHidden ? "Restore" : "Hide"} failed: ${String(err)}`);
+      showToast("danger", translate(loc, wasHidden ? "view.library.toast.restoreFailed" : "view.library.toast.hideFailed", { error: String(err) }));
     }
   }
 
@@ -491,9 +492,9 @@
 
 {#if game}
   <div class="detail-view" style:--launcher-accent={accent} aria-label={game.name}>
-    <button class="detail-back" onclick={onClose} title="Back to Library (Esc)">
+    <button class="detail-back" onclick={onClose} title={$t("component.gameDrawer.backToLibraryTitle")}>
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-      Back to Library
+      {$t("component.gameDrawer.backToLibrary")}
     </button>
     <header class="detail-hero">
       <div class="drawer-art">
@@ -521,19 +522,19 @@
     >
       {#if loading || rescanning}
         <span class="ribbon-dot is-pulse"></span>
-        <span>Scanning DLLs…</span>
+        <span>{$t("component.gameDrawer.ribbon.scanning")}</span>
       {:else if scanError}
         <span class="ribbon-dot"></span>
-        <span>Scan failed: <span class="mono">{scanError}</span></span>
+        <span>{$t("component.gameDrawer.ribbon.scanFailed")} <span class="mono">{scanError}</span></span>
       {:else if records.length === 0}
         <span class="ribbon-dot"></span>
-        <span>No supported DLLs detected</span>
+        <span>{$t("component.gameDrawer.ribbon.noDlls")}</span>
       {:else if outdatedCount === 0}
         <span class="ribbon-dot"></span>
-        <span>All up to date · {records.length} file{records.length === 1 ? "" : "s"}</span>
+        <span>{$t("component.gameDrawer.ribbon.allUpToDate", { count: records.length })}</span>
       {:else}
         <span class="ribbon-dot is-pulse"></span>
-        <span>{outdatedCount} update{outdatedCount === 1 ? "" : "s"} ready{aheadCount > 0 ? ` · ${aheadCount} ahead of catalog` : ""}</span>
+        <span>{$t("component.gameDrawer.ribbon.updatesReady", { count: outdatedCount })}{aheadCount > 0 ? $t("component.gameDrawer.ribbon.aheadSuffix", { count: aheadCount }) : ""}</span>
       {/if}
     </div>
 
@@ -544,76 +545,76 @@
           <span>{warningMessage(acReport!)}{#if acStatus} {acStatus}{/if}</span>
           <button
             class="learn-more"
-            title="Open the anti-cheat compatibility reference"
+            title={$t("component.gameDrawer.anticheat.learnMoreTitle")}
             onclick={async () => {
               try {
                 const { open } = await import("@tauri-apps/plugin-shell");
                 await open(acLearnUrl);
-              } catch (err) { showToast("warning", `Open link failed: ${String(err)}`); }
+              } catch (err) { showToast("warning", translate(get(locale), "component.gameDrawer.toast.openLinkFailed", { error: String(err) })); }
             }}
-          >Learn more</button>
+          >{$t("component.gameDrawer.anticheat.learnMore")}</button>
         </div>
       {/if}
 
       {#if dlssEnabler}
-        <div class="warning-banner edge-accent is-warning" role="status">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          <span>DLSS Enabler detected — it manages this game's NVIDIA Streamline set, so DLSSync leaves the <code>sl.*</code> plug-ins untouched. NGX DLLs still update normally.</span>
+        <div class="warning-banner edge-accent is-info" role="status">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          <span>{$t("note.enablerManaged")}</span>
         </div>
       {/if}
 
       {#if loading || rescanning}
         <div class="loading-state">
           <span class="spinner"></span>
-          <span>{rescanning ? "Rescanning" : "Scanning DLLs"} — {game.install_dir.split(/[\\/]/).pop()}</span>
+          <span>{rescanning ? $t("component.gameDrawer.loading.rescanning") : $t("component.gameDrawer.loading.scanning")} — {game.install_dir.split(/[\\/]/).pop()}</span>
         </div>
       {:else if scanError}
         <div class="empty-state error-state">
           <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <h3>Scan failed</h3>
+          <h3>{$t("component.gameDrawer.scanError.title")}</h3>
           <p class="error-msg mono">{scanError}</p>
-          <p class="error-hint">This is usually a transient I/O race during the initial concurrent scan. Click below to retry just this game.</p>
+          <p class="error-hint">{$t("component.gameDrawer.scanError.hint")}</p>
           <button class="btn btn-primary" onclick={doRescan}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-            Rescan this game
+            {$t("component.gameDrawer.scanError.retry")}
           </button>
         </div>
       {:else if records.length === 0}
         <div class="empty-state">
           <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <h3>No DLSS, FSR or XeSS files found</h3>
-          <p>We scanned this folder and didn't find any tracked upscaling DLLs. If the game ships them in a custom subfolder, try Rescan or open the folder to check.</p>
+          <h3>{$t("component.gameDrawer.empty.title")}</h3>
+          <p>{$t("component.gameDrawer.empty.body")}</p>
           <div class="empty-actions">
             <button class="btn btn-accent" onclick={doRescan}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-              Rescan
+              {$t("view.library.rescan")}
             </button>
-            <button class="btn btn-ghost" onclick={openFolder}>Open folder</button>
+            <button class="btn btn-ghost" onclick={openFolder}>{$t("view.library.menu.openFolder")}</button>
           </div>
         </div>
       {:else}
         <div class="summary-row">
           <div class="summary-stat">
             <span class="stat-num">{records.length}</span>
-            <span class="stat-label">Files</span>
+            <span class="stat-label">{$t("component.gameDrawer.stat.files")}</span>
           </div>
           <div class="summary-stat">
             <span class="stat-num" class:is-update={outdatedCount > 0}>{outdatedCount}</span>
-            <span class="stat-label">Updates</span>
+            <span class="stat-label">{$t("component.gameDrawer.stat.updates")}</span>
           </div>
           <div class="summary-stat">
             <span class="stat-num" class:is-accent={selectedCount > 0}>{selectedCount}</span>
-            <span class="stat-label">Selected</span>
+            <span class="stat-label">{$t("component.gameDrawer.stat.selected")}</span>
           </div>
         </div>
 
         {#if outdatedCount > 0}
           <div class="quick-actions">
             <button class="btn btn-sm btn-accent" onclick={selectAllOutdated}>
-              Select all updates ({outdatedCount})
+              {$t("component.gameDrawer.selectAllUpdates", { count: outdatedCount })}
             </button>
             <button class="btn btn-sm btn-ghost" onclick={clearSelection} disabled={selectedCount === 0}>
-              Clear selection
+              {$t("component.gameDrawer.clearSelection")}
             </button>
           </div>
         {/if}
@@ -630,7 +631,7 @@
               {@const primaryPinned = pinnedVersions[primaryKey]}
               {@const primaryAside = primaryRel === "ahead" || (primaryRel === "same" && primaryTarget != null && primaryTarget !== (b.primary.current_version ?? ""))}
               <li class="feature-row" class:is-update={b.anyOutdated && !b.allDisabled} class:disabled={b.allDisabled} oncontextmenu={(e) => openRowMenu(primaryKey, e)}>
-                <label class="feature-check" title={selState === "all" ? "Deselect all in this feature" : "Select all updates in this feature"}>
+                <label class="feature-check" title={selState === "all" ? $t("component.gameDrawer.feature.deselectAll") : $t("component.gameDrawer.feature.selectAll")}>
                   <input
                     type="checkbox"
                     checked={selState !== "none"}
@@ -661,19 +662,19 @@
                     <span class="ver-pair">
                       <span class="ver current" class:is-update={primaryRel === "outdated"}>v{b.primary.current_version ?? "?"}</span>
                       {#if primaryAside}
-                        <button class="ver catalog-aside" onclick={() => (pickerOpenFor = primaryKey)} title="Pick a different version">
-                          <span class="muted">· catalog v{primaryTarget}</span>
+                        <button class="ver catalog-aside" onclick={() => (pickerOpenFor = primaryKey)} title={$t("component.gameDrawer.version.pickDifferent")}>
+                          <span class="muted">{$t("component.gameDrawer.version.catalogAside", { version: primaryTarget ?? "" })}</span>
                         </button>
                       {:else}
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="arrow"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-                        <button class="ver target-btn" onclick={() => (pickerOpenFor = primaryKey)} title="Choose a version">
+                        <button class="ver target-btn" onclick={() => (pickerOpenFor = primaryKey)} title={$t("component.gameDrawer.version.choose")}>
                           {#if primaryTarget}
                             <span class="target">v{primaryTarget}</span>
                             {#if primaryPinned && primaryPinned !== primaryLatest}
-                              <span class="chip chip-update pin-chip" title="Pinned by you">Pinned</span>
+                              <span class="chip chip-update pin-chip" title={$t("component.gameDrawer.version.pinnedTitle")}>{$t("component.gameDrawer.version.pinned")}</span>
                             {/if}
                           {:else}
-                            <span class="muted">choose version</span>
+                            <span class="muted">{$t("component.gameDrawer.version.chooseVersion")}</span>
                           {/if}
                           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="chev"><polyline points="6 9 12 15 18 9"/></svg>
                         </button>
@@ -682,17 +683,17 @@
                     {#if b.records.length > 1}
                       <button class="files-toggle" onclick={() => (expandedFeatures = { ...expandedFeatures, [b.feature]: !expanded })} aria-expanded={expanded}>
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="chev" class:open={expanded}><polyline points="6 9 12 15 18 9"/></svg>
-                        {expanded ? "Hide files" : `Show files (${b.records.length})`}
+                        {expanded ? $t("component.gameDrawer.files.hideMany") : $t("component.gameDrawer.files.showMany", { count: b.records.length })}
                       </button>
                     {:else}
                       <button class="files-toggle subtle" onclick={() => (expandedFeatures = { ...expandedFeatures, [b.feature]: !expanded })} aria-expanded={expanded} title={filenameFromPath(b.primary.path)}>
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="chev" class:open={expanded}><polyline points="6 9 12 15 18 9"/></svg>
-                        {expanded ? "Hide file" : "Show file"}
+                        {expanded ? $t("component.gameDrawer.files.hideOne") : $t("component.gameDrawer.files.showOne")}
                       </button>
                     {/if}
                   </div>
                 </div>
-                <button class="feature-eye" onclick={() => void toggleFeatureDisabled(b.records)} title={b.allDisabled ? "Re-enable feature for this game" : "Disable feature for this game"} aria-label="Toggle feature">
+                <button class="feature-eye" onclick={() => void toggleFeatureDisabled(b.records)} title={b.allDisabled ? $t("component.gameDrawer.feature.reEnable") : $t("component.gameDrawer.feature.disable")} aria-label={$t("component.gameDrawer.feature.toggleAria")}>
                   {#if b.allDisabled}
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                   {:else}
@@ -703,19 +704,18 @@
                   <ul class="files-list">
                     {#each b.records as r (r.path)}
                       {@const k = rowKey(r)}
-                      {@const t = targetFor(r)}
+                      {@const tgt = targetFor(r)}
                       {@const lat = latestFor(r)}
                       {@const rel = relation(r)}
-                      {@const em = enablerManagedSl(r)}
                       {@const fd = disabledFamilies.includes(r.family)}
                       {@const pin = pinnedVersions[k]}
-                      {@const fileAside = rel === "ahead" || (rel === "same" && t != null && t !== (r.current_version ?? ""))}
+                      {@const fileAside = rel === "ahead" || (rel === "same" && tgt != null && tgt !== (r.current_version ?? ""))}
                       <li class="file-row" class:disabled={fd}>
                         <label class="file-check">
                           <input
                             type="checkbox"
                             checked={selected[k] ?? false}
-                            disabled={fd || rel === "same" || rel === "no-target" || em}
+                            disabled={fd || rel === "same" || rel === "no-target"}
                             onchange={(e) => (selected = { ...selected, [k]: (e.target as HTMLInputElement).checked })}
                           />
                           <span class="check-box"></span>
@@ -728,17 +728,17 @@
                           <div class="file-versions">
                             <span class="ver current mono" class:is-update={rel === "outdated"}>v{r.current_version ?? "?"}</span>
                             {#if fileAside}
-                              <button class="ver catalog-aside small" onclick={() => (pickerOpenFor = k)} title="Pick a different version">
-                                <span class="muted mono">· catalog v{t}</span>
+                              <button class="ver catalog-aside small" onclick={() => (pickerOpenFor = k)} title={$t("component.gameDrawer.version.pickDifferent")}>
+                                <span class="muted mono">{$t("component.gameDrawer.version.catalogAside", { version: tgt ?? "" })}</span>
                               </button>
                             {:else}
                               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="arrow"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
                               <button class="ver target-btn small" onclick={() => (pickerOpenFor = k)}>
-                                {#if t}
-                                  <span class="target mono">v{t}</span>
-                                  {#if pin && pin !== lat}<span class="chip chip-update pin-chip">Pinned</span>{/if}
+                                {#if tgt}
+                                  <span class="target mono">v{tgt}</span>
+                                  {#if pin && pin !== lat}<span class="chip chip-update pin-chip">{$t("component.gameDrawer.version.pinned")}</span>{/if}
                                 {:else}
-                                  <span class="muted">choose version</span>
+                                  <span class="muted">{$t("component.gameDrawer.version.chooseVersion")}</span>
                                 {/if}
                                 <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="chev"><polyline points="6 9 12 15 18 9"/></svg>
                               </button>
@@ -747,16 +747,14 @@
                           <div class="file-path mono truncate" title={r.path}>{r.path}</div>
                         </div>
                         <div class="file-status">
-                          {#if em}
-                            <span class="chip chip-info small-chip" title={ENABLER_MANAGED_NOTE}>{ENABLER_MANAGED_LABEL}</span>
-                          {:else if rel === "outdated"}
-                            <span class="chip chip-update small-chip">Update</span>
+                          {#if rel === "outdated"}
+                            <span class="chip chip-update small-chip">{$t("component.gameDrawer.fileStatus.update")}</span>
                           {:else if rel === "ahead"}
-                            <span class="chip chip-info small-chip" title="Installed version is newer than what the catalog tracks">Ahead</span>
+                            <span class="chip chip-info small-chip" title={$t("component.gameDrawer.fileStatus.aheadTitle")}>{$t("component.gameDrawer.fileStatus.ahead")}</span>
                           {:else if rel === "same"}
-                            <span class="chip chip-success small-chip">Current</span>
+                            <span class="chip chip-success small-chip">{$t("component.gameDrawer.fileStatus.current")}</span>
                           {:else}
-                            <span class="chip chip-neutral small-chip">Not in catalog</span>
+                            <span class="chip chip-neutral small-chip">{$t("component.gameDrawer.status.notInCatalog")}</span>
                           {/if}
                         </div>
                         {#if pickerOpenFor === k}
@@ -796,10 +794,10 @@
               <span class="advanced-titles">
                 <span class="advanced-name">
                   <span class="advanced-dot" style:background={GROUP_ACCENT.advanced}></span>
-                  {GROUP_LABELS.advanced}
+                  {$t("feature.advanced.title")}
                   <span class="chip chip-neutral small-chip count">{advancedRows.length}</span>
                 </span>
-                <span class="advanced-sub">{GROUP_SUB.advanced}</span>
+                <span class="advanced-sub">{$t("feature.advanced.blurb")}</span>
               </span>
               <span class="advanced-chevron" class:open={advancedExpanded}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
@@ -810,10 +808,9 @@
                 {#each advancedRows as ar (ar.family)}
                   {@const r = ar.primary}
                   {@const k = rowKey(r)}
-                  {@const t = targetFor(r)}
+                  {@const tgt = targetFor(r)}
                   {@const lat = latestFor(r)}
                   {@const rel = relation(r)}
-                  {@const em = enablerManagedSl(r)}
                   {@const fd = disabledFamilies.includes(r.family)}
                   {@const pin = pinnedVersions[k]}
                   <li class="file-row" class:disabled={fd}>
@@ -821,7 +818,7 @@
                       <input
                         type="checkbox"
                         checked={selected[k] ?? false}
-                        disabled={fd || rel === "same" || rel === "no-target" || em}
+                        disabled={fd || rel === "same" || rel === "no-target"}
                         onchange={(e) => (selected = { ...selected, [k]: (e.target as HTMLInputElement).checked })}
                       />
                       <span class="check-box"></span>
@@ -835,22 +832,20 @@
                         <span class="ver current mono" class:is-update={rel === "outdated"}>v{r.current_version ?? "?"}</span>
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="arrow"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
                         <button class="ver target-btn small" onclick={() => (pickerOpenFor = k)}>
-                          {#if t}<span class="target mono">v{t}</span>{:else}<span class="muted">choose version</span>{/if}
+                          {#if tgt}<span class="target mono">v{tgt}</span>{:else}<span class="muted">{$t("component.gameDrawer.version.chooseVersion")}</span>{/if}
                           <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="chev"><polyline points="6 9 12 15 18 9"/></svg>
                         </button>
                       </div>
                     </div>
                     <div class="file-status">
-                      {#if em}
-                        <span class="chip chip-info small-chip" title={ENABLER_MANAGED_NOTE}>{ENABLER_MANAGED_LABEL}</span>
-                      {:else if rel === "outdated"}
-                        <span class="chip chip-update small-chip">Update</span>
+                      {#if rel === "outdated"}
+                        <span class="chip chip-update small-chip">{$t("component.gameDrawer.fileStatus.update")}</span>
                       {:else if rel === "ahead"}
-                        <span class="chip chip-info small-chip" title="Installed version is newer than what the catalog tracks">Ahead</span>
+                        <span class="chip chip-info small-chip" title={$t("component.gameDrawer.fileStatus.aheadTitle")}>{$t("component.gameDrawer.fileStatus.ahead")}</span>
                       {:else if rel === "same"}
-                        <span class="chip chip-success small-chip">Current</span>
+                        <span class="chip chip-success small-chip">{$t("component.gameDrawer.fileStatus.current")}</span>
                       {:else}
-                        <span class="chip chip-neutral small-chip">Not in catalog</span>
+                        <span class="chip chip-neutral small-chip">{$t("component.gameDrawer.status.notInCatalog")}</span>
                       {/if}
                     </div>
                     {#if pickerOpenFor === k}
@@ -878,10 +873,10 @@
             <span class="advanced-titles">
               <span class="advanced-name">
                 <span class="advanced-dot" style="background: var(--vendor-nvidia);"></span>
-                DLSS Overrides
+                {$t("view.drivers.dlssOverrides")}
                 <span class="chip chip-neutral small-chip count">NVIDIA</span>
               </span>
-              <span class="advanced-sub">Force the DLSS preset and frame-generation mode for this game via its NVIDIA driver profile.</span>
+              <span class="advanced-sub">{$t("component.gameDrawer.dlss.sub")}</span>
             </span>
             <span class="advanced-chevron" class:open={dlssExpanded}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
@@ -890,12 +885,12 @@
           {#if dlssExpanded}
             <div class="dlss-drawer-body">
               {#if exeResolving}
-                <p class="advanced-sub">Locating the game executable…</p>
+                <p class="advanced-sub">{$t("component.gameDrawer.dlss.locating")}</p>
               {:else if gameExe}
                 <p class="advanced-sub mono truncate" title={gameExe}>{gameExe}</p>
                 <DlssOverridePanel scope={{ scope: "per_game", executable_path: gameExe }} driverPacked={nvidiaPacked} />
               {:else}
-                <p class="advanced-sub">Could not locate this game's main executable automatically — use the Global override in Settings instead.</p>
+                <p class="advanced-sub">{$t("component.gameDrawer.dlss.noExe")}</p>
               {/if}
             </div>
           {/if}
@@ -904,26 +899,28 @@
     </div>
 
     <footer class="drawer-foot">
-      <button class="btn btn-ghost" onclick={openFolder} title="Open install folder">
+      <button class="btn btn-ghost" onclick={openFolder} title={$t("component.gameDrawer.foot.openFolderTitle")}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-        Open folder
+        {$t("view.library.menu.openFolder")}
       </button>
-      <button class="btn btn-ghost" onclick={doRescan} title="Rescan this game's install folder" disabled={loading || rescanning}>
+      <button class="btn btn-ghost" onclick={doRescan} title={$t("component.gameDrawer.foot.rescanTitle")} disabled={loading || rescanning}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-        Rescan
+        {$t("view.library.rescan")}
       </button>
-      <button class="btn btn-ghost" onclick={toggleHidden}>{isHidden ? "Restore" : "Hide"}</button>
+      <button class="btn btn-ghost" onclick={toggleHidden}>{isHidden ? $t("component.gameDrawer.foot.restore") : $t("component.gameDrawer.foot.hide")}</button>
       <div class="foot-spacer"></div>
       {#if aheadCount > 0}
-        <span class="chip chip-info ahead-chip">{aheadCount} ahead of catalog</span>
+        <span class="chip chip-info ahead-chip">{$t("component.gameDrawer.foot.aheadChip", { count: aheadCount })}</span>
       {/if}
       {#if streamlineSetMembers.length > 0}
         <button
           class="btn btn-ghost"
           onclick={applyStreamlineSetAction}
-          title={`Update the matched NVIDIA Streamline plug-in set together as one atomic transaction (all files, or none). ${STREAMLINE_OVERRIDE_NOTE}`}
+          title={`${$t("component.gameDrawer.streamlineSet.title")} ${STREAMLINE_OVERRIDE_NOTE}`}
         >
-          Update Streamline set{streamlineSetTarget ? ` → v${streamlineSetTarget}` : ""} ({streamlineSetMembers.length})
+          {streamlineSetTarget
+            ? $t("component.gameDrawer.streamlineSet.labelVersion", { version: streamlineSetTarget, count: streamlineSetMembers.length })
+            : $t("component.gameDrawer.streamlineSet.label", { count: streamlineSetMembers.length })}
         </button>
       {/if}
       <button
@@ -932,7 +929,7 @@
         disabled={selectedCount === 0}
         onclick={applySelected}
       >
-        Apply selected ({selectedCount})
+        {$t("component.gameDrawer.applySelected", { count: selectedCount })}
       </button>
     </footer>
   </div>
@@ -1061,6 +1058,11 @@
     background: var(--danger-dim, rgba(220, 70, 70, 0.14));
     border-color: var(--danger, #dc4646);
     color: var(--danger, #dc4646);
+  }
+  .warning-banner.is-info {
+    background: var(--info-dim, rgba(10, 132, 255, 0.12));
+    border-color: var(--info);
+    color: var(--info);
   }
   .warning-banner svg { flex-shrink: 0; margin-top: 1px; }
   .learn-more {

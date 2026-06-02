@@ -6,7 +6,9 @@
     settings,
     persistSettings,
     sidebarCounts,
+    languageMenuOpen,
   } from "../lib/stores";
+  import { t, locale, LOCALE_LABELS } from "../lib/i18n/index";
 
   const STAGGER_STEP_MS = 28;
   const prefersReducedMotion =
@@ -30,18 +32,18 @@
     }
   });
 
-  type NavItem = { id: string; icon: string; title: string; counterKey?: "library" | "backups" };
+  type NavItem = { id: string; icon: string; counterKey?: "library" | "backups" };
 
   const librarySection: NavItem[] = [
-    { id: "library", icon: "library", title: "Library", counterKey: "library" },
-    { id: "catalog", icon: "catalog", title: "Catalog" },
-    { id: "drivers", icon: "drivers", title: "Drivers" },
-    { id: "backups", icon: "backups", title: "Backups", counterKey: "backups" },
+    { id: "library", icon: "library", counterKey: "library" },
+    { id: "catalog", icon: "catalog" },
+    { id: "drivers", icon: "drivers" },
+    { id: "backups", icon: "backups", counterKey: "backups" },
   ];
 
   const settingsSection: NavItem[] = [
-    { id: "settings", icon: "settings", title: "Settings" },
-    { id: "about", icon: "about", title: "About" },
+    { id: "settings", icon: "settings" },
+    { id: "about", icon: "about" },
   ];
 
   function switchView(id: string): void {
@@ -81,10 +83,10 @@
   </div>
 
   <nav class="sidebar-nav">
-    {#if !collapsed}<div class="nav-label">Library</div>{/if}
+    {#if !collapsed}<div class="nav-label">{$t("component.chrome.sidebar.libraryGroup")}</div>{/if}
     {#each librarySection as item, i}
       {@const count = counterValue(item)}
-      <button class="nav-pill" class:active={$currentView === item.id} title={item.title} onclick={() => switchView(item.id)}>
+      <button class="nav-pill" class:active={$currentView === item.id} title={$t("view." + item.id + ".title")} onclick={() => switchView(item.id)}>
         {#if item.icon === "library"}
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
         {:else if item.icon === "catalog"}
@@ -94,34 +96,49 @@
         {:else if item.icon === "drivers"}
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
         {/if}
-        {#if !collapsed}<span class="nav-label-text" in:fly={labelStagger(i)}>{item.title}</span>{/if}
+        {#if !collapsed}<span class="nav-label-text" in:fly={labelStagger(i)}>{$t("view." + item.id + ".title")}</span>{/if}
         {#if count > 0}
-          <span class="nav-counter" class:is-collapsed={collapsed} class:is-update={item.counterKey === "library"} aria-label={`${count} ${item.counterKey === "library" ? "outdated" : "restorable"}`}>
+          <span class="nav-counter" class:is-collapsed={collapsed} class:is-update={item.counterKey === "library"} aria-label={item.counterKey === "library" ? $t("component.chrome.sidebar.outdatedCount", { count }) : $t("component.chrome.sidebar.restorableCount", { count })}>
             {count > 99 ? "99+" : count}
           </span>
         {/if}
       </button>
     {/each}
 
-    {#if !collapsed}<div class="nav-label">General</div>{/if}
+    {#if !collapsed}<div class="nav-label">{$t("component.chrome.sidebar.generalGroup")}</div>{/if}
     {#each settingsSection as item, i}
-      <button class="nav-pill" class:active={$currentView === item.id} title={item.title} onclick={() => switchView(item.id)}>
+      <button class="nav-pill" class:active={$currentView === item.id} title={$t("view." + item.id + ".title")} onclick={() => switchView(item.id)}>
         {#if item.icon === "settings"}
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         {:else}
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
         {/if}
-        {#if !collapsed}<span class="nav-label-text" in:fly={labelStagger(librarySection.length + i)}>{item.title}</span>{/if}
+        {#if !collapsed}<span class="nav-label-text" in:fly={labelStagger(librarySection.length + i)}>{$t("view." + item.id + ".title")}</span>{/if}
       </button>
     {/each}
   </nav>
 
-  <button class="sidebar-toggle" onclick={toggleCollapsed} title={collapsed ? "Expand sidebar" : "Collapse sidebar"} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
+  <button
+    class="nav-pill lang-switcher"
+    class:active={$languageMenuOpen}
+    data-language-toggle
+    aria-haspopup="listbox"
+    aria-expanded={$languageMenuOpen}
+    aria-label={$t("language.currentAria", { name: LOCALE_LABELS[$locale] })}
+    title={$t("language.label")}
+    onclick={() => languageMenuOpen.update((v) => !v)}
+  >
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+    {#if !collapsed}<span class="nav-label-text" in:fly={labelStagger(librarySection.length + settingsSection.length)}>{$t("language.label")}</span>{/if}
+    <span class="lang-code nav-counter" class:is-collapsed={collapsed}>{$locale.toUpperCase()}</span>
+  </button>
+
+  <button class="sidebar-toggle" onclick={toggleCollapsed} title={collapsed ? $t("component.chrome.sidebar.expand") : $t("component.chrome.sidebar.collapse")} aria-label={collapsed ? $t("component.chrome.sidebar.expand") : $t("component.chrome.sidebar.collapse")}>
     {#if collapsed}
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
     {:else}
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-      <span class="toggle-label">Collapse</span>
+      <span class="toggle-label">{$t("component.chrome.sidebar.collapseLabel")}</span>
     {/if}
   </button>
 </aside>
@@ -242,8 +259,30 @@
     line-height: 1.4;
   }
 
+  .lang-switcher {
+    margin: auto 14px 0;
+    width: auto;
+    border-top: 1px solid var(--border);
+    border-radius: 0;
+    padding: 14px 12px 12px;
+    height: auto;
+  }
+  .sidebar.collapsed .lang-switcher {
+    width: 44px;
+    height: auto;
+    margin: auto 10px 0;
+    padding: 14px 0 0;
+    justify-content: center;
+    border-radius: 0;
+  }
+  .lang-switcher:hover { transform: none; }
+  .lang-switcher:active { transform: scale(0.99); }
+  .lang-switcher.active { background: transparent; color: var(--accent); box-shadow: none; }
+  .lang-switcher.active:hover { background: var(--bg-card-hover); }
+  .lang-code { flex-shrink: 0; }
+
   .sidebar-toggle {
-    margin: auto 14px 14px;
+    margin: 10px 14px 14px;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -263,7 +302,7 @@
     width: 44px;
     height: 44px;
     padding: 0;
-    margin: auto 10px 14px;
+    margin: 10px 10px 14px;
     justify-content: center;
   }
   .toggle-label { white-space: nowrap; }

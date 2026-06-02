@@ -9,6 +9,7 @@ const drawerSource = readFileSync(resolve(root, "components/GameDetailDrawer.sve
 const appSource = readFileSync(resolve(root, "App.svelte"), "utf8");
 const librarySource = readFileSync(resolve(root, "views/Library.svelte"), "utf8");
 const uxSource = readFileSync(resolve(root, "lib/ux.ts"), "utf8");
+const enCatalog = readFileSync(resolve(root, "lib/i18n/locales/en.json"), "utf8");
 
 function countMatches(haystack: string, re: RegExp): number {
   return (haystack.match(re) ?? []).length;
@@ -32,7 +33,7 @@ describe("GameDetailView — full-page detail, not an overlay drawer", () => {
 
   it("has a Back-to-Library affordance wired to onClose, and Escape closes", () => {
     expect(drawerSource).toMatch(/class="detail-back"[\s\S]*?onclick=\{onClose\}/);
-    expect(drawerSource).toMatch(/Back to Library/);
+    expect(enCatalog).toMatch(/Back to Library/);
     expect(drawerSource).toMatch(/e\.key === "Escape"\) onClose\(\)/);
   });
 
@@ -74,45 +75,41 @@ describe("GameDetailView — wired at the app level (replaces the library conten
   });
 });
 
-describe("GameDetailView — DLSS-Enabler-managed Streamline gating (FR-001..FR-004)", () => {
-  it("centralizes the chip copy in lib/ux.ts (FR-004)", () => {
-    expect(uxSource).toMatch(/export const ENABLER_MANAGED_LABEL = "Managed by Enabler";/);
-    expect(uxSource).toMatch(/export const ENABLER_MANAGED_NOTE =\s*"This game's Streamline set is managed by DLSS Enabler/);
+describe("GameDetailView — DLSS-Enabler Streamline copy + same-major offers (v1.6.x)", () => {
+  it("centralizes the enabler banner copy in lib/ux.ts and drops the old 'Managed by Enabler' chip label", () => {
+    expect(uxSource).not.toMatch(/ENABLER_MANAGED_LABEL/);
+    expect(uxSource).toMatch(/export const ENABLER_MANAGED_NOTE =\s*\n?\s*"DLSS Enabler requires NVIDIA Streamline 2\.11 or newer/);
+    expect(uxSource).toMatch(/same major version/);
   });
 
-  it("imports the predicate and the centralized copy, never inlining the literal", () => {
+  it("shows the enabler banner from the centralized i18n note, never inlining the literal", () => {
     expect(drawerSource).toMatch(/import \{[^}]*\bisStreamlinePlugin\b[^}]*\} from "\.\.\/lib\/relation"/);
-    expect(drawerSource).toMatch(/import \{[^}]*\bENABLER_MANAGED_LABEL\b[^}]*\bENABLER_MANAGED_NOTE\b[^}]*\} from "\.\.\/lib\/ux"/);
+    expect(drawerSource).toMatch(/\{#if dlssEnabler\}[\s\S]*?\$t\(["']note\.enablerManaged["']\)/);
+    expect(enCatalog).toMatch(/DLSS Enabler requires NVIDIA Streamline 2\.11 or newer/);
     expect(drawerSource).not.toMatch(/"Managed by Enabler"/);
   });
 
-  it("derives enablerManagedSl from the enabler flag and the sl.* predicate", () => {
+  it("no longer suppresses sl.* under an enabler — the per-row enabler treatment is gone", () => {
+    expect(drawerSource).not.toMatch(/enablerManagedSl/);
+    expect(drawerSource).not.toMatch(/ENABLER_MANAGED_LABEL/);
+    expect(countMatches(drawerSource, /\{@const em = /g)).toBe(0);
+    expect(countMatches(drawerSource, /\{#if em\}/g)).toBe(0);
+  });
+
+  it("both row checkboxes disable only on family-disabled / same / no-target (no enabler clause)", () => {
+    expect(
+      countMatches(drawerSource, /disabled=\{fd \|\| rel === "same" \|\| rel === "no-target"\}/g),
+    ).toBe(2);
+  });
+
+  it("the Streamline set members are gated on outdated sl.* only, so same-major lights up under an enabler", () => {
     expect(drawerSource).toMatch(
-      /function enablerManagedSl\(r: DllRecord\): boolean \{\s*return dlssEnabler && isStreamlinePlugin\(filenameFromPath\(r\.path\)\);\s*\}/,
+      /streamlineSetMembers\s*=\s*\$derived\([\s\S]*?isStreamlinePlugin\(filenameFromPath\(r\.path\)\) && isOutdated\(r\)\)/,
     );
+    expect(drawerSource).not.toMatch(/&& !enablerManagedSl\(r\)/);
   });
 
-  it("FR-003: selectedRecords() skips sl.* targets under an enabler", () => {
-    expect(drawerSource).toMatch(/if \(enablerManagedSl\(r\)\) continue;/);
-  });
-
-  it("binds em in both the feature file-rows and the advanced rows", () => {
-    expect(countMatches(drawerSource, /\{@const em = enablerManagedSl\(r\)\}/g)).toBe(2);
-  });
-
-  it("FR-001: both .file-status chip chains lead with a Managed-by-Enabler branch", () => {
-    expect(countMatches(drawerSource, /\{#if em\}/g)).toBe(2);
-    expect(
-      countMatches(
-        drawerSource,
-        /<span class="chip chip-info small-chip" title=\{ENABLER_MANAGED_NOTE\}>\{ENABLER_MANAGED_LABEL\}<\/span>\s*\{:else if rel === "outdated"\}/g,
-      ),
-    ).toBe(2);
-  });
-
-  it("FR-002: both row checkboxes disable on em", () => {
-    expect(
-      countMatches(drawerSource, /disabled=\{fd \|\| rel === "same" \|\| rel === "no-target" \|\| em\}/g),
-    ).toBe(2);
+  it("annotates the Update Streamline set action with the centralized override note", () => {
+    expect(drawerSource).toMatch(/title=\{`[^`]*\$\{STREAMLINE_OVERRIDE_NOTE\}`\}/);
   });
 });

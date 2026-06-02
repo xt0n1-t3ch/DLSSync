@@ -7,6 +7,7 @@
   import UpdateBanner from "./components/UpdateBanner.svelte";
   import CommandPalette from "./components/CommandPalette.svelte";
   import NotificationsBell from "./components/NotificationsBell.svelte";
+  import LanguageMenu from "./components/LanguageMenu.svelte";
   import ShortcutOverlay from "./components/ShortcutOverlay.svelte";
   import SupportNudge from "./components/SupportNudge.svelte";
   import ApplyProgressModal from "./components/ApplyProgressModal.svelte";
@@ -28,6 +29,7 @@
     requestThemeToggle,
     applyModalOpen,
     notificationsOpen,
+    languageMenuOpen,
   } from "./lib/stores";
   import { activeArt, clearActiveArt } from "./lib/artContext";
   import { installApplyEventListeners } from "./lib/applyEvents";
@@ -35,6 +37,7 @@
     installDriverInstallListener,
     installSystemDriverListener,
   } from "./lib/driverInstallEvents";
+  import { isLocale, localeFromNavigator, setLocale } from "./lib/i18n/index";
 
   let theme = $state(localStorage.getItem("dlssync-theme") || "dark");
 
@@ -58,6 +61,17 @@
       const persistedTheme = $settings.ui_prefs.theme;
       if (persistedTheme && persistedTheme !== theme) {
         theme = persistedTheme;
+      }
+      const persistedLocale = $settings.ui_prefs.language;
+      if (isLocale(persistedLocale)) {
+        setLocale(persistedLocale);
+      } else {
+        const guess = localeFromNavigator();
+        setLocale(guess);
+        void persistSettings({
+          ...$settings,
+          ui_prefs: { ...$settings.ui_prefs, language: guess },
+        });
       }
     }
     document.documentElement.setAttribute("data-theme", theme);
@@ -145,6 +159,7 @@
 <UpdateBanner />
 <CommandPalette />
 <NotificationsBell open={$notificationsOpen} onClose={() => notificationsOpen.set(false)} />
+<LanguageMenu open={$languageMenuOpen} onClose={() => languageMenuOpen.set(false)} />
 <ShortcutOverlay />
 <SupportNudge />
 {#if $applyModalOpen}

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { fly } from "svelte/transition";
   import { dockItems, applyModalOpen, currentView } from "../lib/stores";
+  import { t } from "../lib/i18n/index";
 
   let items = $derived($dockItems);
   let count = $derived(items.length);
@@ -17,9 +18,11 @@
       ? ""
       : count === 1
         ? primary!.label
-        : `${count} tasks running`,
+        : $t("component.chrome.dock.tasksRunning", { count }),
   );
-  let substage = $derived(count === 1 && primary ? primary.stage.replace(/_/g, " ") : "in progress");
+  let substage = $derived(
+    count === 1 && primary ? primary.stage.replace(/_/g, " ") : $t("component.chrome.dock.inProgress"),
+  );
   let failed = $derived(items.some((i) => i.stage === "failed"));
 
   function expand(): void {
@@ -37,7 +40,7 @@
     class:is-failed={failed}
     role="status"
     aria-live="polite"
-    aria-label="Background activity"
+    aria-label={$t("component.chrome.dock.backgroundActivity")}
     transition:fly={{ y: 90, duration: 240 }}
   >
     <span class="dock-dot" aria-hidden="true"></span>
@@ -54,7 +57,7 @@
         {/if}
       </div>
     </div>
-    <button class="dock-expand" onclick={expand} title="Show details" aria-label="Show details">
+    <button class="dock-expand" onclick={expand} title={$t("component.chrome.dock.showDetails")} aria-label={$t("component.chrome.dock.showDetails")}>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15" /></svg>
     </button>
   </aside>

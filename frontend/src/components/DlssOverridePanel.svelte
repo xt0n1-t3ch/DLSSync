@@ -21,29 +21,33 @@
     dynamicMfgAvailable,
   } from "../lib/dlss";
   import { showToast } from "../lib/stores";
+  import { t, translate, locale } from "../lib/i18n/index";
+  import { get } from "svelte/store";
   import Checkbox from "./Checkbox.svelte";
   import Select from "./Select.svelte";
 
   let srSelectOptions = $derived<{ value: DlssPreset | null; label: string }[]>([
-    { value: null, label: "No preset override" },
-    ...SR_PRESET_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
+    { value: null, label: $t("component.dlss.noPresetOverride") },
+    ...SR_PRESET_OPTIONS.map((o) => ({ value: o.value, label: $t("dlss.preset." + o.value + ".label") })),
   ]);
   let fgModeSelectOptions = $derived<
     { value: FrameGenMode | null; label: string; disabled?: boolean }[]
   >([
-    { value: null, label: "No mode override" },
+    { value: null, label: $t("component.dlss.noModeOverride") },
     ...FG_MODE_OPTIONS.map((o) => ({
       value: o.value,
       label:
-        o.value === "dynamic" && !dynamicOk ? `${o.label} — needs driver 595.97+` : o.label,
+        o.value === "dynamic" && !dynamicOk
+          ? $t("component.dlss.needsDriver", { label: $t("dlss.fgMode." + o.value + ".label"), version: "595.97" })
+          : $t("dlss.fgMode." + o.value + ".label"),
       disabled: o.value === "dynamic" && !dynamicOk,
     })),
   ]);
   let fgCountSelectOptions = $derived<{ value: FrameGenCount | null; label: string }[]>([
-    { value: null, label: "App controlled" },
+    { value: null, label: $t("component.dlss.appControlled") },
     ...FG_COUNT_OPTIONS.filter((o) => o.value !== "app_controlled").map((o) => ({
       value: o.value,
-      label: o.label,
+      label: $t("dlss.fgCount." + o.value + ".label"),
     })),
   ]);
 
@@ -57,10 +61,10 @@
     source === "none"
       ? null
       : source === "per_game"
-        ? "From NVIDIA driver"
+        ? $t("component.dlss.source.fromDriver")
         : scope.scope === "global"
-          ? "Set in NVIDIA driver"
-          : "Inherited from Global default",
+          ? $t("component.dlss.source.setInDriver")
+          : $t("component.dlss.source.inheritedGlobal"),
   );
 
   let dlss4Ok = $derived(driverPacked === 0 || dlss4Available(driverPacked));
@@ -88,7 +92,7 @@
     try {
       await openUrl(url);
     } catch (err) {
-      showToast("warning", `Open link failed: ${String(err)}`);
+      showToast("warning", translate(get(locale), "component.dlss.toast.openLinkFailed", { error: String(err) }));
     }
   }
 
@@ -97,16 +101,13 @@
     try {
       const outcome = await applyDlssOverride(scope, config);
       if (outcome.needs_elevation) {
-        showToast(
-          "warning",
-          "Super Resolution applied. Frame-generation overrides need administrator — relaunch DLSSync as administrator to apply them.",
-        );
+        showToast("warning", translate(get(locale), "component.dlss.toast.needsElevation"));
       } else {
-        showToast("success", "DLSS override applied — restart the game to take effect.");
+        showToast("success", translate(get(locale), "component.dlss.toast.applied"));
       }
       await refresh();
     } catch (err) {
-      showToast("danger", `Apply failed: ${err}`);
+      showToast("danger", translate(get(locale), "component.dlss.toast.applyFailed", { error: String(err) }));
     } finally {
       busy = false;
     }
@@ -117,10 +118,10 @@
     try {
       await resetDlssOverride(scope);
       config = emptyDlssConfig();
-      showToast("success", "DLSS override reset to driver default.");
+      showToast("success", translate(get(locale), "component.dlss.toast.reset"));
       await refresh();
     } catch (err) {
-      showToast("danger", `Reset failed: ${err}`);
+      showToast("danger", translate(get(locale), "component.dlss.toast.resetFailed", { error: String(err) }));
     } finally {
       busy = false;
     }
@@ -129,111 +130,108 @@
 
 <div class="dlss">
   <div class="dlss-head">
-    <h4>DLSS Overrides{scope.scope === "global" ? " — Global default" : ""}</h4>
-    {#if activeCount > 0}<span class="dlss-active">{activeCount} active</span>{/if}
+    <h4>{scope.scope === "global" ? $t("component.dlss.headingGlobal") : $t("component.dlss.heading")}</h4>
+    {#if activeCount > 0}<span class="dlss-active">{$t("component.dlss.activeCount", { count: activeCount })}</span>{/if}
     {#if sourceLabel}<span class="dlss-source">{sourceLabel}</span>{/if}
-    <button class="dlss-refresh" onclick={refresh} title="Re-read the current values from the NVIDIA driver">
-      Refresh from driver
+    <button class="dlss-refresh" onclick={refresh} title={$t("component.dlss.refreshTitle")}>
+      {$t("component.dlss.refresh")}
     </button>
   </div>
 
   {#if !dlss4Ok}
-    <p class="dlss-warn">Game Ready Driver 572.16 or newer is required for DLSS 4 overrides.</p>
+    <p class="dlss-warn">{$t("component.dlss.grdRequired")}</p>
   {/if}
 
   <section class="dlss-group">
-    <span class="dlss-group-title">Super Resolution</span>
-    <Checkbox bind:checked={config.enable_sr_dll_override} label="Force the latest installed DLSS DLL" />
+    <span class="dlss-group-title">{$t("component.dlss.superResolution")}</span>
+    <Checkbox bind:checked={config.enable_sr_dll_override} label={$t("component.dlss.forceLatestSrDll")} />
     <div class="dlss-field">
-      <span class="dlss-field-label">Model preset</span>
+      <span class="dlss-field-label">{$t("component.dlss.modelPreset")}</span>
       <div class="dlss-control">
         <Select
           bind:value={config.sr_preset}
           options={srSelectOptions}
-          placeholder="No preset override"
-          ariaLabel="DLSS model preset"
+          placeholder={$t("component.dlss.noPresetOverride")}
+          ariaLabel={$t("component.dlss.modelPresetAria")}
         />
       </div>
     </div>
     {#if srHelp}
       <p class="dlss-help">
-        {srHelp.description}
-        <button class="dlss-learn" onclick={() => learnMore(srHelp.sourceUrl)}>Learn more ↗</button>
+        {$t("dlss.preset." + srHelp.value + ".desc")}
+        <button class="dlss-learn" onclick={() => learnMore(srHelp.sourceUrl)}>{$t("component.dlss.learnMore")}</button>
       </p>
     {/if}
   </section>
 
   <section class="dlss-group">
-    <span class="dlss-group-title">Frame Generation</span>
+    <span class="dlss-group-title">{$t("component.dlss.frameGeneration")}</span>
     <Checkbox
       bind:checked={config.enable_fg_dll_override}
-      label="Force the latest installed Frame Generation DLL"
+      label={$t("component.dlss.forceLatestFgDll")}
     />
     <div class="dlss-field">
-      <span class="dlss-field-label">Mode</span>
+      <span class="dlss-field-label">{$t("component.dlss.mode")}</span>
       <div class="dlss-control">
         <Select
           bind:value={config.fg_mode}
           options={fgModeSelectOptions}
-          placeholder="No mode override"
-          ariaLabel="Frame generation mode"
+          placeholder={$t("component.dlss.noModeOverride")}
+          ariaLabel={$t("component.dlss.modeAria")}
         />
       </div>
     </div>
     {#if fgModeHelp}
       <p class="dlss-help">
-        {fgModeHelp.description}
-        <button class="dlss-learn" onclick={() => learnMore(fgModeHelp.sourceUrl)}>Learn more ↗</button>
+        {$t("dlss.fgMode." + fgModeHelp.value + ".desc")}
+        <button class="dlss-learn" onclick={() => learnMore(fgModeHelp.sourceUrl)}>{$t("component.dlss.learnMore")}</button>
       </p>
     {/if}
 
     {#if config.fg_mode === "fixed"}
       <div class="dlss-field">
-        <span class="dlss-field-label">Fixed multiplier</span>
+        <span class="dlss-field-label">{$t("component.dlss.fixedMultiplier")}</span>
         <div class="dlss-control">
           <Select
             bind:value={config.fg_fixed_count}
             options={fgCountSelectOptions}
-            placeholder="App controlled"
-            ariaLabel="Fixed multiplier"
+            placeholder={$t("component.dlss.appControlled")}
+            ariaLabel={$t("component.dlss.fixedMultiplierAria")}
           />
         </div>
       </div>
       {#if fgCountHelp}
         <p class="dlss-help">
-          {fgCountHelp.description}
-          <button class="dlss-learn" onclick={() => learnMore(fgCountHelp.sourceUrl)}>Learn more ↗</button>
+          {$t("dlss.fgCount." + fgCountHelp.value + ".desc")}
+          <button class="dlss-learn" onclick={() => learnMore(fgCountHelp.sourceUrl)}>{$t("component.dlss.learnMore")}</button>
         </p>
       {/if}
     {/if}
 
     {#if config.fg_mode === "dynamic"}
       <div class="dlss-field">
-        <span class="dlss-field-label">Target frame rate</span>
+        <span class="dlss-field-label">{$t("component.dlss.targetFrameRate")}</span>
         <input
           class="dlss-input"
           type="number"
           min="30"
           max="1000"
           bind:value={config.fg_dynamic_target_fps}
-          placeholder="e.g. 240"
+          placeholder={$t("component.dlss.targetFrameRatePlaceholder")}
         />
       </div>
       <p class="dlss-help">
-        Dynamic targets this frame rate (or your monitor's max refresh). Leave blank to match the
-        display. Not compatible with frame-rate limiters or V-Sync.
+        {$t("component.dlss.dynamicHelp")}
       </p>
     {/if}
   </section>
 
   <div class="dlss-actions">
-    <button class="dlss-apply" onclick={apply} disabled={busy}>{busy ? "Working…" : "Apply"}</button>
-    <button class="dlss-reset" onclick={reset} disabled={busy}>Reset to default</button>
+    <button class="dlss-apply" onclick={apply} disabled={busy}>{busy ? $t("component.dlss.working") : $t("common.apply")}</button>
+    <button class="dlss-reset" onclick={reset} disabled={busy}>{$t("component.dlss.resetToDefault")}</button>
   </div>
   <p class="dlss-note">
-    Writes an NVIDIA driver application profile — the same mechanism the NVIDIA app uses. Fully
-    reversible with Reset. Multiplayer titles with anti-cheat may flag a forced profile; check the
-    game's policy first.
+    {$t("component.dlss.note")}
   </p>
 </div>
 

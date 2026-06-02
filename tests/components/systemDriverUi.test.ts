@@ -9,7 +9,7 @@ const backups = readFileSync(resolve(root, "views/Backups.svelte"), "utf8");
 const drivers = readFileSync(resolve(root, "views/Drivers.svelte"), "utf8");
 const api = readFileSync(resolve(root, "lib/api.ts"), "utf8");
 const stores = readFileSync(resolve(root, "lib/stores.ts"), "utf8");
-const ux = readFileSync(resolve(root, "lib/ux.ts"), "utf8");
+const enCatalog = readFileSync(resolve(root, "lib/i18n/locales/en.json"), "utf8");
 
 describe("Backups — System Drivers section (driver_package)", () => {
   it("splits driver-package backups out of the DLL listing", () => {
@@ -19,7 +19,7 @@ describe("Backups — System Drivers section (driver_package)", () => {
   });
 
   it("renders a filterable System Drivers section grouped by device class", () => {
-    expect(backups).toContain("System Drivers");
+    expect(enCatalog).toContain("System Drivers");
     expect(backups).toMatch(/driverClassFilter/);
     expect(backups).toMatch(/driverGroups/);
     expect(backups).toMatch(/b\.device_class \?\? "Driver"/);
@@ -28,22 +28,21 @@ describe("Backups — System Drivers section (driver_package)", () => {
   it("wires a Roll back action to restoreSystemDriver with a confirm", () => {
     expect(backups).toMatch(/restoreSystemDriver/);
     expect(backups).toMatch(/doDriverRestore/);
-    expect(backups).toMatch(/Roll back/);
+    expect(enCatalog).toMatch(/Roll back/);
   });
 });
 
 describe("Drivers — admin disclaimer + version history", () => {
   it("shows the centralized admin-elevation note", () => {
-    expect(ux).toMatch(/export const ADMIN_ELEVATION_NOTE/);
-    expect(drivers).toMatch(/import \{ ADMIN_ELEVATION_NOTE \}/);
-    expect(drivers).toContain("{ADMIN_ELEVATION_NOTE}");
+    expect(enCatalog).toMatch(/Administrator rights/);
+    expect(drivers).toMatch(/\$t\(["']note\.adminElevation["']\)/);
   });
 
   it("lazily loads DriverStore versions per card behind target_inf", () => {
     expect(drivers).toMatch(/toggleVersions/);
     expect(drivers).toMatch(/systemDriverVersions\(update\.target_inf\)/);
     expect(drivers).toMatch(/update\.target_inf/);
-    expect(drivers).toContain("Latest available");
+    expect(enCatalog).toContain("Latest available");
   });
 });
 

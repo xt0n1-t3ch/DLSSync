@@ -234,13 +234,12 @@ export function githubReleaseTagUrl(version: string): string {
 export const ADMIN_ELEVATION_NOTE =
   "Windows installs per-machine drivers only with Administrator rights, so Update shows a UAC prompt. DLSSync stays unelevated and runs a signed helper with your approval — it snapshots the current driver and sets a System Restore point first, so you can roll back.";
 
-/** Chip shown on every `sl.*` Streamline plug-in row when a DLSS Enabler manages
- *  the game — the enabler version-locks its own Streamline set, so DLSSync leaves
- *  those files untouched (the row's title carries `ENABLER_MANAGED_NOTE`). */
-export const ENABLER_MANAGED_LABEL = "Managed by Enabler";
-
+/** Banner shown in the game detail view when a DLSS Enabler is detected. The enabler
+ *  requires NVIDIA Streamline 2.11+ but never updates it itself, so DLSSync keeps the
+ *  Streamline set current within the same major version (never crossing a major, which
+ *  would break the enabler). */
 export const ENABLER_MANAGED_NOTE =
-  "This game's Streamline set is managed by DLSS Enabler — DLSSync leaves the sl.* plug-ins untouched.";
+  "DLSS Enabler requires NVIDIA Streamline 2.11 or newer but does not update it, so DLSSync updates the Streamline set within the same major version to keep the Enabler working. It never swaps the set across a major version.";
 
 /** Shown next to the "Update Streamline set" action. Swapping the shared sl.* set
  *  can change how NVIDIA App global overrides apply, so the user knows what to expect

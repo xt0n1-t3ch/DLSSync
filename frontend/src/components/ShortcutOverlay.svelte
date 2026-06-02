@@ -1,14 +1,47 @@
 <script lang="ts">
   import { shortcutOverlayOpen } from "../lib/stores";
   import { SHORTCUTS, type Shortcut, type ShortcutScope } from "../lib/ux";
+  import { t } from "../lib/i18n/index";
 
-  const SCOPE_LABELS: Record<ShortcutScope, string> = {
-    global: "Global",
-    library: "Library",
-    drawer: "Game drawer",
-    modal: "Modal",
-    palette: "Command palette",
+  const SCOPE_KEYS: Record<ShortcutScope, string> = {
+    global: "global",
+    library: "library",
+    drawer: "drawer",
+    modal: "modal",
+    palette: "palette",
   };
+
+  const SHORTCUT_KEYS: Record<string, string> = {
+    "Open command palette": "open_command_palette",
+    "Show keyboard shortcuts": "show_shortcuts",
+    "Focus search": "focus_search",
+    "Go to Library": "go_library",
+    "Go to Catalog": "go_catalog",
+    "Go to Backups": "go_backups",
+    "Go to Settings": "go_settings",
+    "Go to About": "go_about",
+    "Close palette / modal / drawer": "close_overlay",
+    "Apply all outdated updates": "apply_all_outdated",
+    "Rescan installed games": "rescan",
+    "Toggle Grid / List view": "toggle_view",
+    "Toggle Compact / Comfy density": "toggle_density",
+    "Next feature row": "next_feature",
+    "Previous feature row": "prev_feature",
+    "Toggle feature selection": "toggle_feature",
+    "Open version picker": "open_version_picker",
+    "Cancel running apply": "cancel_apply",
+    "Cycle category filter": "cycle_category",
+    "Run selected command": "run_command",
+  };
+
+  function scopeLabel(scope: ShortcutScope): string {
+    return $t("component.palette.scope." + SCOPE_KEYS[scope]);
+  }
+
+  function shortcutDescription(item: Shortcut): string {
+    const key = SHORTCUT_KEYS[item.description];
+    return key === undefined ? item.description : $t("shortcut." + key + ".description");
+  }
 
   const KEY_LABELS: Record<string, string> = {
     mod: navigatorMod(),
@@ -63,15 +96,15 @@
     class="overlay-backdrop"
     role="dialog"
     aria-modal="true"
-    aria-label="Keyboard shortcuts"
+    aria-label={$t("component.palette.shortcuts.title")}
     tabindex="-1"
     onclick={onBackdropClick}
     onkeydown={onKeydown}
   >
     <div class="overlay">
       <header>
-        <h2>Keyboard shortcuts</h2>
-        <button class="btn btn-ghost btn-sm" onclick={close} aria-label="Close shortcuts overlay">
+        <h2>{$t("component.palette.shortcuts.title")}</h2>
+        <button class="btn btn-ghost btn-sm" onclick={close} aria-label={$t("component.palette.shortcuts.closeAria")}>
           <span class="kbd">Esc</span>
         </button>
       </header>
@@ -80,11 +113,11 @@
         {#each Object.entries(grouped) as [scope, items] (scope)}
           {#if items.length > 0}
             <section class="group">
-              <h3>{SCOPE_LABELS[scope as ShortcutScope]}</h3>
+              <h3>{scopeLabel(scope as ShortcutScope)}</h3>
               <ul>
                 {#each items as item, i (i)}
                   <li>
-                    <span class="desc">{item.description}</span>
+                    <span class="desc">{shortcutDescription(item)}</span>
                     <span class="keys">
                       {#each item.keys as k, ki (ki)}
                         {#if ki > 0}<span class="plus">+</span>{/if}

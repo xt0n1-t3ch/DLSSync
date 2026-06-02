@@ -17,6 +17,7 @@ import {
   type Toast,
 } from "./stores";
 import { familyVendor, familyCatalogKey, launcherLabel } from "./labels";
+import { translate, locale } from "./i18n/index";
 import { notifyApplySuccess } from "./community";
 import type { LauncherKind } from "./api";
 
@@ -38,8 +39,9 @@ export async function dispatchApply(
   targets: ApplyTarget[],
   opts: DispatchOptions = {},
 ): Promise<ApplyBatchResult | null> {
+  const loc = get(locale);
   if (targets.length === 0) {
-    (opts.toast ?? DEFAULT_TOAST)("warning", "Nothing selected");
+    (opts.toast ?? DEFAULT_TOAST)("warning", translate(loc, "toast.nothingSelected"));
     return null;
   }
   const { trackers, requests } = prepareApply(targets);
@@ -49,7 +51,11 @@ export async function dispatchApply(
   const uniqueGames = new Set(targets.map((t) => t.game_id)).size;
   toast(
     "info",
-    `Queued ${targets.length} update${targets.length === 1 ? "" : "s"} across ${uniqueGames} game${uniqueGames === 1 ? "" : "s"}`,
+    translate(loc, "toast.queuedAcross", {
+      count: targets.length,
+      updates: translate(loc, "toast.queuedUpdates", { count: targets.length }),
+      games: translate(loc, "toast.queuedGames", { count: uniqueGames }),
+    }),
   );
   try {
     const result = await applyUpdateBatch({ items: requests });
@@ -59,7 +65,7 @@ export async function dispatchApply(
   } catch (err: unknown) {
     const msg = formatError(err);
     failAllTrackers(trackers, msg);
-    toast("danger", `Batch apply failed: ${msg}`);
+    toast("danger", translate(loc, "toast.batchApplyFailed", { msg }));
     return null;
   }
 }
@@ -68,6 +74,7 @@ function prepareApply(targets: ApplyTarget[]): {
   trackers: Record<string, ApplyTracker>;
   requests: ApplyRequest[];
 } {
+  const loc = get(locale);
   const trackers: Record<string, ApplyTracker> = {};
   const requests: ApplyRequest[] = [];
   for (const t of targets) {
@@ -82,7 +89,7 @@ function prepareApply(targets: ApplyTarget[]): {
       target_version: t.target_version,
       stage: "download",
       failed_at_stage: null,
-      message: "Queued",
+      message: translate(loc, "toast.trackerQueued"),
       progress: null,
       error: null,
       error_class: null,
@@ -133,37 +140,45 @@ export async function dispatchStreamlineSet(
   opts: DispatchOptions = {},
 ): Promise<StreamlineSetResult | null> {
   const toast = opts.toast ?? DEFAULT_TOAST;
+  const loc = get(locale);
   if (targets.length === 0) {
-    toast("warning", "No Streamline updates available");
+    toast("warning", translate(loc, "toast.streamlineNoUpdates"));
     return null;
   }
   const { trackers, requests } = prepareApply(targets);
   activeApplies.set(trackers);
   opts.showModal?.();
   const count = targets.length;
-  const plural = count === 1 ? "" : "s";
-  toast("info", `Updating Streamline set (${count} file${plural})…`);
+  toast("info", translate(loc, "toast.streamlineUpdating", { count }));
   try {
     const result = await applyStreamlineSet(requests);
     if (result.success) {
       annotateOutcomes({ outcomes: result.applied });
-      toast("success", `Streamline set updated (${count} file${plural})`);
+      toast("success", translate(loc, "toast.streamlineUpdated", { count }));
       notifyApplySuccess(result.applied.length);
     } else {
-      const rolledBack = result.rolled_back ? " — rolled back to the previous set" : "";
-      failAllTrackers(trackers, `${result.error ?? "Streamline set failed"}${rolledBack}`);
-      toast("danger", `Streamline set update failed: ${result.error ?? "unknown"}${rolledBack}`);
+      const rolledBack = result.rolled_back ? translate(loc, "toast.streamlineRolledBack") : "";
+      const reason = result.error ?? translate(loc, "toast.streamlineSetFailed");
+      failAllTrackers(trackers, `${reason}${rolledBack}`);
+      toast(
+        "danger",
+        translate(loc, "toast.streamlineUpdateFailed", {
+          error: result.error ?? translate(loc, "toast.unknownError"),
+          rolledBack,
+        }),
+      );
     }
     return result;
   } catch (err: unknown) {
     const msg = formatError(err);
     failAllTrackers(trackers, msg);
-    toast("danger", `Streamline set apply failed: ${msg}`);
+    toast("danger", translate(loc, "toast.streamlineApplyFailed", { msg }));
     return null;
   }
 }
 
 export async function retrySingleApply(tracker: ApplyTracker): Promise<void> {
+  const retrying = translate(get(locale), "toast.trackerRetrying");
   activeApplies.update((m) => {
     const cur = m[tracker.apply_id];
     if (!cur) return m;
@@ -173,7 +188,7 @@ export async function retrySingleApply(tracker: ApplyTracker): Promise<void> {
         ...cur,
         stage: "download",
         failed_at_stage: null,
-        message: "Retrying…",
+        message: retrying,
         error: null,
         error_class: null,
         progress: 0,
@@ -224,6 +239,7 @@ export async function retryFailedTrackers(trackers: ApplyTracker[]): Promise<voi
     family: familyCatalogKey(t.family as DllRecord["family"]),
     target_version: t.target_version,
   }));
+  const retrying = translate(get(locale), "toast.trackerRetrying");
   activeApplies.update((m) => {
     const next = { ...m };
     for (const t of failed) {
@@ -233,7 +249,7 @@ export async function retryFailedTrackers(trackers: ApplyTracker[]): Promise<voi
         ...cur,
         stage: "download",
         failed_at_stage: null,
-        message: "Retrying…",
+        message: retrying,
         error: null,
         error_class: null,
         progress: 0,
@@ -293,6 +309,7 @@ export function buildTargetFromRecord(
 }
 
 function annotateOutcomes(result: ApplyBatchResult): void {
+  const loc = get(locale);
   activeApplies.update((m) => {
     const next = { ...m };
     for (const o of result.outcomes) {
@@ -302,7 +319,9 @@ function annotateOutcomes(result: ApplyBatchResult): void {
         next[o.apply_id] = {
           ...cur,
           stage: "complete",
-          message: o.new_version ? `Updated to v${o.new_version}` : "Updated",
+          message: o.new_version
+            ? translate(loc, "toast.trackerUpdatedTo", { version: o.new_version })
+            : translate(loc, "toast.trackerUpdated"),
           progress: 1,
           ended_at: Date.now(),
         };

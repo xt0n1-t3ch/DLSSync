@@ -9,6 +9,7 @@
     makeNotificationEntry,
   } from "../lib/notifications";
   import { githubReleaseTagUrl } from "../lib/ux";
+  import { t, locale, translate } from "../lib/i18n/index";
   import Download from "@lucide/svelte/icons/download";
   import X from "@lucide/svelte/icons/x";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
@@ -114,7 +115,7 @@
   function notificationBody(notes: string | null): string {
     const items = notes ? renderNotes(notes).flatMap((section) => section.items) : [];
     if (items.length === 0) {
-      return firstChangelogHeading(notes) ?? "New version ready to install.";
+      return firstChangelogHeading(notes) ?? translate(get(locale), "component.banner.notifBodyFallback");
     }
     const summary = items.slice(0, 2).join(" · ");
     return summary.length > NOTIFICATION_BODY_MAX
@@ -129,7 +130,7 @@
     if (existing) return;
     const entry = makeNotificationEntry(
       "app_update_available",
-      `DLSSync v${next.version} available`,
+      translate(get(locale), "component.banner.notifTitle", { version: next.version }),
       notificationBody(next.notes),
       { link: githubReleaseTagUrl(next.version) },
     );
@@ -209,7 +210,7 @@
       const update = await check();
       if (!update) {
         stage = "error";
-        errorMessage = "Update no longer available";
+        errorMessage = translate(get(locale), "component.banner.noLongerAvailable");
         return;
       }
       stage = "downloading";
@@ -231,12 +232,12 @@
         }
       });
       const { relaunch } = await import("@tauri-apps/plugin-process");
-      showToast("success", "Update installed. Restarting…");
+      showToast("success", translate(get(locale), "component.banner.toastInstalled"));
       await relaunch();
     } catch (err: unknown) {
       stage = "error";
       errorMessage = String(err);
-      showToast("danger", `Update failed: ${errorMessage}`);
+      showToast("danger", translate(get(locale), "component.banner.toastFailed", { error: errorMessage }));
     }
   }
 
@@ -301,25 +302,25 @@
       </span>
       <div class="banner-body">
         {#if stage === "available"}
-          <span class="banner-title">DLSSync v{available.version} is available</span>
+          <span class="banner-title">{$t("component.banner.available", { version: available.version })}</span>
           {#if runtime?.portable}
-            <span class="banner-sub">Portable build. Opens the release page so you can replace the executable.</span>
+            <span class="banner-sub">{$t("component.banner.subPortable")}</span>
           {:else}
-            <span class="banner-sub">Installs automatically and restarts the app. Your library and backups are preserved.</span>
+            <span class="banner-sub">{$t("component.banner.subInstaller")}</span>
           {/if}
         {:else if stage === "downloading"}
-          <span class="banner-title">Downloading v{available.version}</span>
+          <span class="banner-title">{$t("component.banner.downloading", { version: available.version })}</span>
           <span class="banner-sub mono">{downloadProgress}%</span>
         {:else if stage === "installing"}
-          <span class="banner-title">Installing v{available.version}</span>
-          <span class="banner-sub">Restarting in a moment.</span>
+          <span class="banner-title">{$t("component.banner.installing", { version: available.version })}</span>
+          <span class="banner-sub">{$t("component.banner.subRestarting")}</span>
         {:else if stage === "error"}
-          <span class="banner-title">Update failed</span>
+          <span class="banner-title">{$t("component.banner.failedTitle")}</span>
           <span class="banner-sub">{errorMessage}</span>
         {/if}
       </div>
       {#if stage === "available" || stage === "error"}
-        <button class="banner-close" onclick={later} aria-label="Dismiss"><X size={14} strokeWidth={2.2} /></button>
+        <button class="banner-close" onclick={later} aria-label={$t("common.dismiss")}><X size={14} strokeWidth={2.2} /></button>
       {/if}
     </div>
 
@@ -337,7 +338,7 @@
         type="button"
       >
         <ChevronDown size={12} strokeWidth={2.4} class="changelog-chev {changelogOpen ? 'open' : ''}" />
-        <span>{changelogOpen ? "Hide" : "View"} changelog</span>
+        <span>{changelogOpen ? $t("component.banner.hideChangelog") : $t("component.banner.viewChangelog")}</span>
       </button>
 
       {#if changelogOpen}
@@ -361,18 +362,18 @@
     {#if stage === "available"}
       <div class="banner-actions">
         <button class="banner-btn banner-btn-ghost" onclick={later} type="button">
-          Later
+          {$t("component.banner.later")}
         </button>
         <button class="banner-btn banner-btn-ghost" onclick={skip} type="button">
-          Skip this version
+          {$t("component.banner.skip")}
         </button>
         <button class="banner-btn banner-btn-primary" onclick={applyUpdate} type="button">
           {#if runtime?.portable}
             <ExternalLink size={13} strokeWidth={2.2} />
-            Open release page
+            {$t("component.banner.openRelease")}
           {:else}
             <Download size={13} strokeWidth={2.2} />
-            Update now
+            {$t("component.banner.updateNow")}
           {/if}
         </button>
       </div>

@@ -1,8 +1,10 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { get } from "svelte/store";
   import { fly, fade } from "svelte/transition";
   import { Tween } from "svelte/motion";
   import { cubicOut } from "svelte/easing";
+  import { t, locale, translate } from "../lib/i18n/index";
   import {
     manifestUpdatedAt,
     catalogVendors,
@@ -77,7 +79,7 @@
     try {
       const { open } = await import("@tauri-apps/plugin-shell");
       await open(EXTERNAL_URLS.releases);
-    } catch (err) { showToast("warning", `Open link failed: ${String(err)}`); }
+    } catch (err) { showToast("warning", translate(get(locale), "view.about.toast.openLinkFailed", { error: String(err) })); }
   }
 
   const familyTween = new Tween(0, { duration: 600, easing: cubicOut });
@@ -112,8 +114,8 @@
 
   async function shareApp(): Promise<void> {
     const result = await shareDlssync();
-    if (result === "copied") showToast("success", "Link copied - share DLSSync with a friend");
-    else if (result === "failed") showToast("warning", "Could not copy the link");
+    if (result === "copied") showToast("success", translate(get(locale), "view.about.toast.shareCopied"));
+    else if (result === "failed") showToast("warning", translate(get(locale), "view.about.toast.shareFailed"));
   }
 
   function fmtBytes(n: number | null | undefined): string {
@@ -155,8 +157,6 @@
     { vendor: "Microsoft", url: "https://github.com/microsoft/DirectStorage", label: "DirectStorage", accent: vendorAccent("microsoft") },
   ];
 
-  const TRADEMARKS_LINE = "DLSS, NVIDIA, GeForce, RTX, Reflex, Streamline are trademarks of NVIDIA Corporation. XeSS, Xe, Arc are trademarks of Intel Corporation. FidelityFX, FSR, Radeon are trademarks of Advanced Micro Devices, Inc. DirectStorage, DirectX, Windows are trademarks of Microsoft Corporation.";
-
   const REPO_URL = "https://github.com/xt0n1-t3ch/DLSSync";
   const ISSUES_URL = "https://github.com/xt0n1-t3ch/DLSSync/issues";
 
@@ -172,21 +172,21 @@
   async function checkForUpdates(): Promise<void> {
     if (updateChecking) return;
     updateChecking = true;
-    updateMessage = { kind: "info", text: "Checking GitHub Releases…" };
+    updateMessage = { kind: "info", text: translate(get(locale), "view.about.update.checking") };
     try {
       const { check } = await import("@tauri-apps/plugin-updater");
       const update = await check();
       if (update && (update as { available?: boolean }).available !== false) {
         const next = (update as { version?: string }).version ?? "unknown";
-        updateMessage = { kind: "success", text: `Update available: v${next}. Visit the releases page to download.` };
+        updateMessage = { kind: "success", text: translate(get(locale), "view.about.update.available", { version: next }) };
       } else {
-        updateMessage = { kind: "success", text: `You're on the latest version (v${version}).` };
+        updateMessage = { kind: "success", text: translate(get(locale), "view.about.update.latest", { version }) };
       }
     } catch (err: unknown) {
       const msg = String(err);
       updateMessage = {
         kind: "warning",
-        text: `Update check failed: ${msg}. The endpoint may be unreachable or no release is published yet.`,
+        text: translate(get(locale), "view.about.update.failed", { error: msg }),
       };
     } finally {
       updateChecking = false;
@@ -199,26 +199,26 @@
       await revealPath(appPaths.settings_file);
     } catch {
       try { await openPath(appPaths.settings_dir); }
-      catch (err) { showToast("danger", `Open failed: ${String(err)}`); }
+      catch (err) { showToast("danger", translate(get(locale), "view.about.toast.openFailed", { error: String(err) })); }
     }
   }
   async function openBackups(): Promise<void> {
     if (!appPaths) return;
     try { await openPath(appPaths.backups_dir); }
-    catch (err) { showToast("danger", `Open failed: ${String(err)}`); }
+    catch (err) { showToast("danger", translate(get(locale), "view.about.toast.openFailed", { error: String(err) })); }
   }
   async function openLogs(): Promise<void> {
     if (!appPaths) return;
     try { await openPath(appPaths.logs_dir); }
     catch {
       try { await openPath(appPaths.root); }
-      catch (err) { showToast("danger", `Open failed: ${String(err)}`); }
+      catch (err) { showToast("danger", translate(get(locale), "view.about.toast.openFailed", { error: String(err) })); }
     }
   }
   async function openRoot(): Promise<void> {
     if (!appPaths) return;
     try { await openPath(appPaths.root); }
-    catch (err) { showToast("danger", `Open failed: ${String(err)}`); }
+    catch (err) { showToast("danger", translate(get(locale), "view.about.toast.openFailed", { error: String(err) })); }
   }
 
   let reporting = $state(false);
@@ -230,7 +230,7 @@
       await openExternal(report.url);
     } catch (err: unknown) {
       await openExternal(ISSUES_URL);
-      showToast("warning", `Opened a blank issue — diagnostics unavailable: ${String(err)}`);
+      showToast("warning", translate(get(locale), "view.about.toast.blankIssue", { error: String(err) }));
     } finally {
       reporting = false;
     }
@@ -239,42 +239,42 @@
 
 <header class="view-header">
   <div>
-    <h1 class="view-title">About</h1>
-    <p class="view-subtitle">DLSSync keeps DLSS, FSR and XeSS technologies synchronized with vendor releases — hash-verified, vendor-signed, fully reversible.</p>
+    <h1 class="view-title">{$t("view.about.title")}</h1>
+    <p class="view-subtitle">{$t("view.about.subtitle")}</p>
   </div>
   <div class="header-actions">
     <button class="btn btn-ghost" onclick={() => openExternal(REPO_URL)}>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.79 23.4c.6.11.82-.26.82-.58v-2c-3.34.73-4.04-1.61-4.04-1.61-.55-1.4-1.34-1.77-1.34-1.77-1.1-.75.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.84 2.81 1.31 3.5 1 .1-.78.42-1.31.76-1.61-2.66-.3-5.46-1.33-5.46-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.12-3.17 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.65.25 2.87.12 3.17.77.84 1.24 1.91 1.24 3.22 0 4.61-2.8 5.62-5.47 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12 12 0 0 0 12 .3Z"/></svg>
       GitHub
     </button>
-    <button class="btn btn-ghost sponsor-btn" onclick={() => openExternal(EXTERNAL_URLS.sponsor)} title="GitHub Sponsors — recurring or one-time support">
+    <button class="btn btn-ghost sponsor-btn" onclick={() => openExternal(EXTERNAL_URLS.sponsor)} title={$t("view.about.action.sponsorTitle")}>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.27 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.77-3.4 6.86-8.55 11.53L12 21.35z"/></svg>
       Sponsor
     </button>
-    <button class="btn btn-ghost kofi-btn" onclick={() => openExternal(EXTERNAL_URLS.kofi)} title="Ko-fi — quick one-time tip">
+    <button class="btn btn-ghost kofi-btn" onclick={() => openExternal(EXTERNAL_URLS.kofi)} title={$t("view.about.action.kofiTitle")}>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 8h1a4 4 0 0 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg>
       Ko-fi
     </button>
-    <button class="btn btn-ghost nexus-btn" onclick={() => openExternal(EXTERNAL_URLS.nexusMod)} title="DLSSync on Nexus Mods — endorse it to boost visibility">
+    <button class="btn btn-ghost nexus-btn" onclick={() => openExternal(EXTERNAL_URLS.nexusMod)} title={$t("view.about.action.nexusTitle")}>
       <NexusLogo size={15} />
       Nexus
     </button>
-    <button class="btn btn-ghost" onclick={reportBug} disabled={reporting} title="Open a pre-filled GitHub issue with app version, OS, and recent logs attached">
+    <button class="btn btn-ghost" onclick={reportBug} disabled={reporting} title={$t("view.about.action.reportTitle")}>
       {#if reporting}
         <span class="spin"></span>
-        Preparing
+        {$t("view.about.action.preparing")}
       {:else}
         <Bug size={14} />
-        Report a problem
+        {$t("view.about.action.report")}
       {/if}
     </button>
     <button class="btn btn-primary" onclick={checkForUpdates} disabled={updateChecking}>
       {#if updateChecking}
         <span class="spin"></span>
-        Checking
+        {$t("view.about.action.checking")}
       {:else}
         <RefreshCw size={14} />
-        Check for updates
+        {$t("view.about.action.checkUpdates")}
       {/if}
     </button>
   </div>
@@ -291,21 +291,21 @@
     <div class="brand-title-row">
       <h2 class="brand-title">DLSSync</h2>
       <span class="brand-version mono">v{version}</span>
-      <span class="brand-tagline">SYNC · VERIFY · APPLY</span>
+      <span class="brand-tagline">{$t("view.about.tagline")}</span>
     </div>
   </div>
   <div class="brand-pillars">
-    <span class="pillar" title="SHA-256 + per-DLL hash verified before apply">
+    <span class="pillar" title={$t("view.about.pillar.hashVerifiedTitle")}>
       <ShieldCheck size={13} />
-      Hash-verified
+      {$t("view.about.pillar.hashVerified")}
     </span>
-    <span class="pillar" title="Authenticode publisher gate enforced">
+    <span class="pillar" title={$t("view.about.pillar.vendorSignedTitle")}>
       <Signature size={13} />
-      Vendor-signed
+      {$t("view.about.pillar.vendorSigned")}
     </span>
-    <span class="pillar" title="Auto-backup, one-click restore">
+    <span class="pillar" title={$t("view.about.pillar.reversibleTitle")}>
       <History size={13} />
-      Reversible
+      {$t("view.about.pillar.reversible")}
     </span>
   </div>
 </section>
@@ -313,9 +313,9 @@
 {#if releaseHighlights && releaseHighlights.bullets.length > 0}
   <section class="whats-new" in:fly={{ y: 6, duration: 240, delay: 40 }}>
     <header class="wn-head">
-      <span class="wn-eyebrow">What's new</span>
+      <span class="wn-eyebrow">{$t("view.about.whatsNew.eyebrow")}</span>
       <span class="wn-version mono">v{releaseHighlights.version}</span>
-      <button class="wn-link" onclick={openReleases} title="Open GitHub releases">View full changelog →</button>
+      <button class="wn-link" onclick={openReleases} title={$t("view.about.whatsNew.openReleasesTitle")}>{$t("view.about.whatsNew.viewChangelog")}</button>
     </header>
     <ul class="wn-list">
       {#each releaseHighlights.bullets as bullet (bullet)}
@@ -340,27 +340,27 @@
 
 <section class="info-bar" in:fly={{ y: 6, duration: 280, delay: 60 }}>
   <div class="info-item">
-    <span class="info-item-label">Families tracked</span>
+    <span class="info-item-label">{$t("view.about.kpi.familiesTracked")}</span>
     <span class="info-item-value">{Math.round(familyTween.current)}</span>
   </div>
   <div class="info-item">
-    <span class="info-item-label">Versions in manifest</span>
+    <span class="info-item-label">{$t("view.about.kpi.versionsInManifest")}</span>
     <span class="info-item-value">{Math.round(releaseTween.current).toLocaleString()}</span>
   </div>
   <div class="info-item">
-    <span class="info-item-label">Upstream vendors</span>
+    <span class="info-item-label">{$t("view.about.kpi.upstreamVendors")}</span>
     <span class="info-item-value">{vendorCount}</span>
   </div>
   <div class="info-item">
-    <span class="info-item-label">Games detected</span>
+    <span class="info-item-label">{$t("view.about.kpi.gamesDetected")}</span>
     <span class="info-item-value">{Math.round(gameTween.current)}</span>
   </div>
   <div class="info-item">
-    <span class="info-item-label">Backups stored</span>
+    <span class="info-item-label">{$t("view.about.kpi.backupsStored")}</span>
     <span class="info-item-value">{Math.round(backupTween.current)}</span>
   </div>
   <div class="info-item">
-    <span class="info-item-label">Manifest updated</span>
+    <span class="info-item-label">{$t("view.about.kpi.manifestUpdated")}</span>
     <span class="info-item-value is-mono">{$manifestUpdatedAt || "—"}</span>
   </div>
 </section>
@@ -369,47 +369,47 @@
   <section class="surface">
     <header class="surface-head">
       <Database size={16} />
-      <h3 class="surface-title">Manifest</h3>
+      <h3 class="surface-title">{$t("view.about.manifest.title")}</h3>
       <span class="status-pill is-{$catalogStatus.kind}">
         <span class="status-dot"></span>
         {$catalogStatus.label}
       </span>
     </header>
-    <p class="surface-sub">Live mirror of every upstream upscaler vendor. Status reflects the last refresh attempt.</p>
+    <p class="surface-sub">{$t("view.about.manifest.sub")}</p>
     <dl class="meta-grid">
-      <dt>Last update</dt><dd class="mono">{$manifestUpdatedAt || "—"}</dd>
-      <dt>Total versions</dt><dd class="mono">{releaseCount.toLocaleString()}</dd>
-      <dt>Vendors tracked</dt><dd>{vendorCount}</dd>
-      <dt>DLL families</dt><dd>{familyCount}</dd>
+      <dt>{$t("view.about.manifest.lastUpdate")}</dt><dd class="mono">{$manifestUpdatedAt || "—"}</dd>
+      <dt>{$t("view.about.manifest.totalVersions")}</dt><dd class="mono">{releaseCount.toLocaleString()}</dd>
+      <dt>{$t("view.about.manifest.vendorsTracked")}</dt><dd>{vendorCount}</dd>
+      <dt>{$t("view.about.manifest.dllFamilies")}</dt><dd>{familyCount}</dd>
     </dl>
   </section>
 
   <section class="surface">
     <header class="surface-head">
       <FolderOpen size={16} />
-      <h3 class="surface-title">Data &amp; logs</h3>
+      <h3 class="surface-title">{$t("view.about.data.title")}</h3>
     </header>
-    <p class="surface-sub">Everything DLSSync writes is plain JSON or SQLite under your user profile. Nothing leaves your machine.</p>
+    <p class="surface-sub">{$t("view.about.data.sub")}</p>
     <ul class="path-list">
       <li class="path-row">
-        <span class="path-label">Root</span>
+        <span class="path-label">{$t("view.about.data.root")}</span>
         <span class="path-value mono truncate" title={appPaths?.root ?? ""}>{appPaths?.root ?? "—"}</span>
-        <button class="path-btn" onclick={openRoot} disabled={!appPaths} aria-label="Open root folder"><ExternalLink size={11} /></button>
+        <button class="path-btn" onclick={openRoot} disabled={!appPaths} aria-label={$t("view.about.data.openRootAria")}><ExternalLink size={11} /></button>
       </li>
       <li class="path-row">
-        <span class="path-label">Settings</span>
+        <span class="path-label">{$t("view.about.data.settings")}</span>
         <span class="path-value mono truncate" title={appPaths?.settings_file ?? ""}>{appPaths?.settings_file ?? "—"}</span>
-        <button class="path-btn" onclick={revealConfig} disabled={!appPaths} aria-label="Reveal settings file"><FileText size={11} /></button>
+        <button class="path-btn" onclick={revealConfig} disabled={!appPaths} aria-label={$t("view.about.data.revealSettingsAria")}><FileText size={11} /></button>
       </li>
       <li class="path-row">
-        <span class="path-label">Backups</span>
+        <span class="path-label">{$t("view.about.data.backups")}</span>
         <span class="path-value mono truncate" title={appPaths?.backups_dir ?? ""}>{appPaths?.backups_dir ?? "—"}</span>
-        <button class="path-btn" onclick={openBackups} disabled={!appPaths} aria-label="Open backups folder"><ExternalLink size={11} /></button>
+        <button class="path-btn" onclick={openBackups} disabled={!appPaths} aria-label={$t("view.about.data.openBackupsAria")}><ExternalLink size={11} /></button>
       </li>
       <li class="path-row">
-        <span class="path-label">Logs</span>
+        <span class="path-label">{$t("view.about.data.logs")}</span>
         <span class="path-value mono truncate" title={appPaths?.logs_dir ?? ""}>{appPaths?.logs_dir ?? "—"}</span>
-        <button class="path-btn" onclick={openLogs} disabled={!appPaths} aria-label="Open logs folder"><ExternalLink size={11} /></button>
+        <button class="path-btn" onclick={openLogs} disabled={!appPaths} aria-label={$t("view.about.data.openLogsAria")}><ExternalLink size={11} /></button>
       </li>
     </ul>
   </section>
@@ -418,11 +418,11 @@
 <section class="surface system-surface" in:fade={{ duration: 260, delay: 180 }}>
   <header class="surface-head">
     <Cpu size={16} />
-    <h3 class="surface-title">Your system</h3>
-    <span class="surface-sub-inline">Detected once per launch. Never sent off your machine.</span>
+    <h3 class="surface-title">{$t("view.about.system.title")}</h3>
+    <span class="surface-sub-inline">{$t("view.about.system.sub")}</span>
   </header>
   {#if systemInfoFailed}
-    <p class="system-empty">System detection unavailable in this build.</p>
+    <p class="system-empty">{$t("view.about.system.unavailable")}</p>
   {:else if !systemInfo}
     <div class="system-skel">
       {#each Array(3) as _}
@@ -439,7 +439,7 @@
         <span class="system-value">
           {systemInfo.os.edition || systemInfo.os.name}
           {#if systemInfo.os.version}<span class="system-muted mono">{systemInfo.os.version}</span>{/if}
-          {#if systemInfo.os.build}<span class="system-muted mono">build {systemInfo.os.build}</span>{/if}
+          {#if systemInfo.os.build}<span class="system-muted mono">{$t("view.about.system.build", { build: systemInfo.os.build })}</span>{/if}
         </span>
       </div>
       <div class="system-row">
@@ -447,7 +447,7 @@
         <span class="system-value">
           {systemInfo.cpu.brand}
           <span class="system-muted">·</span>
-          <span class="system-muted">{systemInfo.cpu.physical_cores} cores / {systemInfo.cpu.logical_cores} threads</span>
+          <span class="system-muted">{$t("view.about.system.coresThreads", { cores: systemInfo.cpu.physical_cores, threads: systemInfo.cpu.logical_cores })}</span>
         </span>
       </div>
       <div class="system-row">
@@ -460,13 +460,13 @@
             {#if types.length > 0}<span class="system-muted">·</span><span class="system-muted">{types.join(" / ")}</span>{/if}
             {#if speeds.length > 0}<span class="system-muted">·</span><span class="system-muted">{speeds.join(" / ")} MHz</span>{/if}
             <span class="system-muted">·</span>
-            <span class="system-muted">{systemInfo.ram.modules.length} module{systemInfo.ram.modules.length === 1 ? "" : "s"}</span>
+            <span class="system-muted">{$t("view.about.system.modules", { count: systemInfo.ram.modules.length })}</span>
           {/if}
         </span>
       </div>
       {#each systemInfo.gpus as gpu, idx}
         <div class="system-row">
-          <span class="system-label"><HardDrive size={13} /> {systemInfo.gpus.length > 1 ? `GPU ${idx + 1}` : "GPU"}</span>
+          <span class="system-label"><HardDrive size={13} /> {systemInfo.gpus.length > 1 ? $t("view.about.system.gpuIndexed", { index: idx + 1 }) : "GPU"}</span>
           <span class="system-value">
             <span class="chip chip-neutral">
               {#if gpu.vendor === "other"}
@@ -477,7 +477,7 @@
             </span>
             {gpu.model}
             {#if gpu.driver_version && gpu.driver_version !== "Unknown"}
-              <span class="system-muted mono">driver {gpu.driver_version}</span>
+              <span class="system-muted mono">{$t("view.about.system.driver", { version: gpu.driver_version })}</span>
             {/if}
             {#if gpu.vram_bytes > 0}
               <span class="system-muted">·</span>
@@ -498,8 +498,8 @@
 
 <section class="sources-section" in:fade={{ duration: 240, delay: 220 }}>
   <header class="section-head-row">
-    <h3 class="section-heading-h">Manifest sources</h3>
-    <p class="section-sub">Versions, dates, hashes and signature data come exclusively from these upstream projects.</p>
+    <h3 class="section-heading-h">{$t("view.about.sources.title")}</h3>
+    <p class="section-sub">{$t("view.about.sources.sub")}</p>
   </header>
   <div class="source-grid">
     {#each SOURCES as s, i}
@@ -520,8 +520,8 @@
 
 <section class="author-section" in:fade={{ duration: 240, delay: 280 }}>
   <header class="section-head-row">
-    <h3 class="section-heading-h">Made by</h3>
-    <p class="section-sub">DLSSync is an independent open-source project under the Apache 2.0 license.</p>
+    <h3 class="section-heading-h">{$t("view.about.author.title")}</h3>
+    <p class="section-sub">{$t("view.about.author.sub")}</p>
   </header>
   <div class="author-card">
     <div class="author-identity">
@@ -530,7 +530,7 @@
       </div>
       <div class="author-meta">
         <span class="author-handle">xt0n1</span>
-        <span class="author-role">Author &amp; maintainer</span>
+        <span class="author-role">{$t("view.about.author.role")}</span>
       </div>
     </div>
     <div class="author-links">
@@ -552,30 +552,30 @@
 
 <section class="support-section" in:fade={{ duration: 240, delay: 300 }}>
   <header class="section-head-row">
-    <h3 class="section-heading-h">Help DLSSync grow</h3>
-    <p class="section-sub">DLSSync is free, with zero telemetry and no paid tier. The fastest way to support it is a star, an endorsement, or a share — each one helps other gamers find it.</p>
+    <h3 class="section-heading-h">{$t("view.about.support.title")}</h3>
+    <p class="section-sub">{$t("view.about.support.sub")}</p>
   </header>
   <div class="support-grid">
-    <button class="support-cta is-star" onclick={() => openExternal(EXTERNAL_URLS.homepage)} title="Star DLSSync on GitHub">
+    <button class="support-cta is-star" onclick={() => openExternal(EXTERNAL_URLS.homepage)} title={$t("view.about.support.starTitle")}>
       <Star size={16} fill="currentColor" />
-      <span class="support-cta-label">Star on GitHub</span>
+      <span class="support-cta-label">{$t("view.about.support.star")}</span>
       {#if starCount !== null}<span class="support-cta-count mono">{starCount.toLocaleString()}</span>{/if}
     </button>
-    <button class="support-cta is-endorse" onclick={() => openExternal(EXTERNAL_URLS.nexusMod)} title="Endorse DLSSync on Nexus Mods">
+    <button class="support-cta is-endorse" onclick={() => openExternal(EXTERNAL_URLS.nexusMod)} title={$t("view.about.support.endorseTitle")}>
       <NexusLogo size={18} />
-      <span class="support-cta-label">Endorse on Nexus</span>
+      <span class="support-cta-label">{$t("view.about.support.endorse")}</span>
     </button>
-    <button class="support-cta" onclick={shareApp} title="Copy a shareable link">
+    <button class="support-cta" onclick={shareApp} title={$t("view.about.support.shareTitle")}>
       <Share2 size={16} />
-      <span class="support-cta-label">Share with a friend</span>
+      <span class="support-cta-label">{$t("view.about.support.share")}</span>
     </button>
   </div>
 </section>
 
 <footer class="about-foot" in:fade={{ duration: 220, delay: 340 }}>
-  <p>{TRADEMARKS_LINE}</p>
-  <p class="foot-disclaimer">Not endorsed by, sponsored by, or affiliated with NVIDIA, Intel, AMD, or Microsoft. DLSSync is an independent project — every redistributed binary retains its original vendor Authenticode signature.</p>
-  <p class="foot-license">Licensed under <button class="foot-link" onclick={() => openExternal("https://www.apache.org/licenses/LICENSE-2.0")}>Apache 2.0</button> · Copyright 2026 xt0n1</p>
+  <p>{$t("view.about.foot.trademarks")}</p>
+  <p class="foot-disclaimer">{$t("view.about.foot.disclaimer")}</p>
+  <p class="foot-license">{$t("view.about.foot.licensedUnder")} <button class="foot-link" onclick={() => openExternal("https://www.apache.org/licenses/LICENSE-2.0")}>Apache 2.0</button> · {$t("view.about.foot.copyright")}</p>
 </footer>
 
 <style>

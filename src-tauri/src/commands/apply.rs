@@ -27,11 +27,6 @@ pub const STAGE_COMPLETE: &str = "complete";
 pub const STAGE_FAILED: &str = "failed";
 pub const STAGE_CANCELLED: &str = "cancelled";
 
-/// How many parent directories above the DLL being replaced the apply guard
-/// searches for a DLSS Enabler marker. Streamline plugins sit in deeply nested
-/// engine plugin folders while the enabler DLL lives near the game root.
-const STREAMLINE_ENABLER_ANCESTOR_HOPS: usize = 8;
-
 #[derive(Debug, Deserialize, Clone)]
 pub struct ApplyRequest {
     pub apply_id: String,
@@ -825,12 +820,14 @@ fn version_major(version: &str) -> Option<u16> {
 }
 
 /// Authoritative crash-safety gate for the NVIDIA Streamline version-locked set.
-/// Returns `Some(reason)` when an `sl.*` plugin must NOT be swapped: an injector
-/// mod manages the set, the user has not opted in, or the target crosses the
-/// installed Streamline MAJOR (v1↔v2 is the real cause of the launch crashes —
-/// older games ship SL 1.x and break when newer 2.x plugins are swapped in).
-/// NGX DLLs (`nvngx_*.dll`) are never gated — the driver loads them
-/// independently and they are safe to swap on their own.
+/// Returns `Some(reason)` when an `sl.*` plugin must NOT be swapped: the user has
+/// not opted in, or the target crosses the installed Streamline MAJOR (v1↔v2 is
+/// the real cause of the launch crashes — older games ship SL 1.x and break when
+/// newer 2.x plugins are swapped in). A same-major swap is allowed even when a
+/// DLSS Enabler is present, because the Enabler requires Streamline >= 2.11 yet
+/// does not update it, so the user must update the set themselves. NGX DLLs
+/// (`nvngx_*.dll`) are never gated — the driver loads them independently and they
+/// are safe to swap on their own.
 pub(crate) fn streamline_guard(
     state: &StateHandles,
     dll_path: &std::path::Path,
@@ -843,41 +840,27 @@ pub(crate) fn streamline_guard(
     if !dll_scanner::is_streamline_plugin(filename) {
         return None;
     }
-    let enabler_present =
-        dll_scanner::dlss_enabler_present_near(dll_path, STREAMLINE_ENABLER_ANCESTOR_HOPS);
     let allow_streamline = state.settings.read().update_prefs.update_streamline;
     let installed_major = pe_version::read_dll_version(dll_path)
         .ok()
         .and_then(|v| version_major(&v.file_version));
     let target_major = version_major(target_version);
-    streamline_block_reason(
-        filename,
-        enabler_present,
-        allow_streamline,
-        installed_major,
-        target_major,
-    )
+    streamline_block_reason(filename, allow_streamline, installed_major, target_major)
 }
 
 /// Pure decision for the Streamline guard, split out so it is testable without a
-/// live `StateHandles`. `None` = safe to swap.
+/// live `StateHandles`. An `sl.*` plugin is blocked only when the user has not
+/// opted in (`update_streamline`) or the target crosses the installed Streamline
+/// MAJOR; a same-major swap is allowed even under a DLSS Enabler. `None` = safe
+/// to swap.
 fn streamline_block_reason(
     filename: &str,
-    enabler_present: bool,
     allow_streamline: bool,
     installed_major: Option<u16>,
     target_major: Option<u16>,
 ) -> Option<String> {
     if !dll_scanner::is_streamline_plugin(filename) {
         return None;
-    }
-    if enabler_present {
-        return Some(format!(
-            "{filename} is an NVIDIA Streamline plugin and an injector mod (DLSS Enabler / \
-             OptiScaler / dlssg-to-fsr3) manages the Streamline set for this game — swapping it \
-             mismatches the set and crashes the game on launch (kFeatureReflex context is \
-             missing). Skipped to keep the game working."
-        ));
     }
     if !allow_streamline {
         return Some(format!(
@@ -1067,51 +1050,41 @@ mod tests {
 
     #[test]
     fn streamline_guard_allows_ngx_dll_regardless_of_prefs() {
-        assert!(streamline_block_reason("nvngx_dlss.dll", false, false, None, None).is_none());
-        assert!(
-            streamline_block_reason("nvngx_dlssg.dll", true, false, Some(1), Some(2)).is_none()
-        );
-        assert!(streamline_block_reason("libxess.dll", true, false, None, None).is_none());
+        assert!(streamline_block_reason("nvngx_dlss.dll", false, None, None).is_none());
+        assert!(streamline_block_reason("nvngx_dlssg.dll", false, Some(1), Some(2)).is_none());
+        assert!(streamline_block_reason("libxess.dll", false, None, None).is_none());
     }
 
     #[test]
     fn streamline_guard_blocks_plugin_when_streamline_opt_in_off() {
-        let reason = streamline_block_reason("sl.dlss_g.dll", false, false, None, None).unwrap();
+        let reason = streamline_block_reason("sl.dlss_g.dll", false, None, None).unwrap();
         assert!(reason.contains("Streamline"));
         assert!(reason.contains("Settings"));
         assert_eq!(classify_error(&reason), "streamline_locked");
     }
 
     #[test]
-    fn streamline_guard_allows_same_major_plugin_when_opted_in_and_no_enabler() {
-        assert!(streamline_block_reason("sl.dlss_g.dll", false, true, Some(2), Some(2)).is_none());
-        assert!(streamline_block_reason("sl.reflex.dll", false, true, None, None).is_none());
+    fn streamline_guard_allows_same_major_plugin_when_opted_in() {
+        assert!(streamline_block_reason("sl.dlss_g.dll", true, Some(2), Some(2)).is_none());
+        assert!(streamline_block_reason("sl.reflex.dll", true, None, None).is_none());
     }
 
     #[test]
-    fn streamline_guard_blocks_plugin_when_dlss_enabler_present_even_if_opted_in() {
-        let reason =
-            streamline_block_reason("sl.reflex.dll", true, true, Some(2), Some(2)).unwrap();
-        assert!(reason.contains("DLSS Enabler"));
-        assert!(reason.contains("kFeatureReflex"));
-        assert_eq!(classify_error(&reason), "streamline_locked");
+    fn streamline_guard_allows_same_major_swap_under_dlss_enabler() {
+        assert!(streamline_block_reason("sl.dlss_g.dll", true, Some(2), Some(2)).is_none());
+        assert!(streamline_block_reason("sl.reflex.dll", true, Some(2), Some(2)).is_none());
     }
 
     #[test]
-    fn streamline_guard_blocks_sl_dlss_g_under_enabler_nexus_subnautica2() {
-        // Regression for the Nexus Subnautica 2 report: updating the Streamline set
-        // under a DLSS Enabler broke the enabler. The guard must skip sl.dlss_g.dll
-        // when an enabler manages the game, even with the same major and opt-in on.
-        let reason =
-            streamline_block_reason("sl.dlss_g.dll", true, true, Some(2), Some(2)).unwrap();
-        assert!(reason.contains("DLSS Enabler"));
+    fn streamline_guard_blocks_sl_dlss_g_cross_major_nexus_subnautica2() {
+        let reason = streamline_block_reason("sl.dlss_g.dll", true, Some(2), Some(310)).unwrap();
+        assert!(reason.contains("version-locked"));
         assert_eq!(classify_error(&reason), "streamline_locked");
     }
 
     #[test]
     fn streamline_guard_blocks_cross_major_swap_even_when_opted_in() {
-        let reason =
-            streamline_block_reason("sl.interposer.dll", false, true, Some(1), Some(2)).unwrap();
+        let reason = streamline_block_reason("sl.interposer.dll", true, Some(1), Some(2)).unwrap();
         assert!(reason.contains("version-locked"));
         assert!(reason.contains("v1"));
         assert!(reason.contains("v2"));

@@ -8,6 +8,7 @@
 
 <script lang="ts">
   import { tick } from "svelte";
+  import { t } from "../lib/i18n/index";
 
   let { x, y, items, onSelect, onClose }: {
     x: number;
@@ -105,7 +106,7 @@
   bind:this={menuEl}
   role="menu"
   tabindex="-1"
-  aria-label="Game actions"
+  aria-label={$t("component.card.menu.aria")}
   style:left="{pos.left}px"
   style:top="{pos.top}px"
   onkeydown={onKey}

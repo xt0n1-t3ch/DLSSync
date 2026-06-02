@@ -35,21 +35,16 @@ export function isStreamlinePlugin(filename: string): boolean {
 }
 
 /** Whether a DLL may be offered/applied given the user's per-feature preferences.
- * `sl.*` Streamline plugins additionally require the Streamline master switch and
- * are never offered when DLSS Enabler manages the Streamline set in this game —
- * swapping them out of lockstep crashes the game (kFeatureReflex). `prefs === null`
- * keeps the legacy permissive behaviour. */
-export function recordUpdatable(
-  r: DllRecord,
-  prefs: UpdatePreferences | null = null,
-  dlssEnablerPresent = false,
-): boolean {
-  const streamlinePlugin = isStreamlinePlugin(filenameFromPath(r.path));
-  if (streamlinePlugin && dlssEnablerPresent) return false;
+ * `sl.*` Streamline plugins additionally require the Streamline master switch. A
+ * DLSS Enabler does NOT block them: the enabler requires Streamline 2.11+ but never
+ * updates it, so same-major sl.* updates are offered even under an enabler — the
+ * cross-major guard in `dllRelation` keeps a driver/OTA 310.x build untouched.
+ * `prefs === null` keeps the legacy permissive behaviour. */
+export function recordUpdatable(r: DllRecord, prefs: UpdatePreferences | null = null): boolean {
   if (!prefs) return true;
   const prefKey = FAMILY_PREF[r.family];
   if (prefKey && !prefs[prefKey]) return false;
-  if (streamlinePlugin && !prefs.update_streamline) return false;
+  if (isStreamlinePlugin(filenameFromPath(r.path)) && !prefs.update_streamline) return false;
   return true;
 }
 
@@ -104,6 +99,11 @@ export function versionMajor(version: string): number | null {
   return Number.isNaN(n) ? null : n;
 }
 
+/** Relation of an installed DLL to its catalog target. A Streamline plug-in stamped
+ * a different major than the target is the driver/OTA-managed NGX 310.x build, not the
+ * GitHub SDK 2.x build, and is left `same`: crossing the version-locked set can break
+ * NVIDIA App global overrides. Same-major sl.* compares normally, so it is offered even
+ * under a DLSS Enabler — the enabler requires Streamline 2.11+ but never updates it. */
 export function dllRelation(r: DllRecord, ctx: RelationContext, pinnedVersion: string | null = null): DllRelation {
   const target = targetVersion(r, ctx, pinnedVersion);
   if (!target) return "no-target";
@@ -119,9 +119,6 @@ export function dllRelation(r: DllRecord, ctx: RelationContext, pinnedVersion: s
     return "same";
   }
   if (!r.current_version) return "no-target";
-  // A Streamline plug-in stamped with a different major than the catalog target is
-  // driver/OTA-managed (NGX 310.x build), not the GitHub SDK 2.x build — leave it
-  // alone: swapping it crosses the version-locked set and can break NVIDIA App global overrides.
   if (isStreamlinePlugin(filename) && versionMajor(r.current_version) !== versionMajor(target)) {
     return "same";
   }
@@ -141,14 +138,13 @@ export function gameStatusFromRecords(
   disabledFamilies: string[] = [],
   scanError: string | null = null,
   prefs: UpdatePreferences | null = null,
-  dlssEnablerPresent = false,
 ): UpdateStatus {
   if (scanError) return "scan_failed";
   if (!records) return "unknown";
   if (records.length === 0) return "no_dlls";
   for (const r of records) {
     if (disabledFamilies.includes(r.family)) continue;
-    if (!recordUpdatable(r, prefs, dlssEnablerPresent)) continue;
+    if (!recordUpdatable(r, prefs)) continue;
     if (dllRelation(r, ctx) === "outdated") return "outdated";
   }
   return "up_to_date";

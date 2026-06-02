@@ -1,5 +1,6 @@
 <script lang="ts">
   import { toasts, dismissToast, type Toast } from "../lib/stores";
+  import { t as tr } from "../lib/i18n/index";
   import { fly } from "svelte/transition";
 
   function iconPaths(kind: Toast["kind"]): string {
@@ -34,7 +35,7 @@
       {#if t.action}
         <button class="toast-action" onclick={() => t.action?.run()}>{t.action.label}</button>
       {/if}
-      <button class="toast-close" onclick={() => dismissToast(t.id)} aria-label="Dismiss">x</button>
+      <button class="toast-close" onclick={() => dismissToast(t.id)} aria-label={$tr("common.dismiss")}>x</button>
       <span class="toast-progress" data-kind={t.kind} style:--toast-ttl="{t.ttlMs}ms" aria-hidden="true"></span>
     </div>
   {/each}

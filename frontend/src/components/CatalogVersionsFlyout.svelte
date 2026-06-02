@@ -1,11 +1,12 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { get } from "svelte/store";
   import { fly } from "svelte/transition";
+  import { t, locale, translate } from "../lib/i18n/index";
   import { listReleases, type Release } from "../lib/api";
   import {
     featureIconId,
     featureTitle,
-    featureBlurb,
     familyLabel,
     familyShort,
     featureFromFamily,
@@ -52,14 +53,14 @@
   let modulesQuery = $state("");
 
   let headerTitle = $derived.by(() => {
-    if (mode === "modules") return `${vendorLabel ?? vendor} · Other technologies`;
+    if (mode === "modules") return `${vendorLabel ?? vendor} · ${$t("feature.advanced.title")}`;
     if (featureSlot === "advanced") return activeFamilyLabel;
     return featureTitle(featureSlot);
   });
   let headerSubtitle = $derived.by(() => {
-    if (mode === "modules") return "Drill into any module to see every version, copy CDN URLs or download direct";
-    if (featureSlot === "advanced") return `${vendorLabel ?? vendor} advanced technology`;
-    return featureBlurb(featureSlot);
+    if (mode === "modules") return $t("component.flyout.modulesSubtitle");
+    if (featureSlot === "advanced") return $t("component.flyout.advancedTech", { vendor: vendorLabel ?? vendor });
+    return $t("feature." + featureSlot + ".blurb");
   });
   let headerIcon = $derived.by(() => (mode === "modules" ? "advanced" : activeFamilyIcon));
 
@@ -167,30 +168,38 @@
   }
 
   async function downloadRelease(r: Release): Promise<void> {
+    const loc = get(locale);
     if (!r.cdn_url) {
-      showToast("warning", "No download URL for this version");
+      showToast("warning", translate(loc, "component.flyout.toast.noDownloadUrl"));
       return;
     }
     try {
       const { open } = await import("@tauri-apps/plugin-shell");
       await open(r.cdn_url);
-      showToast("success", `Opening ${r.filename} (v${r.version})…`);
+      showToast(
+        "success",
+        translate(loc, "component.flyout.toast.opening", { file: r.filename, version: r.version }),
+      );
     } catch (err: unknown) {
-      showToast("danger", `Open failed: ${String(err)}`);
+      showToast("danger", translate(loc, "component.flyout.toast.openFailed", { error: String(err) }));
     }
   }
 
   async function copyUrl(r: Release): Promise<void> {
+    const loc = get(locale);
     if (!r.cdn_url) {
-      showToast("warning", "No URL on this release");
+      showToast("warning", translate(loc, "component.flyout.toast.noUrl"));
       return;
     }
     try {
       const { writeText } = await import("@tauri-apps/plugin-clipboard-manager");
       await writeText(r.cdn_url);
-      showToast("success", `Copied URL for v${r.version}`);
+      showToast(
+        "success",
+        translate(loc, "component.flyout.toast.copiedUrl", { version: r.version }),
+      );
     } catch (err: unknown) {
-      showToast("danger", `Copy failed: ${String(err)}`);
+      showToast("danger", translate(loc, "component.flyout.toast.copyFailed", { error: String(err) }));
     }
   }
 
@@ -217,7 +226,7 @@
 <div class="flyout glass-dialog" transition:fly={{ y: -8, duration: 160 }} style:--edge-color={accent} role="dialog" aria-label={headerTitle} tabindex="-1" onkeydown={handleKey}>
   <header class="flyout-head">
     {#if mode === "versions" && catalogKey === "advanced"}
-      <button class="flyout-back" onclick={backToModules} aria-label="Back to modules">
+      <button class="flyout-back" onclick={backToModules} aria-label={$t("component.flyout.backToModules")}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
       </button>
     {/if}
@@ -228,7 +237,7 @@
       <span class="title-line">{headerTitle}</span>
       <span class="subtitle-line">{headerSubtitle}</span>
     </div>
-    <button class="dialog-close" onclick={onClose} aria-label="Close">
+    <button class="dialog-close" onclick={onClose} aria-label={$t("common.close")}>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
   </header>
@@ -237,16 +246,16 @@
     <div class="flyout-toolbar">
       <input
         type="search"
-        placeholder="Filter modules…"
+        placeholder={$t("component.flyout.filterModules")}
         bind:value={modulesQuery}
         class="flyout-search"
       />
-      <span class="toolbar-count">{filteredModules.length} of {(advancedFamilies ?? []).length} module{(advancedFamilies ?? []).length === 1 ? "" : "s"}</span>
+      <span class="toolbar-count">{$t("component.flyout.moduleCount", { shown: filteredModules.length, count: (advancedFamilies ?? []).length })}</span>
     </div>
     <div class="flyout-body">
       {#if filteredModules.length === 0}
         <div class="flyout-state">
-          <p>No modules match.</p>
+          <p>{$t("component.flyout.noModulesMatch")}</p>
         </div>
       {:else}
         <ul class="module-list">
@@ -257,14 +266,14 @@
                 class="module-row-btn"
                 onclick={() => drillIntoFamily(f)}
                 onkeydown={(e) => moduleKey(e, f)}
-                aria-label={`View versions of ${familyLabel(f.family)}`}
+                aria-label={$t("component.flyout.viewVersionsOf", { name: familyLabel(f.family) })}
               >
                 <span class="module-glyph" style:color={accent} aria-hidden="true">
                   <FeatureIcon id={featureIconId(featureFromFamily(f.family))} size={16} />
                 </span>
                 <div class="module-meta">
                   <span class="module-title">{familyLabel(f.family)}</span>
-                  <span class="module-sub">{familyShort(f.family)} · {f.releaseCount} version{f.releaseCount === 1 ? "" : "s"}</span>
+                  <span class="module-sub">{familyShort(f.family)} · {$t("view.catalog.versionsCount", { count: f.releaseCount })}</span>
                 </div>
                 <span class="module-latest mono" style:color={accent}>v{f.latest}</span>
                 <svg class="module-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
@@ -278,39 +287,41 @@
     <div class="flyout-toolbar">
       <input
         type="search"
-        placeholder="Filter versions, files or notes…"
+        placeholder={$t("component.flyout.filterVersionsFilesNotes")}
         bind:value={query}
         class="flyout-search"
       />
       <Checkbox
         bind:checked={stableOnly}
-        label={`Stable only${hiddenByStable > 0 ? ` (-${hiddenByStable})` : ""}`}
+        label={hiddenByStable > 0
+          ? $t("component.flyout.stableOnlyHidden", { count: hiddenByStable })
+          : $t("component.flyout.stableOnly")}
       />
     </div>
     <div class="flyout-body">
       {#if loading}
         <div class="flyout-state">
           <span class="spinner"></span>
-          <span>Loading versions…</span>
+          <span>{$t("component.flyout.loadingVersions")}</span>
         </div>
       {:else if error}
-        <div class="flyout-state danger">Failed to load: {error}</div>
+        <div class="flyout-state danger">{$t("component.flyout.failedToLoad", { error })}</div>
       {:else if releases.length === 0}
         <div class="flyout-state">
-          <p><strong>No versions tracked yet.</strong></p>
-          <p class="small">This technology doesn't have any tracked upstream releases in DLSSync's manifest yet.</p>
+          <p><strong>{$t("component.flyout.noVersionsTracked")}</strong></p>
+          <p class="small">{$t("component.flyout.noVersionsTrackedDetail")}</p>
         </div>
       {:else if filtered.length === 0}
         <div class="flyout-state">
-          <p>No matches.</p>
-          <p class="small">Clear the filter or include beta versions.</p>
+          <p>{$t("component.flyout.noMatches")}</p>
+          <p class="small">{$t("component.flyout.noMatchesDetail")}</p>
         </div>
       {:else}
         <ul class="version-list">
           {#each filtered as r, i (r.version + r.sha256)}
             <li class="version-row" class:is-first={i === 0}>
               <div class="row-left">
-                {#if i === 0}<span class="latest-tag">Latest</span>{/if}
+                {#if i === 0}<span class="latest-tag">{$t("component.flyout.latest")}</span>{/if}
                 <span class="row-version mono">v{r.version}</span>
               </div>
               <div class="row-mid">
@@ -321,10 +332,10 @@
                   <span class="row-size">{formatSize(r.size_bytes)}</span>
                   {#if r.channel === "experimental"}
                     <span class="row-sep">·</span>
-                    <span class="chip chip-warning small-chip">Beta</span>
+                    <span class="chip chip-warning small-chip">{$t("component.flyout.beta")}</span>
                   {/if}
                   {#if r.signed}
-                    <span class="row-shield" title={r.signature_subject ?? "Signed by vendor"}>
+                    <span class="row-shield" title={r.signature_subject ?? $t("component.flyout.signedByVendor")}>
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
                     </span>
                   {/if}
@@ -334,11 +345,11 @@
                 {/if}
               </div>
               <div class="row-actions">
-                <button class="btn btn-sm btn-accent" onclick={() => downloadRelease(r)} title="Open download URL in browser">
+                <button class="btn btn-sm btn-accent" onclick={() => downloadRelease(r)} title={$t("component.flyout.openDownloadUrlTitle")}>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  Download
+                  {$t("common.download")}
                 </button>
-                <button class="btn btn-sm btn-ghost" onclick={() => copyUrl(r)} title="Copy CDN URL to clipboard">
+                <button class="btn btn-sm btn-ghost" onclick={() => copyUrl(r)} title={$t("component.flyout.copyCdnUrlTitle")}>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                 </button>
               </div>
@@ -348,7 +359,7 @@
       {/if}
     </div>
     <footer class="flyout-foot">
-      <span class="foot-count">{filtered.length} of {releases.length} version{releases.length === 1 ? "" : "s"}</span>
+      <span class="foot-count">{$t("component.flyout.versionCount", { shown: filtered.length, count: releases.length })}</span>
     </footer>
   {/if}
 </div>

@@ -1,10 +1,10 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { slide } from "svelte/transition";
+  import { get } from "svelte/store";
   import { openUrl, systemDriverVersions, type DriverStatusReport, type GpuVendor } from "../lib/api";
-  import { ADMIN_ELEVATION_NOTE } from "../lib/ux";
+  import { t, locale, translate } from "../lib/i18n/index";
   import {
-    driverStatusLabel,
     driverStatusTone,
     sortDriverReports,
     canInstall,
@@ -78,7 +78,7 @@
     try {
       await openUrl(url);
     } catch (err) {
-      showToast("warning", `Open link failed: ${String(err)}`);
+      showToast("warning", translate(get(locale), "view.drivers.openLinkFailed", { error: String(err) }));
     }
   }
 
@@ -170,15 +170,14 @@
 <section class="drivers-view">
   <header class="view-header">
     <div>
-      <h1 class="view-title">Drivers</h1>
+      <h1 class="view-title">{$t("view.drivers.title")}</h1>
       <p class="view-subtitle">
-        Latest GPU driver for each detected adapter, checked live against the vendor — plus DLSS preset
-        and frame-generation controls.
+        {$t("view.drivers.subtitle")}
       </p>
     </div>
     <div class="header-actions">
       <button class="check-btn" onclick={() => loadDriverUpdates()} disabled={$driverCheckInProgress}>
-        {$driverCheckInProgress ? "Checking…" : "Check for updates"}
+        {$driverCheckInProgress ? $t("view.drivers.checking") : $t("view.drivers.checkForUpdates")}
       </button>
     </div>
   </header>
@@ -188,7 +187,7 @@
   {/if}
 
   {#if reports.length === 0 && !$driverCheckInProgress}
-    <p class="empty">No GPUs detected.</p>
+    <p class="empty">{$t("view.drivers.noGpus")}</p>
   {/if}
 
   <ul class="driver-list">
@@ -216,7 +215,7 @@
                 {#if report.status === "update_available" && report.latest}
                   <span class="arrow">→</span>
                   <span class="next">{report.latest.version.display}</span>
-                  {#if report.latest.is_beta}<span class="chan-chip beta">Beta</span>{:else}<span class="chan-chip whql">WHQL</span>{/if}
+                  {#if report.latest.is_beta}<span class="chan-chip beta">{$t("view.drivers.channelBeta")}</span>{:else}<span class="chan-chip whql">{$t("view.drivers.channelWhql")}</span>{/if}
                 {/if}
               </span>
             </div>
@@ -232,19 +231,19 @@
               {#if canInstall(report)}
                 {@const size = sizeLabel(report.latest?.size_bytes ?? 0)}
                 <button class="driver-update" onclick={() => startDriverInstall(report)} disabled={installBusy}>
-                  <span class="driver-update-label">Update to v{report.latest?.version.display}</span>
+                  <span class="driver-update-label">{$t("view.drivers.updateTo", { version: report.latest?.version.display ?? "" })}</span>
                   {#if size}<span class="driver-update-size mono">{size}</span>{/if}
                 </button>
               {:else if isOpenPageOnly(report)}
                 <button class="driver-update open-page" onclick={() => open(pageUrl)} disabled={installBusy}>
-                  <span class="driver-update-label">Open download page</span>
+                  <span class="driver-update-label">{$t("view.drivers.openDownloadPage")}</span>
                   <span class="ext-arrow" aria-hidden="true">↗</span>
                 </button>
               {:else}
                 <div class="state-block">
-                  <span class="driver-state" data-tone={tone}>{driverStatusLabel(report.status)}</span>
+                  <span class="driver-state" data-tone={tone}>{$t("driverStatus." + report.status)}</span>
                   {#if needsHelp}
-                    <button class="help-link" onclick={() => open(vendorHelpUrl(report.device.vendor))}>Find my driver ↗</button>
+                    <button class="help-link" onclick={() => open(vendorHelpUrl(report.device.vendor))}>{$t("view.drivers.findMyDriver")}</button>
                   {/if}
                 </div>
               {/if}
@@ -253,8 +252,8 @@
                   <button
                     class="driver-icon"
                     onclick={() => open(pageUrl)}
-                    title="Open the official release notes"
-                    aria-label="Release notes"
+                    title={$t("view.drivers.releaseNotesTitle")}
+                    aria-label={$t("view.drivers.releaseNotesAria")}
                   >
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                   </button>
@@ -262,8 +261,8 @@
                 <button
                   class="driver-icon"
                   onclick={() => (historyTarget = { vendor: report.device.vendor, model: report.device.model, accent: VENDOR_ACCENT[report.device.vendor] })}
-                  title="Browse every driver version known compatible with this GPU"
-                  aria-label="All versions"
+                  title={$t("view.drivers.allVersionsTitle")}
+                  aria-label={$t("view.drivers.allVersionsAria")}
                 >
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
                 </button>
@@ -275,7 +274,7 @@
         {#if hasChangelog(report) || showNotes}
           <button class="changelog-toggle" onclick={() => toggleChangelog(report.device.model)} aria-expanded={expanded}>
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="chev" class:open={expanded}><polyline points="6 9 12 15 18 9"/></svg>
-            What's new
+            {$t("view.drivers.whatsNew")}
           </button>
           {#if expanded}
             <div class="changelog">
@@ -286,16 +285,16 @@
                   </ul>
                 {/if}
                 {#if report.latest.changelog.fixed.length > 0}
-                  <span class="cl-label">Fixed</span>
+                  <span class="cl-label">{$t("view.drivers.changelogFixed")}</span>
                   <ul class="cl-fixed">
                     {#each report.latest.changelog.fixed as f}<li>{f}</li>{/each}
                   </ul>
                 {/if}
               {:else}
-                <p class="cl-empty">No inline notes published for this release.</p>
+                <p class="cl-empty">{$t("view.drivers.noInlineNotes")}</p>
               {/if}
               {#if showNotes}
-                <button class="link-btn inline" onclick={() => open(pageUrl)}>Full release notes ↗</button>
+                <button class="link-btn inline" onclick={() => open(pageUrl)}>{$t("view.drivers.fullReleaseNotes")}</button>
               {/if}
             </div>
           {/if}
@@ -306,27 +305,24 @@
 
   <section class="feature-block system-block edge-accent">
     <div class="section-head feature-section-head">
-      <span class="section-title">System &amp; Components</span>
-      <span class="beta-tag" title="This feature is still in beta">Beta</span>
+      <span class="section-title">{$t("view.drivers.systemComponents")}</span>
+      <span class="beta-tag" title={$t("view.drivers.betaTagTitle")}>{$t("view.drivers.betaTag")}</span>
       {#if systemUpdateCount > 0}
         <span class="section-count">{systemUpdateCount}</span>
       {/if}
       <button class="check-btn ghost" onclick={() => loadSystemDrivers()} disabled={$systemScanInProgress}>
-        {$systemScanInProgress ? "Scanning…" : "Rescan"}
+        {$systemScanInProgress ? $t("view.drivers.scanning") : $t("view.drivers.rescan")}
       </button>
     </div>
     <p class="feature-sub">
-      Driver updates for the rest of your PC: audio, network, Bluetooth, chipset, input, and storage. They
-      come from Windows Update and the Microsoft Update Catalog, stay vendor-signed, and we never offer one
-      older than the driver you already have.
+      {$t("view.drivers.systemSub")}
     </p>
     <p class="beta-note">
-      Detection can miss or misread some hardware, so check each update before you apply it. If one causes
-      trouble, the auto-backup rolls it back.
+      {$t("view.drivers.betaNote")}
     </p>
     <p class="admin-note">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-      <span>{ADMIN_ELEVATION_NOTE}</span>
+      <span>{$t("note.adminElevation")}</span>
     </p>
 
     {#if $systemScanError}
@@ -334,9 +330,9 @@
     {/if}
 
     {#if $systemScanInProgress && systemUpdateCount === 0}
-      <p class="empty">Scanning Windows Update for component drivers…</p>
+      <p class="empty">{$t("view.drivers.scanningWindowsUpdate")}</p>
     {:else if $systemScanRan && systemUpdateCount === 0 && !$systemScanError}
-      <p class="empty">Every component is up to date — Windows Update has no newer driver.</p>
+      <p class="empty">{$t("view.drivers.allComponentsUpToDate")}</p>
     {/if}
 
     <div class="sys-groups">
@@ -361,7 +357,7 @@
                     <span class="sys-provider"><BrandMark key={update.provider} size={12} /></span>
                     <span class="sys-versions mono">
                       {#if update.current_version}<span class="sys-cur">{update.current_version}</span><span class="sys-arrow">→</span>{/if}
-                      <span class="sys-new">{update.driver_version ?? "latest"}</span>
+                      <span class="sys-new">{update.driver_version ?? $t("view.drivers.latestFallback")}</span>
                     </span>
                     {#if update.driver_date}<span class="sys-dot">·</span><span class="sys-date mono">{update.driver_date}</span>{/if}
                   </span>
@@ -370,7 +366,7 @@
                   {#if installing}
                     {@const failed = $systemDriverInstall.stage === "failed"}
                     <div class="install-live" class:is-failed={failed} role="status" aria-live="polite">
-                      <span class="install-stage">{DRIVER_INSTALL_STAGE_LABEL[$systemDriverInstall.stage ?? ""] ?? "Working"}</span>
+                      <span class="install-stage">{DRIVER_INSTALL_STAGE_LABEL[$systemDriverInstall.stage ?? ""] ?? $t("view.drivers.installStageFallback")}</span>
                       <div class="install-bar" class:indeterminate={$systemDriverInstall.fraction === null && !failed}>
                         <div
                           class="install-fill"
@@ -389,8 +385,8 @@
                         class="driver-icon"
                         class:is-on={versions !== undefined}
                         onclick={() => toggleVersions(update)}
-                        title="Show installed and previously-installed versions of this driver"
-                        aria-label="Version history"
+                        title={$t("view.drivers.versionHistoryTitle")}
+                        aria-label={$t("view.drivers.versionHistoryAria")}
                         aria-expanded={versions !== undefined}
                       >
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
@@ -400,13 +396,13 @@
                       class="driver-icon"
                       data-href={vendorLink(update)}
                       onclick={() => open(vendorLink(update))}
-                      title={update.support_url ? "Open the vendor's information page for this driver" : "Find this driver in the Microsoft Update Catalog"}
-                      aria-label="Driver info"
+                      title={update.support_url ? $t("view.drivers.vendorInfoTitle") : $t("view.drivers.catalogInfoTitle")}
+                      aria-label={$t("view.drivers.driverInfoAria")}
                     >
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                     </button>
                     <button class="driver-update" onclick={() => startSystemDriverInstall(update, group.label)} disabled={systemBusy}>
-                      <span class="driver-update-label">Update</span>
+                      <span class="driver-update-label">{$t("view.drivers.update")}</span>
                       {#if update.size_bytes > 0}<span class="driver-update-size mono">{formatBytes(update.size_bytes)}</span>{/if}
                     </button>
                   {/if}
@@ -415,24 +411,24 @@
                 {#if versions !== undefined}
                   <div class="sys-versions-panel" transition:slide={{ duration: 160 }}>
                     {#if versions === "loading"}
-                      <span class="sys-versions-msg">Reading the local driver store…</span>
+                      <span class="sys-versions-msg">{$t("view.drivers.readingDriverStore")}</span>
                     {:else if versions === "error"}
-                      <span class="sys-versions-msg is-error">Couldn't read driver versions.</span>
+                      <span class="sys-versions-msg is-error">{$t("view.drivers.readVersionsError")}</span>
                     {:else if versions.length === 0}
-                      <span class="sys-versions-msg">No earlier versions are cached on this PC. Latest available: <strong>{update.driver_version ?? "—"}</strong>.</span>
+                      <span class="sys-versions-msg">{$t("view.drivers.noCachedVersions", { version: update.driver_version ?? "—" })}</span>
                     {:else}
-                      <span class="sys-versions-head">On this PC</span>
+                      <span class="sys-versions-head">{$t("view.drivers.onThisPc")}</span>
                       <ul class="ver-list">
                         {#each versions as v (v.publishedName)}
                           <li class="ver-row" class:current={v.current}>
                             <span class="ver-num mono">{v.version}</span>
-                            {#if v.current}<span class="chip chip-success small-chip">Installed</span>{/if}
+                            {#if v.current}<span class="chip chip-success small-chip">{$t("view.drivers.installed")}</span>{/if}
                             {#if v.date}<span class="ver-date mono">{v.date}</span>{/if}
                             <span class="ver-name mono">{v.publishedName}</span>
                           </li>
                         {/each}
                       </ul>
-                      <span class="sys-versions-head">Latest available</span>
+                      <span class="sys-versions-head">{$t("view.drivers.latestAvailable")}</span>
                       <span class="ver-latest mono">{update.driver_version ?? "—"}{update.driver_date ? ` · ${update.driver_date}` : ""}</span>
                     {/if}
                   </div>
@@ -448,13 +444,11 @@
   {#if hasNvidia}
     <section class="feature-block">
       <div class="section-head feature-section-head">
-        <span class="section-title">DLSS Overrides</span>
+        <span class="section-title">{$t("view.drivers.dlssOverrides")}</span>
         <span class="vendor-pill" data-vendor="nvidia">NVIDIA</span>
       </div>
       <p class="feature-sub">
-        Force the DLSS preset, frame-generation mode and multiplier globally through the NVIDIA driver
-        profile — the same mechanism the NVIDIA app uses. Per-game overrides live in each game's detail
-        drawer.
+        {$t("view.drivers.dlssOverridesSub")}
       </p>
       <DlssOverridePanel scope={{ scope: "global" }} driverPacked={nvidiaPacked} />
     </section>
@@ -472,12 +466,10 @@
   {#if nonNvidia.length > 0}
     <section class="feature-block muted-block">
       <div class="section-head feature-section-head">
-        <span class="section-title">Upscaling on {nonNvidia.includes("amd") ? "AMD" : ""}{nonNvidia.includes("amd") && nonNvidia.includes("intel") ? " / " : ""}{nonNvidia.includes("intel") ? "Intel" : ""}</span>
+        <span class="section-title">{$t("view.drivers.upscalingOn", { vendors: `${nonNvidia.includes("amd") ? "AMD" : ""}${nonNvidia.includes("amd") && nonNvidia.includes("intel") ? " / " : ""}${nonNvidia.includes("intel") ? "Intel" : ""}` })}</span>
       </div>
       <p class="feature-sub">
-        Driver-profile preset overrides are NVIDIA-only (NVAPI). On AMD and Intel, FSR and XeSS are
-        controlled per game by swapping their DLLs — manage those from the game's detail drawer and the
-        Catalog. This tab keeps your AMD / Intel driver itself up to date above.
+        {$t("view.drivers.upscalingSub")}
       </p>
     </section>
   {/if}

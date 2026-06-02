@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { get } from "svelte/store";
   import { showToast } from "../lib/stores";
+  import { t, locale, translate } from "../lib/i18n/index";
   import { setCloseToTray, getCloseToTray, setEfficiencyMode } from "../lib/api";
   import Sparkles from "@lucide/svelte/icons/sparkles";
   import Minimize2 from "@lucide/svelte/icons/minimize-2";
@@ -88,7 +90,7 @@
       await setCloseToTray(next);
       try { localStorage.setItem(PREF_KEYS.closeToTray, String(next)); } catch {}
     } catch (err: unknown) {
-      showToast("danger", `Set close-to-tray failed: ${String(err)}`);
+      showToast("danger", translate(get(locale), "component.perf.toast.closeToTrayFailed", { error: String(err) }));
     }
   }
 
@@ -116,7 +118,7 @@
       autostartEnabled = verified;
     } catch (err: unknown) {
       autostartEnabled = !next;
-      showToast("danger", `Autostart toggle failed: ${String(err)}`);
+      showToast("danger", translate(get(locale), "component.perf.toast.autostartFailed", { error: String(err) }));
     }
   }
 </script>
@@ -127,8 +129,8 @@
       <Minimize2 size={14} />
     </div>
     <div class="perf-meta">
-      <span class="perf-label">Close to tray</span>
-      <span class="perf-sub">Keep DLSSync running in the system tray when you click the X. Use the tray icon to bring it back. Recommended for background update checks.</span>
+      <span class="perf-label">{$t("component.perf.closeToTray.label")}</span>
+      <span class="perf-sub">{$t("component.perf.closeToTray.sub")}</span>
     </div>
     <label class="toggle">
       <input type="checkbox" checked={closeToTray} onchange={(e) => toggleCloseToTray((e.target as HTMLInputElement).checked)} />
@@ -142,10 +144,10 @@
     </div>
     <div class="perf-meta">
       <span class="perf-label">
-        Efficiency Mode when minimized
+        {$t("component.perf.efficiency.label")}
         <span class="chip chip-success small-pill">EcoQoS</span>
       </span>
-      <span class="perf-sub">Schedules DLSSync onto efficient cores and lowers priority while you're not looking at it. Drops CPU/battery footprint near zero. Shows the green leaf badge in Task Manager.</span>
+      <span class="perf-sub">{$t("component.perf.efficiency.sub")}</span>
     </div>
     <label class="toggle">
       <input type="checkbox" checked={efficiencyOnMinimize} onchange={(e) => toggleEfficiency((e.target as HTMLInputElement).checked)} />
@@ -159,10 +161,10 @@
     </div>
     <div class="perf-meta">
       <span class="perf-label">
-        Start with Windows
-        {#if !autostartReady}<span class="chip chip-neutral small-pill">unavailable</span>{/if}
+        {$t("component.perf.autostart.label")}
+        {#if !autostartReady}<span class="chip chip-neutral small-pill">{$t("component.perf.autostart.unavailable")}</span>{/if}
       </span>
-      <span class="perf-sub">Launch DLSSync in the system tray on Windows startup, so update checks happen in the background — no visible window. Launches with <span class="mono">{AUTOSTART_ARGS.join(" ")}</span>.</span>
+      <span class="perf-sub">{$t("component.perf.autostart.sub")} <span class="mono">{AUTOSTART_ARGS.join(" ")}</span>.</span>
     </div>
     <label class="toggle">
       <input type="checkbox" checked={autostartEnabled} disabled={!autostartReady} onchange={(e) => toggleAutostart((e.target as HTMLInputElement).checked)} />
