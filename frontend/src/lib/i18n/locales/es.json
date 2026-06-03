@@ -121,8 +121,14 @@
         "rescanning": "Reescaneando {name}",
         "folderAlreadyAdded": "La carpeta ya está añadida",
         "folderAdded": "Añadida {path}",
-        "folderPickerFailed": "Selector de carpetas: {error}"
-      }
+        "folderPickerFailed": "Selector de carpetas: {error}",
+        "autoApplySkippedAnticheat_one": "La aplicacion automatica omitio {count} juego con anti-cheat",
+        "autoApplySkippedAnticheat_other": "La aplicacion automatica omitio {count} juegos con anti-cheat",
+        "autoApplyAllSkipped": "Todas las actualizaciones pendientes estan en juegos con anti-cheat; la aplicacion automatica las omitio"
+      },
+      "applyAllCount_one": "Aplicar {count} actualizacion",
+      "applyAllCount_other": "Aplicar todas ({count})",
+      "applyAllTitle": "Aplica todas las actualizaciones detectadas en la biblioteca"
     },
     "catalog": {
       "title": "Catálogo",
@@ -424,8 +430,8 @@
           "sub": "Se aplica al instante en toda la aplicación."
         },
         "performance": {
-          "title": "Rendimiento e inicio",
-          "help": "Controles de consumo. Con las tres opciones activadas, DLSSync queda en la bandeja con un uso de CPU casi nulo entre comprobaciones programadas."
+          "title": "Rendimiento",
+          "help": "Consumo de CPU y batería. EcoQoS programa DLSSync en los núcleos eficientes mientras está minimizado, reduciendo su impacto casi a cero."
         },
         "updateBehavior": {
           "title": "Comportamiento de actualización",
@@ -436,6 +442,38 @@
           "help": "Una pequeña tarjeta que de vez en cuando te invita a destacar, recomendar o compartir DLSSync tras una actualización correcta. Nunca bloquea nada.",
           "label": "Mostrar la tarjeta de apoyo",
           "sub": "Un recordatorio discreto abajo a la izquierda cuando se aplica una actualización. Desactívalo aquí cuando quieras, o vuelve a activarlo más tarde."
+        },
+        "background": {
+          "title": "Actualizaciones en segundo plano",
+          "badge": "Nuevo",
+          "help": "Deja que DLSSync vigile en segundo plano y te avise en cuanto un juego tenga actualizaciones listas. Desactivado por defecto.",
+          "enabled": {
+            "label": "Activar el escaneo en segundo plano",
+            "sub": "Vuelve a escanear la biblioteca y actualiza el catalogo de forma programada, incluso con la ventana oculta."
+          },
+          "interval": {
+            "label": "Escanear cada",
+            "sub": "Con que frecuencia se ejecuta el escaneo en segundo plano (de 1 a 168 horas).",
+            "option_one": "{count} hora",
+            "option_other": "{count} horas"
+          },
+          "closeToTray": {
+            "label": "Cerrar a la bandeja en vez de salir",
+            "sub": "Al pulsar la X de la ventana, DLSSync se oculta en la bandeja del sistema. Sal por completo desde el menu de la bandeja."
+          },
+          "runAtStartup": {
+            "label": "Iniciar con Windows (minimizado en la bandeja)",
+            "sub": "Inicia DLSSync oculto en la bandeja al arrancar Windows, sin ventana visible hasta que lo abras."
+          },
+          "notifyToast": {
+            "label": "Notificacion de Windows cuando haya actualizaciones",
+            "sub": "Muestra una notificacion nativa de Windows cuando un escaneo en segundo plano encuentra actualizaciones pendientes. Si estan bloqueadas, recurre a la campana de la app."
+          },
+          "autoApply": {
+            "label": "Aplicar actualizaciones automaticamente",
+            "badge": "Avanzado",
+            "sub": "Tras cada escaneo en segundo plano, instala automaticamente todas las actualizaciones aptas. Los juegos con anti-cheat siempre se omiten y siempre se crea una copia de seguridad antes."
+          }
         }
       },
       "feature": {
@@ -1373,7 +1411,18 @@
       },
       "anticheat": {
         "learnMore": "Más información",
-        "learnMoreTitle": "Abrir la referencia de compatibilidad anti-trampas"
+        "learnMoreTitle": "Abrir la referencia de compatibilidad anti-trampas",
+        "apply": {
+          "chipRisk": "Anti-trampas",
+          "chipBan": "Riesgo de baneo",
+          "chipTitle": "Se detectó {names} — revísalo antes de aplicar",
+          "applyAnyway": "Aplicar de todos modos",
+          "confirmAria": "Confirmar la aplicación en un juego protegido por anti-trampas",
+          "confirmBody": "Este juego usa {names} — reemplazar las DLL puede provocar un baneo. ¿Aplicar de todos modos?",
+          "confirmBodyGeneric": "Este juego usa anti-trampas — reemplazar las DLL puede provocar un baneo. ¿Aplicar de todos modos?",
+          "confirmProceed": "Aplicar de todos modos",
+          "confirmCancel": "Cancelar"
+        }
       },
       "loading": {
         "scanning": "Escaneando DLL",
@@ -1686,6 +1735,11 @@
       "failureTitle": "Error al actualizar {gameLabel}",
       "cancelledTitle": "Actualización de {gameLabel} cancelada",
       "successBody": "{family} → {version}"
+    },
+    "background": {
+      "toastTitle_one": "{count} actualizacion lista",
+      "toastTitle_other": "{count} actualizaciones listas",
+      "toastBody": "En {games} - abre DLSSync para aplicar"
     }
   },
   "anticheat": {
@@ -1695,5 +1749,18 @@
     "tamperRisk": "Se detectó {names}. Intercambiar una DLL o forzar una anulación de preset DLSS puede fallar la verificación de firma de protección anti-manipulación del juego e impedir que inicie. Las copias de seguridad de DLSSync restauran los originales al instante si eso ocurre.",
     "drm": "Se detectó {names}. El DRM de la tienda de este juego valida sus archivos; un intercambio de DLL suele estar bien pero puede requerir una nueva verificación de integridad del lanzador. Las copias de seguridad de DLSSync restauran los originales.",
     "linuxStatus": "Compatibilidad con Linux / Wine: {status}."
+  },
+  "tray": {
+    "menu": {
+      "show": "Mostrar DLSSync",
+      "checkNow": "Buscar actualizaciones ahora",
+      "applyAll": "Aplicar todas las actualizaciones",
+      "quit": "Salir"
+    },
+    "tooltip": {
+      "pending_one": "DLSSync - {count} juego tiene actualizaciones",
+      "pending_other": "DLSSync - {count} juegos tienen actualizaciones",
+      "idle": "DLSSync"
+    }
   }
 }

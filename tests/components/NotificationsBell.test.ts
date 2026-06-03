@@ -67,6 +67,40 @@ describe("NotificationsBell popup (rendered)", () => {
     expect(container.querySelectorAll(".bell-item-badge[data-tint]").length).toBe(0);
   });
 
+  it("never shows a vendor logo for the app's own update (title 'DLSSync' must not match nvidia via 'dlss')", async () => {
+    notifications.set([
+      makeNotificationEntry("app_update_available", "DLSSync v1.6.4 available", "A visual overhaul of the game detail panel."),
+    ]);
+    const { container } = render(NotificationsBell, { props: { open: true, onClose: vi.fn() } });
+    await tick();
+    expect(container.querySelectorAll(".bell-item-logo").length).toBe(0);
+    expect(container.querySelector(".bell-item-badge[data-tint]")?.getAttribute("data-tint")).toBe("blue");
+  });
+
+  it("shows a vendor logo for any vendor-bound kind, with the structured vendor winning over text", async () => {
+    notifications.set([
+      makeNotificationEntry("apply_success", "Updated Cyberpunk 2077", "NVIDIA DLSS applied", { vendor: "amd" }),
+      makeNotificationEntry("apply_success", "Updated Horizon", "DLSS Frame Generation 310.6"),
+      makeNotificationEntry("backup_restored", "Restored RTX preset backup"),
+    ]);
+    const { container } = render(NotificationsBell, { props: { open: true, onClose: vi.fn() } });
+    await tick();
+    expect(container.querySelectorAll(".bell-item-logo").length).toBe(3);
+    expect(container.querySelectorAll(".bell-item-badge[data-tint]").length).toBe(0);
+  });
+
+  it("never shows a vendor logo for app/scan/refresh kinds even when the text names a vendor", async () => {
+    notifications.set([
+      makeNotificationEntry("scan_failed", "Library scan failed", "NVIDIA driver enumeration error"),
+      makeNotificationEntry("catalog_refresh_failed", "Catalog refresh failed", "RTX manifest unreachable"),
+      makeNotificationEntry("dll_updates_available", "8 updates ready in 1 game", "Open the Library to apply them"),
+    ]);
+    const { container } = render(NotificationsBell, { props: { open: true, onClose: vi.fn() } });
+    await tick();
+    expect(container.querySelectorAll(".bell-item-logo").length).toBe(0);
+    expect(container.querySelectorAll(".bell-item-badge[data-tint]").length).toBe(3);
+  });
+
   it("renders external link actions: release entry gets GitHub + Nexus, driver entry gets one", async () => {
     notifications.set([
       makeNotificationEntry("app_update_available", "DLSSync v1.6.0 available", "Fixed XeSS", {

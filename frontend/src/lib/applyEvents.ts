@@ -10,6 +10,7 @@ import {
   type InflightSnapshot,
 } from "./api";
 import { translate, locale } from "./i18n/index";
+import { vendorForFamily } from "./ux";
 import { activeApplies, downloadProgressByGroup, inflightCount, type ApplyTracker } from "./stores";
 import {
   installNotificationsListener,
@@ -63,6 +64,7 @@ function buildTerminalEntry(
     game_id: tracker.game_id,
     error_class: p.error_class ?? null,
     link: null,
+    vendor: family ? vendorForFamily(family) : null,
   };
 }
 

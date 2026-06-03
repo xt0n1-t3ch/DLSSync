@@ -3,7 +3,7 @@ resolver = "2"
 members = ["src-tauri", "crates/*"]
 
 [workspace.package]
-version = "1.6.4"
+version = "1.6.5"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/xt0n1-t3ch/DLSSync"
@@ -26,6 +26,8 @@ tokio-util = "0.7"
 async-trait = "0.1"
 sha2 = "0.10"
 md-5 = "0.10"
+ed25519-dalek = "2.1"
+hex = "0.4"
 blake3 = "1.5"
 pelite = "0.10"
 memchr = "2.7"

@@ -5,6 +5,29 @@ All notable changes to DLSSync are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.5] - 2026-06-03
+
+DLSSync can keep your DLLs current on its own now — a background daemon that scans on a schedule, sits in the tray, and warns you before you touch a game that can ban you for it.
+
+### Added
+
+- Background updates. Turn it on and DLSSync rescans your library on a schedule (every 1 to 168 hours) even with the window closed, shows how many games have updates ready in the tray, and raises a Windows notification when something is waiting. It can close to the tray instead of quitting, start with Windows minimized, and apply everything in one click from the tray, the notification, or the Library header. Optional auto-apply always skips anti-cheat games and makes a backup first. Off by default.
+- A ban-risk warning at the moment you apply. Games protected by EAC, BattlEye, or VAC now show a risk chip next to Apply and ask for one explicit confirmation before any DLL is replaced — the warning lands at the apply step, not buried in a panel.
+- Manifest signature verification (Ed25519) against a key baked into the app. Verification ships now; fail-closed enforcement is staged for a later release, once the signed manifest is live across the CDN.
+
+### Changed
+
+- Notification logos come from the component being updated, not a guess at the wording — so a DLSSync release no longer shows up wearing NVIDIA's logo, and an FSR or XeSS update wears the right one.
+- The close-to-tray and start-with-Windows switches moved into the new Background updates section; the Performance section keeps the efficiency (EcoQoS) toggle.
+- In release builds the catalog URL can no longer be redirected by an environment variable.
+
+### Fixed
+
+- Duplicate driver notifications are gone — dedup is enforced in the database instead of racing in memory — and the ones that had piled up are pruned the next time you launch. Apply notifications also stop being swallowed after the first one per game.
+- Authenticode checks validate the whole certificate chain for revocation, falling back only when the machine is offline.
+- ZIP extraction is bounded by the bytes actually written rather than a size the archive claims, a single failed download no longer poisons that file's cache for the rest of the session, a cancelled apply stops sooner, and a failed item in a batch now reports which one.
+- Updated the test runner to clear a security advisory.
+
 ## [1.6.4] - 2026-06-02
 
 A visual overhaul. The game detail panel, the library filters, and the About, Settings, and Backups pages were rebuilt, the whole app reads correctly in light mode, and notifications stop repeating themselves and start telling you something worth reading.
@@ -115,6 +138,7 @@ of the Arc desktop package, and install progress no longer breaks when you switc
 - AMD opens its official download page instead of a constructed installer URL. The direct `.exe` is gated behind a license prompt and its filename changes per release, so a fabricated link was unreliable; version and changelog detection are unchanged.
 - Vendor installer exit codes are reported with a readable message. Intel's "no compatible device" (exit code 8) now explains the GPU may be OEM-locked or need a different driver branch, pointing to the manufacturer or Windows Update.
 
+[1.6.5]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.5
 [1.6.4]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.4
 [1.6.3]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.3
 [1.6.2]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.2

@@ -162,6 +162,40 @@ fn run_wua_install_child(
     exit
 }
 
+const BACKGROUND_INITIAL_DELAY_SECS: u64 = 60;
+const SECS_PER_HOUR: u64 = 60 * 60;
+
+/// Backend scan scheduler. A `tokio` interval drives the cadence; each tick the
+/// loop re-reads `settings.background` (so interval/enabled changes apply without
+/// a restart) and, when the daemon is enabled and no apply is inflight, emits
+/// `background:scan-tick` for the frontend to run the existing scan/digest flow.
+fn spawn_background_scheduler(handle: tauri::AppHandle) {
+    use tauri::{Emitter, Manager};
+
+    tauri::async_runtime::spawn(async move {
+        let state = handle.state::<state::AppState>();
+        tokio::time::sleep(tokio::time::Duration::from_secs(
+            BACKGROUND_INITIAL_DELAY_SECS,
+        ))
+        .await;
+
+        loop {
+            let background = state.settings.read().background.clone();
+            let wait_secs = background.effective_interval_hours() as u64 * SECS_PER_HOUR;
+
+            if background.enabled {
+                if state.apply_registry.in_flight() > 0 {
+                    tracing::debug!("background scan tick skipped: apply inflight");
+                } else if let Err(e) = handle.emit(tray::EVENT_BACKGROUND_SCAN_TICK, ()) {
+                    tracing::warn!(error = %e, "background scan tick emit failed");
+                }
+            }
+
+            tokio::time::sleep(tokio::time::Duration::from_secs(wait_secs)).await;
+        }
+    });
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(windows)]
@@ -194,13 +228,17 @@ pub fn run() {
             Some(vec!["--minimized"]),
         ))
         .manage(state::AppState::new())
-        .manage(tray::TrayPrefs::new(true))
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 use tauri::Manager;
                 let app = window.app_handle();
-                let prefs = app.state::<tray::TrayPrefs>();
-                if prefs.close_to_tray() {
+                let close_to_tray = app
+                    .state::<state::AppState>()
+                    .settings
+                    .read()
+                    .background
+                    .close_to_tray;
+                if close_to_tray {
                     let _ = window.hide();
                     api.prevent_close();
                 }
@@ -308,6 +346,14 @@ pub fn run() {
                 tracing::warn!(error = %e, "tray icon install failed");
             }
 
+            if std::env::args().any(|a| a == "--minimized") {
+                if let Some(w) = app.get_webview_window("main") {
+                    let _ = w.hide();
+                }
+            }
+
+            spawn_background_scheduler(app.handle().clone());
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -363,8 +409,7 @@ pub fn run() {
             commands::dlss_profile::find_game_executable,
             commands::runtime::runtime_mode,
             commands::runtime::open_devtools,
-            commands::ui_prefs::set_close_to_tray,
-            commands::ui_prefs::get_close_to_tray,
+            commands::background::tray_set_pending,
             commands::ui_prefs::set_efficiency_mode,
             commands::ui_prefs::hide_main_window,
             commands::ui_prefs::show_main_window,

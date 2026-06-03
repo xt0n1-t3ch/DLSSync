@@ -1,41 +1,20 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { get } from "svelte/store";
-  import { showToast } from "../lib/stores";
-  import { t, locale, translate } from "../lib/i18n/index";
-  import { setCloseToTray, getCloseToTray, setEfficiencyMode } from "../lib/api";
+  import { t } from "../lib/i18n/index";
+  import { setEfficiencyMode } from "../lib/api";
   import Sparkles from "@lucide/svelte/icons/sparkles";
-  import Minimize2 from "@lucide/svelte/icons/minimize-2";
-  import Power from "@lucide/svelte/icons/power";
 
-  const AUTOSTART_ARGS = ["--minimized"];
   const PREF_KEYS = {
     efficiencyOnMinimize: "dlssync-pref-efficiency-on-minimize",
-    closeToTray: "dlssync-pref-close-to-tray",
   } as const;
 
-  let closeToTray = $state(true);
   let efficiencyOnMinimize = $state(true);
-  let autostartEnabled = $state(false);
-  let autostartReady = $state(false);
   let efficiencyApplied = $state(false);
 
   onMount(async () => {
     try {
-      closeToTray = await getCloseToTray();
-    } catch {
-      closeToTray = true;
-    }
-    try {
       efficiencyOnMinimize = localStorage.getItem(PREF_KEYS.efficiencyOnMinimize) !== "false";
     } catch {}
-    try {
-      const { isEnabled } = await import("@tauri-apps/plugin-autostart");
-      autostartEnabled = await isEnabled();
-      autostartReady = true;
-    } catch {
-      autostartReady = false;
-    }
     if (efficiencyOnMinimize) {
       await wireEfficiencyHooks();
     }
@@ -84,16 +63,6 @@
     } catch {}
   }
 
-  async function toggleCloseToTray(next: boolean): Promise<void> {
-    closeToTray = next;
-    try {
-      await setCloseToTray(next);
-      try { localStorage.setItem(PREF_KEYS.closeToTray, String(next)); } catch {}
-    } catch (err: unknown) {
-      showToast("danger", translate(get(locale), "component.perf.toast.closeToTrayFailed", { error: String(err) }));
-    }
-  }
-
   async function toggleEfficiency(next: boolean): Promise<void> {
     efficiencyOnMinimize = next;
     try { localStorage.setItem(PREF_KEYS.efficiencyOnMinimize, String(next)); } catch {}
@@ -104,40 +73,9 @@
     }
   }
 
-  async function toggleAutostart(next: boolean): Promise<void> {
-    if (!autostartReady) return;
-    autostartEnabled = next;
-    try {
-      const mod = await import("@tauri-apps/plugin-autostart");
-      if (next) {
-        await mod.enable();
-      } else {
-        await mod.disable();
-      }
-      const verified = await mod.isEnabled();
-      autostartEnabled = verified;
-    } catch (err: unknown) {
-      autostartEnabled = !next;
-      showToast("danger", translate(get(locale), "component.perf.toast.autostartFailed", { error: String(err) }));
-    }
-  }
 </script>
 
 <div class="perf-card">
-  <div class="perf-row">
-    <div class="perf-icon" aria-hidden="true">
-      <Minimize2 size={14} />
-    </div>
-    <div class="perf-meta">
-      <span class="perf-label">{$t("component.perf.closeToTray.label")}</span>
-      <span class="perf-sub">{$t("component.perf.closeToTray.sub")}</span>
-    </div>
-    <label class="toggle">
-      <input type="checkbox" checked={closeToTray} onchange={(e) => toggleCloseToTray((e.target as HTMLInputElement).checked)} />
-      <span class="toggle-slider"></span>
-    </label>
-  </div>
-
   <div class="perf-row">
     <div class="perf-icon" aria-hidden="true">
       <Sparkles size={14} />
@@ -151,23 +89,6 @@
     </div>
     <label class="toggle">
       <input type="checkbox" checked={efficiencyOnMinimize} onchange={(e) => toggleEfficiency((e.target as HTMLInputElement).checked)} />
-      <span class="toggle-slider"></span>
-    </label>
-  </div>
-
-  <div class="perf-row">
-    <div class="perf-icon" aria-hidden="true">
-      <Power size={14} />
-    </div>
-    <div class="perf-meta">
-      <span class="perf-label">
-        {$t("component.perf.autostart.label")}
-        {#if !autostartReady}<span class="chip chip-neutral small-pill">{$t("component.perf.autostart.unavailable")}</span>{/if}
-      </span>
-      <span class="perf-sub">{$t("component.perf.autostart.sub")} <span class="mono">{AUTOSTART_ARGS.join(" ")}</span>.</span>
-    </div>
-    <label class="toggle">
-      <input type="checkbox" checked={autostartEnabled} disabled={!autostartReady} onchange={(e) => toggleAutostart((e.target as HTMLInputElement).checked)} />
       <span class="toggle-slider"></span>
     </label>
   </div>
@@ -187,7 +108,6 @@
     align-items: center;
     padding: 14px 0;
   }
-  .perf-row + .perf-row { border-top: 1px solid var(--border); }
   .perf-icon {
     width: 32px;
     height: 32px;

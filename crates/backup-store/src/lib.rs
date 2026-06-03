@@ -9,6 +9,8 @@ pub enum BackupError {
     Sqlite(#[from] rusqlite::Error),
     #[error("not found: {0}")]
     NotFound(String),
+    #[error("invalid column identifier: {0}")]
+    InvalidColumn(String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -284,10 +286,24 @@ fn path_str(p: &Path) -> String {
     p.to_string_lossy().into_owned()
 }
 
+/// A SQLite identifier safe to interpolate into DDL: only the characters that
+/// cannot break out of an `ALTER TABLE ... ADD COLUMN <name>` clause. `column`
+/// must always be a static literal at the call sites; this is defense-in-depth
+/// against that invariant ever being violated.
+fn is_safe_column_ident(column: &str) -> bool {
+    !column.is_empty()
+        && column
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'_')
+}
+
 /// PRAGMA-guarded additive migration: add `column` to the `backups` table when an
 /// older install's DB predates it. Mirrors the notifications-store `link` column
 /// migration so existing backups upgrade in place.
 fn ensure_column(conn: &rusqlite::Connection, column: &str, decl: &str) -> Result<(), BackupError> {
+    if !is_safe_column_ident(column) {
+        return Err(BackupError::InvalidColumn(column.to_string()));
+    }
     let mut present = false;
     {
         let mut stmt = conn.prepare("PRAGMA table_info(backups)")?;
@@ -409,6 +425,48 @@ mod tests {
             hardware_id: None,
             driver_provider: None,
         }
+    }
+
+    #[test]
+    fn safe_column_ident_accepts_real_columns_rejects_injection() {
+        assert!(is_safe_column_ident("backup_type"));
+        assert!(is_safe_column_ident("device_class"));
+        assert!(is_safe_column_ident("hardware_id"));
+        assert!(is_safe_column_ident("driver_provider"));
+        assert!(is_safe_column_ident("col123"));
+
+        assert!(!is_safe_column_ident(""));
+        assert!(!is_safe_column_ident("foo bar"));
+        assert!(!is_safe_column_ident("foo;DROP TABLE backups"));
+        assert!(!is_safe_column_ident("foo TEXT; --"));
+        assert!(!is_safe_column_ident("foo-bar"));
+        assert!(!is_safe_column_ident("\"foo\""));
+    }
+
+    #[test]
+    fn ensure_column_rejects_malicious_identifier() {
+        let dir = tempdir().unwrap();
+        let store = fresh_store(&dir);
+        let conn = store.conn().unwrap();
+        let res = ensure_column(&conn, "evil; DROP TABLE backups", "TEXT");
+        assert!(matches!(res, Err(BackupError::InvalidColumn(_))));
+    }
+
+    #[test]
+    fn ensure_column_adds_valid_column_idempotently() {
+        let dir = tempdir().unwrap();
+        let store = fresh_store(&dir);
+        let conn = store.conn().unwrap();
+        ensure_column(&conn, "extra_note", "TEXT").unwrap();
+        ensure_column(&conn, "extra_note", "TEXT").unwrap();
+        let present: bool = conn
+            .prepare("PRAGMA table_info(backups)")
+            .unwrap()
+            .query_map([], |row| row.get::<_, String>(1))
+            .unwrap()
+            .filter_map(Result::ok)
+            .any(|name| name == "extra_note");
+        assert!(present);
     }
 
     #[test]

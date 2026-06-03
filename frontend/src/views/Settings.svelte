@@ -19,7 +19,8 @@
     openPath,
     getAppPaths,
   } from "../lib/api";
-  import type { AppSettings, UpdatePreferences, LauncherOverrides, AdvancedConfig, NetworkConfig, SgdbConfig, AppPathsDto } from "../lib/api";
+  import type { AppSettings, UpdatePreferences, LauncherOverrides, AdvancedConfig, NetworkConfig, SgdbConfig, AppPathsDto, BackgroundConfig } from "../lib/api";
+  import { BACKGROUND_INTERVAL_MIN_HOURS, BACKGROUND_INTERVAL_MAX_HOURS } from "../lib/api";
   import { LAUNCHER_BRANDS, LAUNCHER_BRAND_ORDER, type LauncherBrandKey } from "../lib/launcherLogos";
   import { resetNudgeSession } from "../lib/community";
   import BrandMark from "../components/BrandMark.svelte";
@@ -167,6 +168,41 @@
       ...$settings,
       update_prefs: { ...$settings.update_prefs, [key]: value },
     });
+  }
+
+  function updateBackground<K extends keyof BackgroundConfig>(key: K, value: BackgroundConfig[K]): void {
+    if (!$settings) return;
+    void persistSettings({
+      ...$settings,
+      background: { ...$settings.background, [key]: value },
+    });
+  }
+
+  /** The daemon's "run at Windows startup" pref persists into settings AND drives
+   *  the autostart plugin (same enable/disable pattern as PerformanceToggles), so
+   *  the OS registration always matches the stored preference. */
+  async function setRunAtStartup(next: boolean): Promise<void> {
+    updateBackground("run_at_startup", next);
+    try {
+      const mod = await import("@tauri-apps/plugin-autostart");
+      if (next) {
+        await mod.enable();
+      } else {
+        await mod.disable();
+      }
+      const verified = await mod.isEnabled();
+      if (verified !== next) updateBackground("run_at_startup", verified);
+    } catch (err: unknown) {
+      updateBackground("run_at_startup", !next);
+      showToast("danger", translate(get(locale), "component.perf.toast.autostartFailed", { error: String(err) }));
+    }
+  }
+
+  const INTERVAL_PRESETS = [1, 6, 12, 24, 48, 72, 168] as const;
+
+  function clampInterval(value: number): number {
+    if (!Number.isFinite(value)) return 24;
+    return Math.max(BACKGROUND_INTERVAL_MIN_HOURS, Math.min(BACKGROUND_INTERVAL_MAX_HOURS, Math.round(value)));
   }
 
   function updateOverride<K extends keyof LauncherOverrides>(key: K, value: LauncherOverrides[K]): void {
@@ -467,6 +503,113 @@
               </label>
             </div>
           {/each}
+        </div>
+
+        <header class="section-head section-head-gap">
+          <h2 class="section-title-h">
+            {$t("view.settings.general.background.title")}
+            <span class="chip chip-update small-pill">{$t("view.settings.general.background.badge")}</span>
+          </h2>
+          <p class="section-help">{$t("view.settings.general.background.help")}</p>
+        </header>
+        <div class="card">
+          <div class="row">
+            <div class="row-text">
+              <div class="row-label">{$t("view.settings.general.background.enabled.label")}</div>
+              <div class="row-sub">{$t("view.settings.general.background.enabled.sub")}</div>
+            </div>
+            <label class="toggle">
+              <input
+                type="checkbox"
+                checked={$settings.background.enabled}
+                onchange={(e) => updateBackground("enabled", (e.target as HTMLInputElement).checked)}
+              />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="row row-divider" class:row-disabled={!$settings.background.enabled}>
+            <div class="row-text">
+              <label class="row-label" for="bg-interval">{$t("view.settings.general.background.interval.label")}</label>
+              <div class="row-sub">{$t("view.settings.general.background.interval.sub")}</div>
+            </div>
+            <select
+              id="bg-interval"
+              class="sort-select interval-select"
+              value={String(clampInterval($settings.background.interval_hours))}
+              disabled={!$settings.background.enabled}
+              onchange={(e) => updateBackground("interval_hours", clampInterval(Number((e.currentTarget as HTMLSelectElement).value)))}
+            >
+              {#each INTERVAL_PRESETS as hrs (hrs)}
+                <option value={String(hrs)}>{$t("view.settings.general.background.interval.option", { count: hrs })}</option>
+              {/each}
+            </select>
+          </div>
+
+          <div class="row row-divider">
+            <div class="row-text">
+              <div class="row-label">{$t("view.settings.general.background.closeToTray.label")}</div>
+              <div class="row-sub">{$t("view.settings.general.background.closeToTray.sub")}</div>
+            </div>
+            <label class="toggle">
+              <input
+                type="checkbox"
+                checked={$settings.background.close_to_tray}
+                onchange={(e) => updateBackground("close_to_tray", (e.target as HTMLInputElement).checked)}
+              />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="row row-divider">
+            <div class="row-text">
+              <div class="row-label">{$t("view.settings.general.background.runAtStartup.label")}</div>
+              <div class="row-sub">{$t("view.settings.general.background.runAtStartup.sub")}</div>
+            </div>
+            <label class="toggle">
+              <input
+                type="checkbox"
+                checked={$settings.background.run_at_startup}
+                onchange={(e) => void setRunAtStartup((e.target as HTMLInputElement).checked)}
+              />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="row row-divider" class:row-disabled={!$settings.background.enabled}>
+            <div class="row-text">
+              <div class="row-label">{$t("view.settings.general.background.notifyToast.label")}</div>
+              <div class="row-sub">{$t("view.settings.general.background.notifyToast.sub")}</div>
+            </div>
+            <label class="toggle">
+              <input
+                type="checkbox"
+                checked={$settings.background.notify_os_toast}
+                disabled={!$settings.background.enabled}
+                onchange={(e) => updateBackground("notify_os_toast", (e.target as HTMLInputElement).checked)}
+              />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="row row-divider" class:row-disabled={!$settings.background.enabled}>
+            <div class="row-text">
+              <div class="row-label">
+                {$t("view.settings.general.background.autoApply.label")}
+                <span class="chip chip-warning small-pill">{$t("view.settings.general.background.autoApply.badge")}</span>
+              </div>
+              <div class="row-sub">{$t("view.settings.general.background.autoApply.sub")}</div>
+            </div>
+            <label class="toggle">
+              <input
+                type="checkbox"
+                checked={$settings.background.auto_apply}
+                disabled={!$settings.background.enabled}
+                onchange={(e) => updateBackground("auto_apply", (e.target as HTMLInputElement).checked)}
+              />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
         </div>
 
         <header class="section-head section-head-gap">
@@ -1037,6 +1180,27 @@
     .art-row { grid-template-columns: 1fr; gap: var(--space-2); }
   }
   .row-divider { border-top: 1px solid var(--border); }
+  .row-disabled { opacity: 0.5; }
+  .row-disabled .row-label,
+  .row-disabled .row-sub { color: var(--text-muted); }
+  .interval-select {
+    height: 36px;
+    padding: 0 var(--space-3);
+    border-radius: var(--radius-sm);
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    font-size: var(--fs-sm);
+    font-family: inherit;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    min-width: 9rem;
+    flex-shrink: 0;
+    transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+  }
+  .interval-select:hover:not(:disabled) { border-color: var(--border-hover); }
+  .interval-select:focus-visible { outline: none; border-color: var(--accent); box-shadow: var(--shadow-ring); }
+  .interval-select:disabled { cursor: not-allowed; }
   .inline-num {
     width: 88px;
     padding: var(--space-2) var(--space-3);
@@ -1284,6 +1448,6 @@
   @media (prefers-reduced-motion: reduce) {
     .side-tab, .side-tab-icon, .side-tab-rail, .inline-num, .files-disclosure,
     .files-disclosure .chev, .folder-input-wrap, .path-row, .path-action,
-    .path-remove, .path-input-row input, .add-path-pill { transition: none; }
+    .path-remove, .path-input-row input, .add-path-pill, .interval-select { transition: none; }
   }
 </style>

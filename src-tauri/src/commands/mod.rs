@@ -1,6 +1,7 @@
 pub mod advanced;
 pub mod anticheat;
 pub mod apply;
+pub mod background;
 pub mod backup;
 pub mod catalog;
 pub mod diagnostics;

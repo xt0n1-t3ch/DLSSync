@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { writable, type Writable } from "svelte/store";
+import { resolveBrandKey } from "./brands";
 
 export const NOTIFICATION_PUSHED_EVENT = "notification:pushed";
 
@@ -21,7 +22,7 @@ export function makeNotificationEntry(
   kind: NotificationKind,
   title: string,
   body: string | null = null,
-  extras?: Partial<Pick<NotificationEntry, "apply_id" | "game_id" | "error_class" | "link">>,
+  extras?: Partial<Pick<NotificationEntry, "apply_id" | "game_id" | "error_class" | "link" | "vendor">>,
 ): NotificationEntry {
   return {
     id: crypto.randomUUID(),
@@ -35,6 +36,7 @@ export function makeNotificationEntry(
     game_id: extras?.game_id ?? null,
     error_class: extras?.error_class ?? null,
     link: extras?.link ?? null,
+    vendor: extras?.vendor ?? null,
   };
 }
 
@@ -50,6 +52,33 @@ export interface NotificationEntry {
   game_id: string | null;
   error_class: string | null;
   link: string | null;
+  vendor: string | null;
+}
+
+const FEATURE_VENDOR_TOKENS: ReadonlyArray<readonly [RegExp, string]> = [
+  [/\bdlss\b|\bstreamline\b|\breflex\b|\bnvngx\b/, "nvidia"],
+  [/\bfsr\b|\bfidelityfx\b/, "amd"],
+  [/\bxess\b|\bxell\b/, "intel"],
+  [/\bdirectstorage\b/, "microsoft"],
+];
+
+const NON_VENDOR_KINDS: ReadonlySet<NotificationKind> = new Set([
+  "app_update_available",
+  "scan_failed",
+  "catalog_refresh_failed",
+]);
+
+export function vendorKeyForNotification(entry: NotificationEntry): string | null {
+  if (entry.vendor) return entry.vendor;
+  if (NON_VENDOR_KINDS.has(entry.kind)) return null;
+  const text = `${entry.title} ${entry.body ?? ""}`;
+  const byName = resolveBrandKey(text);
+  if (byName) return byName;
+  const lowered = text.toLowerCase();
+  for (const [matcher, key] of FEATURE_VENDOR_TOKENS) {
+    if (matcher.test(lowered)) return key;
+  }
+  return null;
 }
 
 export interface ListFilter {

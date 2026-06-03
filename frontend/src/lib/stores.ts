@@ -31,9 +31,12 @@ import {
   type SystemDeviceGroup,
   type SystemDriverUpdate,
   type SystemDriverProgress,
+  type BackgroundConfig,
+  DEFAULT_BACKGROUND_CONFIG,
 } from "./api";
 import { sortDriverReports, hasDriverUpdate, driverPageUrl } from "./drivers";
 import { vendorLabel, familyLabel, familyShort, type UpdateStatus } from "./labels";
+import { vendorForFamily } from "./ux";
 import {
   buildShasByVendor,
   gameStatusFromRecords,
@@ -92,6 +95,7 @@ function emitCatalogUpdateNotifications(
       "catalog_update_available",
       translate(loc, "notif.catalog.available", { label, version: d.newVersion }),
       translate(loc, "notif.catalog.wasVersion", { version: d.oldVersion }),
+      { vendor: vendorForFamily(d.family) },
     );
     pushNotification(entry).catch((err) =>
       console.warn("[dlssync] push catalog-update notification failed:", err),
@@ -124,7 +128,7 @@ function emitDriverUpdateNotifications(reports: DriverStatusReport[]): void {
       "driver_update_available",
       translate(loc, "notif.driver.title", { version, model: report.device.model }),
       translate(loc, "notif.driver.body", { vendor: vendorLabel(report.device.vendor) }),
-      { link: driverPageUrl(report) },
+      { link: driverPageUrl(report), vendor: report.device.vendor === "other" ? null : report.device.vendor },
     );
     pushNotification(entry).catch((err) =>
       console.warn("[dlssync] push driver-update notification failed:", err),
@@ -386,11 +390,20 @@ export const outdatedGameCount: Readable<number> = derived(
     $games.reduce((n, g) => (!$hidden.has(g.id) && $statuses[g.id] === "outdated" ? n + 1 : n), 0),
 );
 
-/** Total pending DLL updates and the number of distinct games carrying at least
- *  one, computed from the same primitives the Library hero uses
- *  (`outdatedDllsAcrossLibrary`): outdated, updatable, pinned-aware records with a
- *  resolvable target. Reused by the proactive digest notification. */
-export function pendingDllUpdateDigest(): { total: number; games: number } {
+/** One outdated, updatable, pinned-aware DLL record with a resolved target
+ *  version, paired with its owning game. The single source of truth for the
+ *  Library hero "Apply all", the proactive digest, and the background daemon. */
+export interface OutdatedDllItem {
+  game: DetectedGame;
+  record: DllRecord;
+  target: string;
+}
+
+/** Every outdated DLL across the visible library that is eligible to apply —
+ *  honoring hidden games, per-game disabled families, update-pref gating, and
+ *  pins. Centralized here so the Library view, the digest, and the background
+ *  scheduler all derive the Apply-All batch identically. */
+export function outdatedDllItems(): OutdatedDllItem[] {
   const $games = get(games);
   const $hidden = get(hiddenIds);
   const $statuses = get(gameStatuses);
@@ -398,29 +411,34 @@ export function pendingDllUpdateDigest(): { total: number; games: number } {
   const $ctx = get(relationContext);
   const $settings = get(settings);
   const prefs = $settings?.update_prefs ?? null;
-  let total = 0;
-  let gamesWithUpdates = 0;
+  const out: OutdatedDllItem[] = [];
   for (const game of $games) {
     if ($hidden.has(game.id)) continue;
     if ($statuses[game.id] !== "outdated") continue;
     const records = $dlls[game.id] ?? [];
     const disabled = $settings?.game_preferences[game.id]?.disabled_families ?? [];
     const pinned = $settings?.game_preferences[game.id]?.pinned_versions ?? {};
-    let gameCount = 0;
     for (const r of records) {
       if (disabled.includes(r.family)) continue;
       if (!recordUpdatable(r, prefs)) continue;
       const pin = pinned[`${r.family}|${r.path}`] ?? null;
       if (dllRelation(r, $ctx, pin) !== "outdated") continue;
-      if (!targetVersion(r, $ctx, pin)) continue;
-      gameCount += 1;
-    }
-    if (gameCount > 0) {
-      total += gameCount;
-      gamesWithUpdates += 1;
+      const target = targetVersion(r, $ctx, pin);
+      if (!target) continue;
+      out.push({ game, record: r, target });
     }
   }
-  return { total, games: gamesWithUpdates };
+  return out;
+}
+
+/** Total pending DLL updates and the number of distinct games carrying at least
+ *  one. Derived from `outdatedDllItems` so the count and the Apply-All batch can
+ *  never drift. Reused by the proactive digest notification and the daemon. */
+export function pendingDllUpdateDigest(): { total: number; games: number } {
+  const items = outdatedDllItems();
+  const gameIds = new Set<string>();
+  for (const it of items) gameIds.add(it.game.id);
+  return { total: items.length, games: gameIds.size };
 }
 
 /** Push ONE proactive digest ("N updates ready in M games") when the library has
@@ -921,13 +939,27 @@ export const dockItems: Readable<DockItem[]> = derived(
   },
 );
 
+/** Backstop the nested `background` block when an older backend returns settings
+ *  without it (the Rust struct serde-defaults it, but a stale in-memory shape or
+ *  a test stub may omit it). Keeps `$settings.background.*` reads total. */
+function withBackgroundDefaults(s: AppSettings): AppSettings {
+  return { ...s, background: { ...DEFAULT_BACKGROUND_CONFIG, ...(s.background ?? {}) } };
+}
+
 export async function loadSettings(): Promise<void> {
   try {
     const result = await getSettings();
-    settings.set(result);
+    settings.set(withBackgroundDefaults(result));
   } catch (err: unknown) {
     showToast("danger", translate(get(locale), "toast.settingsLoadFailed", { msg: formatError(err) }));
   }
+}
+
+/** Read the effective background config (always defaulted), even before any
+ *  settings have loaded. Used by the daemon tick handler. */
+export function backgroundConfig(): BackgroundConfig {
+  const s = get(settings);
+  return { ...DEFAULT_BACKGROUND_CONFIG, ...(s?.background ?? {}) };
 }
 
 export async function persistSettings(next: AppSettings): Promise<void> {

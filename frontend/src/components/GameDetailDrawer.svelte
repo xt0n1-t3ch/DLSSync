@@ -22,7 +22,7 @@
   } from "../lib/stores";
   import { dllRelation, targetVersion, recordUpdatable, isStreamlinePlugin } from "../lib/relation";
   import { addBlacklistEntry, removeBlacklistEntry, findGameExecutable, detectAnticheat, saveSettings, type AppSettings, type DllRecord, type AntiCheatReport } from "../lib/api";
-  import { hasAntiCheat, statusNote, warningMessage, severity } from "../lib/anticheat";
+  import { hasAntiCheat, statusNote, warningMessage, severity, detectedNames } from "../lib/anticheat";
   import DlssOverridePanel from "./DlssOverridePanel.svelte";
   import { dispatchApply, dispatchStreamlineSet, type ApplyTarget } from "../lib/applyController";
   import {
@@ -363,6 +363,26 @@
     return out;
   }
 
+  let acConfirming = $state(false);
+
+  $effect(() => {
+    if (gameId) acConfirming = false;
+  });
+
+  function requestApply(): void {
+    if (selectedCount === 0) return;
+    if (acActive && acSeverity === "danger" && !acConfirming) {
+      acConfirming = true;
+      return;
+    }
+    acConfirming = false;
+    void applySelected();
+  }
+
+  function cancelApplyConfirm(): void {
+    acConfirming = false;
+  }
+
   async function applySelected(): Promise<void> {
     if (!game) return;
     const items = selectedRecords();
@@ -499,6 +519,7 @@
   let acActive = $derived(hasAntiCheat(acReport));
   let acStatus = $derived(acReport ? statusNote(acReport) : null);
   let acSeverity = $derived(acReport ? severity(acReport) : "warning");
+  let acNames = $derived(acReport ? detectedNames(acReport) : "");
   let acLearnUrl = $derived(acReport?.source_url ?? EXTERNAL_URLS.anticheatFaq);
 </script>
 
@@ -935,13 +956,47 @@
             : $t("component.gameDrawer.streamlineSet.label", { count: streamlineSetMembers.length })}
         </button>
       {/if}
+      {#if acActive && selectedCount > 0}
+        <span
+          id="ac-apply-risk-note"
+          class="ac-apply-risk"
+          class:is-warning={acSeverity !== "danger"}
+          class:is-danger={acSeverity === "danger"}
+          role="note"
+          title={acNames ? $t("component.gameDrawer.anticheat.apply.chipTitle", { names: acNames }) : ""}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <span>{acSeverity === "danger" ? $t("component.gameDrawer.anticheat.apply.chipBan") : $t("component.gameDrawer.anticheat.apply.chipRisk")}</span>
+        </span>
+      {/if}
+      {#if acConfirming}
+        <div class="ac-apply-confirm" role="alertdialog" aria-label={$t("component.gameDrawer.anticheat.apply.confirmAria")}>
+          <p class="ac-confirm-text">
+            {acNames
+              ? $t("component.gameDrawer.anticheat.apply.confirmBody", { names: acNames })
+              : $t("component.gameDrawer.anticheat.apply.confirmBodyGeneric")}
+          </p>
+          <div class="ac-confirm-actions">
+            <button class="btn btn-sm btn-ghost ac-confirm-cancel" onclick={cancelApplyConfirm}>
+              {$t("component.gameDrawer.anticheat.apply.confirmCancel")}
+            </button>
+            <button class="btn btn-sm btn-danger ac-confirm-proceed" onclick={requestApply}>
+              {$t("component.gameDrawer.anticheat.apply.confirmProceed")}
+            </button>
+          </div>
+        </div>
+      {/if}
       <button
         class="btn btn-primary halo is-update foot-apply"
         class:is-active={selectedCount > 0}
+        class:is-ac-danger={acActive && acSeverity === "danger"}
         disabled={selectedCount === 0}
-        onclick={applySelected}
+        aria-describedby={acActive && selectedCount > 0 ? "ac-apply-risk-note" : undefined}
+        onclick={requestApply}
       >
-        {$t("component.gameDrawer.applySelected", { count: selectedCount })}
+        {acConfirming
+          ? $t("component.gameDrawer.anticheat.apply.applyAnyway")
+          : $t("component.gameDrawer.applySelected", { count: selectedCount })}
       </button>
     </footer>
   </div>
@@ -1539,6 +1594,9 @@
     order: 9;
     justify-content: center;
   }
+  .drawer-foot .foot-apply.is-ac-danger {
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--danger) 55%, transparent);
+  }
   .drawer-foot .foot-streamline {
     flex: 1 1 100%;
     height: 40px;
@@ -1546,6 +1604,64 @@
     justify-content: center;
   }
   .ahead-chip { order: 7; padding: 4px var(--space-3); flex: 0 0 auto; }
+
+  .ac-apply-risk {
+    order: 6;
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px var(--space-3);
+    border-radius: var(--radius-full);
+    font-size: var(--fs-2xs);
+    font-weight: 700;
+    letter-spacing: var(--letter-wide);
+    text-transform: uppercase;
+    line-height: 1;
+  }
+  .ac-apply-risk svg { flex-shrink: 0; }
+  .ac-apply-risk.is-warning {
+    color: var(--warning);
+    background: var(--warning-dim);
+    border: 1px solid color-mix(in srgb, var(--warning) 45%, transparent);
+  }
+  .ac-apply-risk.is-danger {
+    color: var(--danger);
+    background: var(--danger-dim);
+    border: 1px solid color-mix(in srgb, var(--danger) 50%, transparent);
+  }
+
+  .ac-apply-confirm {
+    order: 5;
+    flex: 1 1 100%;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-md);
+    background: var(--danger-dim);
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    animation: ac-confirm-in var(--dur-fast) var(--ease);
+  }
+  @keyframes ac-confirm-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .ac-confirm-text {
+    flex: 1 1 200px;
+    min-width: 0;
+    font-size: var(--fs-sm);
+    line-height: var(--lh-snug);
+    overflow-wrap: anywhere;
+  }
+  .ac-confirm-actions { display: flex; gap: var(--space-2); flex: 0 0 auto; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ac-apply-confirm { animation: none; }
+  }
 
   .spinner {
     width: 14px;

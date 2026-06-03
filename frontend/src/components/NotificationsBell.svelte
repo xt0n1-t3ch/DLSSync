@@ -6,6 +6,7 @@
     markAllRead,
     dismiss,
     refreshNotifications,
+    vendorKeyForNotification,
     type NotificationEntry,
     type NotificationKind,
   } from "../lib/notifications";
@@ -141,15 +142,6 @@
     }
   }
 
-  function vendorKeyForEntry(entry: NotificationEntry): string | null {
-    const s = `${entry.title} ${entry.body ?? ""}`.toLowerCase();
-    if (/nvidia|dlss|reflex|streamline|geforce|\brtx\b|nvngx/.test(s)) return "nvidia";
-    if (/\bamd\b|\bfsr\b|fidelityfx|radeon/.test(s)) return "amd";
-    if (/intel|xess|\barc\b/.test(s)) return "intel";
-    if (/microsoft|directstorage/.test(s)) return "microsoft";
-    return null;
-  }
-
   function tintForKind(kind: NotificationKind): string {
     switch (kind) {
       case "apply_success": return "green";
@@ -180,7 +172,7 @@
         <div class="bell-panel-empty">{$t("component.notif.empty")}</div>
       {:else}
         {#each entries as entry (entry.id)}
-          {@const vendorKey = vendorKeyForEntry(entry)}
+          {@const vendorKey = vendorKeyForNotification(entry)}
           <div
             class="bell-item"
             class:bell-item-unread={entry.read_at == null}

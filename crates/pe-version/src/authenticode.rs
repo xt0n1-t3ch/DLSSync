@@ -8,6 +8,12 @@ pub struct AuthenticodeInfo {
     pub subject_dn: Option<String>,
     pub issuer_dn: Option<String>,
     pub status: String,
+    /// `true` when whole-chain revocation checking could not reach the CRL/OCSP
+    /// responders and trust was decided with revocation checking bypassed. The
+    /// signer cert may have been revoked without us being able to observe it, so
+    /// callers should treat `trusted` more cautiously when this is set.
+    #[serde(default)]
+    pub revocation_bypassed: bool,
 }
 
 #[cfg(windows)]
@@ -18,6 +24,7 @@ pub fn read_authenticode(path: &Path) -> Option<AuthenticodeInfo> {
         subject_dn: None,
         issuer_dn: None,
         status,
+        revocation_bypassed: false,
     }))
 }
 
@@ -38,16 +45,30 @@ mod win {
 
     const ENCODING: u32 = X509_ASN_ENCODING | PKCS_7_ASN_ENCODING;
 
-    /// Cryptographically verify the file's embedded Authenticode signature with
-    /// `WinVerifyTrust` (`WINTRUST_ACTION_GENERIC_VERIFY_V2`): the signed digest
-    /// must match the file and the signer certificate must chain to a trusted
-    /// root. Without this the embedded subject name is forgeable — any binary
-    /// can carry a self-signed cert claiming `CN = NVIDIA Corporation`. Online
-    /// revocation is skipped (`WTD_REVOKE_NONE`) to honor the offline / minimal-
-    /// outbound promise; the digest + chain trust are still enforced.
-    fn verify_trust(wide: &[u16]) -> bool {
+    /// `WinVerifyTrust` return codes (`LONG`) we special-case. `WinVerifyTrust`
+    /// surfaces a revocation-offline condition as `CERT_E_REVOCATION_FAILURE`;
+    /// the lower-level `CRYPT_E_*` codes can also bubble up depending on the
+    /// provider, so all three count as "could not reach the revocation servers".
+    const CERT_E_REVOCATION_FAILURE: i32 = 0x800B_010E_u32 as i32;
+    const CRYPT_E_REVOCATION_OFFLINE: i32 = 0x8009_2013_u32 as i32;
+    const CRYPT_E_NO_REVOCATION_CHECK: i32 = 0x8009_2012_u32 as i32;
+
+    fn is_revocation_offline(status: i32) -> bool {
+        matches!(
+            status,
+            CERT_E_REVOCATION_FAILURE | CRYPT_E_REVOCATION_OFFLINE | CRYPT_E_NO_REVOCATION_CHECK
+        )
+    }
+
+    /// Run `WinVerifyTrust` (`WINTRUST_ACTION_GENERIC_VERIFY_V2`) once with the
+    /// supplied revocation policy and return its raw `LONG` status (0 == trusted).
+    /// The signed digest must match the file and the signer certificate must
+    /// chain to a trusted root. Without this the embedded subject name is
+    /// forgeable — any binary can carry a self-signed cert claiming
+    /// `CN = NVIDIA Corporation`.
+    fn verify_trust_with(wide: &[u16], revocation_checks: u32) -> i32 {
         use windows_sys::Win32::Security::WinTrust::{
-            WinVerifyTrust, WINTRUST_DATA, WINTRUST_FILE_INFO, WTD_CHOICE_FILE, WTD_REVOKE_NONE,
+            WinVerifyTrust, WINTRUST_DATA, WINTRUST_FILE_INFO, WTD_CHOICE_FILE,
             WTD_STATEACTION_CLOSE, WTD_STATEACTION_VERIFY, WTD_UI_NONE,
         };
         // WINTRUST_ACTION_GENERIC_VERIFY_V2 {00AAC56B-CD44-11d0-8CC2-00C04FC295EE}
@@ -64,7 +85,7 @@ mod win {
         let mut data: WINTRUST_DATA = unsafe { std::mem::zeroed() };
         data.cbStruct = size_of::<WINTRUST_DATA>() as u32;
         data.dwUIChoice = WTD_UI_NONE;
-        data.fdwRevocationChecks = WTD_REVOKE_NONE;
+        data.fdwRevocationChecks = revocation_checks;
         data.dwUnionChoice = WTD_CHOICE_FILE;
         data.dwStateAction = WTD_STATEACTION_VERIFY;
         data.Anonymous.pFile = &mut file_info;
@@ -76,7 +97,37 @@ mod win {
         unsafe {
             WinVerifyTrust(null_mut(), &mut action, &mut data as *mut _ as *mut c_void);
         }
-        status == 0
+        status
+    }
+
+    /// Verify the embedded Authenticode signature requiring whole-chain
+    /// revocation checking (`WTD_REVOKE_WHOLECHAIN`) — a signer cert revoked by
+    /// the vendor is rejected. If the revocation responders are unreachable
+    /// (`is_revocation_offline`), fall back to a no-revocation verification
+    /// (`WTD_REVOKE_NONE`, digest + chain trust still enforced) so an offline
+    /// machine is not stranded, and report that the bypass happened. Any other
+    /// failure (revoked cert, bad digest, untrusted chain) is NOT bypassed.
+    /// Returns `(trusted, revocation_bypassed)`.
+    fn verify_trust(wide: &[u16], path: &Path) -> (bool, bool) {
+        use windows_sys::Win32::Security::WinTrust::{WTD_REVOKE_NONE, WTD_REVOKE_WHOLECHAIN};
+
+        let status = verify_trust_with(wide, WTD_REVOKE_WHOLECHAIN);
+        if status == 0 {
+            return (true, false);
+        }
+        if !is_revocation_offline(status) {
+            return (false, false);
+        }
+        let fallback = verify_trust_with(wide, WTD_REVOKE_NONE);
+        let trusted = fallback == 0;
+        tracing::warn!(
+            path = %path.display(),
+            wholechain_status = format_args!("0x{:08X}", status as u32),
+            no_revoke_trusted = trusted,
+            "Authenticode revocation servers unreachable; trust decided with \
+             revocation checking BYPASSED (cert could be revoked without our knowledge)"
+        );
+        (trusted, true)
     }
 
     pub fn read(path: &Path) -> Result<AuthenticodeInfo, String> {
@@ -85,7 +136,7 @@ mod win {
             .encode_wide()
             .chain(std::iter::once(0))
             .collect();
-        let trusted = verify_trust(&wide);
+        let (trusted, revocation_bypassed) = verify_trust(&wide, path);
 
         let mut encoding: u32 = 0;
         let mut content_type: u32 = 0;
@@ -169,11 +220,14 @@ mod win {
                 subject_cn,
                 subject_dn,
                 issuer_dn,
-                status: if trusted {
+                status: if trusted && revocation_bypassed {
+                    "Trusted (revocation check bypassed — offline)".to_string()
+                } else if trusted {
                     "Trusted".to_string()
                 } else {
                     "Signed (digest or chain not trusted)".to_string()
                 },
+                revocation_bypassed,
             })
         })();
 
@@ -224,6 +278,26 @@ mod win {
             0x80092004 => "CRYPT_E_NOT_FOUND",
             0x80092005 => "CRYPT_E_NO_KEY_PROPERTY",
             _ => "Win32 error",
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn revocation_offline_classifies_known_offline_codes() {
+            assert!(is_revocation_offline(CERT_E_REVOCATION_FAILURE));
+            assert!(is_revocation_offline(CRYPT_E_REVOCATION_OFFLINE));
+            assert!(is_revocation_offline(CRYPT_E_NO_REVOCATION_CHECK));
+        }
+
+        #[test]
+        fn revocation_offline_rejects_revoked_and_untrusted() {
+            assert!(!is_revocation_offline(0x800B_0111_u32 as i32));
+            assert!(!is_revocation_offline(0x8009_6010_u32 as i32));
+            assert!(!is_revocation_offline(0x800B_0109_u32 as i32));
+            assert!(!is_revocation_offline(0));
         }
     }
 }
@@ -281,6 +355,7 @@ mod tests {
             subject_dn: None,
             issuer_dn: None,
             status: "Signed".into(),
+            revocation_bypassed: false,
         };
         assert!(enforce_subject(&info, "nvidia").is_ok());
         assert!(enforce_subject(&info, "amd").is_err());
@@ -294,6 +369,7 @@ mod tests {
             subject_dn: None,
             issuer_dn: None,
             status: "NotSigned".into(),
+            revocation_bypassed: false,
         };
         assert!(enforce_subject(&info, "nvidia").is_err());
     }
@@ -306,6 +382,7 @@ mod tests {
             subject_dn: None,
             issuer_dn: None,
             status: "Signed".into(),
+            revocation_bypassed: false,
         };
         assert!(enforce_subject(&info, "nvidia").is_ok());
     }
