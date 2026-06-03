@@ -57,3 +57,6 @@ PLAN.md
 spec.md
 SPEC.md
 *.handoff.md
+
+# Manifest signing private key — NEVER commit
+secrets/

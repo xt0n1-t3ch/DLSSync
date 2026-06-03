@@ -312,7 +312,7 @@ async fn main() -> Result<()> {
         std::fs::create_dir_all(parent)?;
     }
     let body = serde_json::to_vec_pretty(&catalog)?;
-    std::fs::write(&cli.out, body)?;
+    std::fs::write(&cli.out, &body)?;
     let total: usize = catalog
         .vendors
         .values()
@@ -320,7 +320,84 @@ async fn main() -> Result<()> {
         .map(|f| f.releases.len())
         .sum();
     tracing::info!(path = %cli.out.display(), releases = total, "wrote manifest");
+
+    match std::env::var(SIGNING_KEY_ENV) {
+        Ok(key_hex) => {
+            let sig_path = sign_manifest(&cli.out, &body, key_hex.trim())?;
+            tracing::info!(path = %sig_path.display(), "wrote detached Ed25519 manifest signature");
+        }
+        Err(_) => {
+            tracing::warn!(
+                env = SIGNING_KEY_ENV,
+                "manifest written UNSIGNED — set the signing key env to emit manifest.json.sig (release builds enforce signatures)"
+            );
+        }
+    }
     Ok(())
+}
+
+/// Env var holding the 32-byte Ed25519 signing seed (hex) used to sign the
+/// generated manifest. Kept out of the repo; provisioned at manifest-build time.
+const SIGNING_KEY_ENV: &str = "DLSSYNC_MANIFEST_SIGNING_KEY";
+
+/// Sign the exact manifest bytes with the Ed25519 seed and write a detached
+/// hex-encoded signature next to the manifest (`<out>.sig`), matching the suffix
+/// and format that `dll-catalog` verifies against the baked-in public key.
+fn sign_manifest(out: &std::path::Path, body: &[u8], key_hex: &str) -> Result<std::path::PathBuf> {
+    let sig_hex = sign_bytes(key_hex, body)?;
+    let mut sig_os = out.as_os_str().to_owned();
+    sig_os.push(".sig");
+    let sig_path = std::path::PathBuf::from(sig_os);
+    std::fs::write(&sig_path, sig_hex)?;
+    Ok(sig_path)
+}
+
+/// Produce the hex-encoded 64-byte detached Ed25519 signature over `body`.
+fn sign_bytes(key_hex: &str, body: &[u8]) -> Result<String> {
+    use ed25519_dalek::{Signer, SigningKey};
+    let seed = hex::decode(key_hex).context("DLSSYNC_MANIFEST_SIGNING_KEY is not valid hex")?;
+    let seed: [u8; 32] = seed
+        .as_slice()
+        .try_into()
+        .context("DLSSYNC_MANIFEST_SIGNING_KEY must be a 32-byte (64 hex char) Ed25519 seed")?;
+    Ok(hex::encode(
+        SigningKey::from_bytes(&seed).sign(body).to_bytes(),
+    ))
+}
+
+#[cfg(test)]
+mod signing_tests {
+    use super::sign_bytes;
+    use ed25519_dalek::{SigningKey, Verifier};
+
+    #[test]
+    fn sign_bytes_roundtrips_against_its_public_key() {
+        let seed = [9u8; 32];
+        let key_hex = hex::encode(seed);
+        let body = br#"{"schema_version":2}"#;
+        let sig_hex = sign_bytes(&key_hex, body).unwrap();
+        let sig_bytes: [u8; 64] = hex::decode(&sig_hex)
+            .unwrap()
+            .as_slice()
+            .try_into()
+            .unwrap();
+        let vk = SigningKey::from_bytes(&seed).verifying_key();
+        assert!(vk
+            .verify(body, &ed25519_dalek::Signature::from_bytes(&sig_bytes))
+            .is_ok());
+        assert!(vk
+            .verify(
+                br#"{"schema_version":3}"#,
+                &ed25519_dalek::Signature::from_bytes(&sig_bytes)
+            )
+            .is_err());
+    }
+
+    #[test]
+    fn sign_bytes_rejects_malformed_seed() {
+        assert!(sign_bytes("not-hex", b"x").is_err());
+        assert!(sign_bytes(&"aa".repeat(31), b"x").is_err());
+    }
 }
 
 const ANTICHEAT_DATASET: &str =

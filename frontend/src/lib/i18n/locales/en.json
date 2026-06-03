@@ -121,8 +121,14 @@
         "rescanning": "Rescanning {name}",
         "folderAlreadyAdded": "Folder already added",
         "folderAdded": "Added {path}",
-        "folderPickerFailed": "Folder picker: {error}"
-      }
+        "folderPickerFailed": "Folder picker: {error}",
+        "autoApplySkippedAnticheat_one": "Auto-apply skipped {count} game with anti-cheat",
+        "autoApplySkippedAnticheat_other": "Auto-apply skipped {count} games with anti-cheat",
+        "autoApplyAllSkipped": "All pending updates are in anti-cheat games - auto-apply skipped them"
+      },
+      "applyAllCount_one": "Apply {count} update",
+      "applyAllCount_other": "Apply all updates ({count})",
+      "applyAllTitle": "Apply every detected update across the library"
     },
     "catalog": {
       "title": "Catalog",
@@ -424,8 +430,8 @@
           "sub": "Applies instantly across the whole app."
         },
         "performance": {
-          "title": "Performance & startup",
-          "help": "Footprint controls. With all three enabled, DLSSync sits in the tray with near-zero CPU between scheduled update checks."
+          "title": "Performance",
+          "help": "CPU and battery footprint. EcoQoS schedules DLSSync onto efficient cores while minimized, dropping its impact near zero."
         },
         "updateBehavior": {
           "title": "Update behavior",
@@ -436,6 +442,38 @@
           "help": "A small card that occasionally invites you to star, endorse or share DLSSync after a successful update. It never blocks anything.",
           "label": "Show the support card",
           "sub": "A gentle nudge bottom-left after an update lands. Turn it off here any time, or re-enable it later."
+        },
+        "background": {
+          "title": "Background updates",
+          "badge": "New",
+          "help": "Let DLSSync keep watch in the background and tell you the moment a game has updates ready. Off by default.",
+          "enabled": {
+            "label": "Enable background scanning",
+            "sub": "Rescan the library and refresh the catalog on a schedule, even when the window is hidden."
+          },
+          "interval": {
+            "label": "Scan every",
+            "sub": "How often the background scan runs (1 to 168 hours).",
+            "option_one": "{count} hour",
+            "option_other": "{count} hours"
+          },
+          "closeToTray": {
+            "label": "Close to tray instead of quitting",
+            "sub": "Clicking the window X hides DLSSync to the system tray. Quit from the tray menu to exit fully."
+          },
+          "runAtStartup": {
+            "label": "Start with Windows (minimized to tray)",
+            "sub": "Launch DLSSync hidden in the tray when Windows starts — no visible window until you open it."
+          },
+          "notifyToast": {
+            "label": "Windows notification when updates are ready",
+            "sub": "Show a native Windows toast after a background scan finds pending updates. Falls back to the in-app bell if notifications are blocked."
+          },
+          "autoApply": {
+            "label": "Auto-apply updates",
+            "badge": "Advanced",
+            "sub": "After each background scan, install every eligible update automatically. Anti-cheat games are always skipped and a backup is always made first."
+          }
         }
       },
       "feature": {
@@ -1373,7 +1411,18 @@
       },
       "anticheat": {
         "learnMore": "Learn more",
-        "learnMoreTitle": "Open the anti-cheat compatibility reference"
+        "learnMoreTitle": "Open the anti-cheat compatibility reference",
+        "apply": {
+          "chipRisk": "Anti-cheat",
+          "chipBan": "Ban risk",
+          "chipTitle": "{names} detected — review before applying",
+          "applyAnyway": "Apply anyway",
+          "confirmAria": "Confirm applying to an anti-cheat protected game",
+          "confirmBody": "This game uses {names} — replacing DLLs can trigger a ban. Apply anyway?",
+          "confirmBodyGeneric": "This game uses anti-cheat — replacing DLLs can trigger a ban. Apply anyway?",
+          "confirmProceed": "Apply anyway",
+          "confirmCancel": "Cancel"
+        }
       },
       "loading": {
         "scanning": "Scanning DLLs",
@@ -1686,6 +1735,11 @@
       "failureTitle": "{gameLabel} update failed",
       "cancelledTitle": "{gameLabel} update cancelled",
       "successBody": "{family} → {version}"
+    },
+    "background": {
+      "toastTitle_one": "{count} update ready",
+      "toastTitle_other": "{count} updates ready",
+      "toastBody": "Across {games} - open DLSSync to apply"
     }
   },
   "anticheat": {
@@ -1695,5 +1749,18 @@
     "tamperRisk": "{names} detected. Swapping a DLL or forcing a DLSS preset override may fail the game's tamper-protection signature check and prevent it from launching. Backups in DLSSync restore the originals instantly if that happens.",
     "drm": "{names} detected. This game's store DRM validates its files; a DLL swap is usually fine but can require a launcher integrity re-check. Backups in DLSSync restore the originals.",
     "linuxStatus": "Linux / Wine compatibility: {status}."
+  },
+  "tray": {
+    "menu": {
+      "show": "Show DLSSync",
+      "checkNow": "Check for updates now",
+      "applyAll": "Apply all updates",
+      "quit": "Quit"
+    },
+    "tooltip": {
+      "pending_one": "DLSSync - {count} game has updates",
+      "pending_other": "DLSSync - {count} games have updates",
+      "idle": "DLSSync"
+    }
   }
 }

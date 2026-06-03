@@ -51,19 +51,14 @@ pub async fn push_notification(
     app: AppHandle,
     entry: NotificationEntry,
 ) -> AppResult<()> {
-    {
+    let inserted = {
         let guard = state.notifications.read();
         let store = store_required(&guard)?;
-        let existing = store.list(&ListFilter::default())?;
-        let duplicate = existing
-            .iter()
-            .any(|e| e.kind == entry.kind && e.title == entry.title);
-        if duplicate {
-            return Ok(());
-        }
-        store.insert(&entry)?;
+        store.insert(&entry)?
+    };
+    if inserted {
+        let _ = app.emit(NOTIFICATION_PUSHED_EVENT, &entry);
     }
-    let _ = app.emit(NOTIFICATION_PUSHED_EVENT, &entry);
     Ok(())
 }
 
@@ -100,6 +95,7 @@ mod tests {
             game_id: Some(format!("steam-{title}")),
             error_class: None,
             link: None,
+            vendor: None,
         }
     }
 

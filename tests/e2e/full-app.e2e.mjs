@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
+const VERSION = "1.6.5";
 const CDP = process.env.DLSS_CDP || "http://127.0.0.1:9333";
 const OUT = path.join(process.env.TEMP || ".", "dlss-shots-e2e");
 fs.mkdirSync(OUT, { recursive: true });
@@ -47,7 +48,7 @@ async function check(name, fn) {
   }
 }
 
-await check("shell:mounts + 6 nav items + v1.5.2", async () => {
+await check(`shell:mounts + 6 nav items + v${VERSION}`, async () => {
   const nav = await ev(`["Library","Catalog","Drivers","Backups","Settings","About"].filter(t=>document.querySelector('button[title="'+t+'"]')).length`);
   const shell = await ev(`!!document.querySelector('.app-shell,.drivers-view,.catalog-page') || document.body.children.length>0`);
   return { pass: nav === 6 && shell, detail: `navItems=${nav} shell=${shell}` };
@@ -166,21 +167,21 @@ await check("commandPalette:opens + searches + results", async () => {
   return { pass: open, detail: `open=${open} results=${results}` };
 });
 
-await check("settings:hero version + sections (tabbed) + tab switch + toggle", async () => {
+await check(`settings:hero version + sections (tabbed) + tab switch + toggle`, async () => {
   await goto("Settings"); await sleep(900);
   const hero = await count(".settings-hero");
-  const ver = await has("1.5.2");
+  const ver = await has(VERSION);
   const sections = await count(".section-title-h, .settings-hero ~ * .section-title");
   const toggles = await count("input[type=checkbox], .row input, button[role=switch], .seg-btn");
-  const tabs = await count('[role=tab], .tab-btn, .settings-tab');
-  if (tabs > 0) { await ev(`document.querySelectorAll('[role=tab],.tab-btn,.settings-tab')[1]?.click()`); await sleep(400); }
+  const tabs = await count('[role=tab], .tab-btn, .settings-tab, .side-tab');
+  if (tabs > 0) { await ev(`document.querySelectorAll('[role=tab],.tab-btn,.settings-tab,.side-tab')[1]?.click()`); await sleep(400); }
   await shot("09-settings.png");
   return { pass: hero >= 1 && ver && sections >= 2 && toggles > 0, detail: `hero=${hero} versionShown=${ver} sectionHeadingsInDom=${sections} toggles=${toggles} tabs=${tabs}` };
 });
 
-await check("about:version v1.5.2 + manifest sources + system info", async () => {
+await check(`about:version v${VERSION} + manifest sources + system info`, async () => {
   await goto("About"); await sleep(800);
-  const ver = await ev(`(document.body.innerText.match(/v?1\\.5\\.2/)||[null])[0]`);
+  const ver = await ev(`(document.body.innerText.match(/v?${VERSION.replace(/\./g, "\\.")}/)||[null])[0]`);
   const sources = await count(".source-card");
   const sys = await has("Your system");
   await shot("10-about.png");
@@ -195,6 +196,152 @@ await check("theme:toggle flips dark/light", async () => {
   await shot("11-theme.png");
   await ev(`document.querySelector('button[title="Toggle theme"]')?.click()`); await sleep(300);
   return { pass: before !== after, detail: `before=${before} after=${after}` };
+});
+
+await check("settings:daemon background-updates section + gate semantics", async () => {
+  await goto("Settings"); await sleep(900);
+  await ev(`(()=>{const t=[...document.querySelectorAll('.side-tab')].find(b=>/general/i.test(b.textContent));if(t)t.click()})()`);
+  await sleep(500);
+
+  const sectionVisible = await has("Background updates");
+
+  const rowDisabled = async (labelText) => {
+    return await ev(`(()=>{
+      const rows = [...document.querySelectorAll('.row')];
+      const row = rows.find(r => {
+        const lbl = r.querySelector('.row-label');
+        return lbl && lbl.textContent.includes(${JSON.stringify(labelText)});
+      });
+      if (!row) return null;
+      const ctrl = row.querySelector('input[type="checkbox"],select');
+      if (!ctrl) return null;
+      return ctrl.disabled;
+    })()`);
+  };
+
+  const masterDisabled = await rowDisabled("Enable background scanning");
+  const masterChecked = await ev(`(()=>{
+    const rows = [...document.querySelectorAll('.row')];
+    const row = rows.find(r => { const lbl = r.querySelector('.row-label'); return lbl && lbl.textContent.includes("Enable background scanning"); });
+    if (!row) return null;
+    const inp = row.querySelector('input[type="checkbox"]');
+    return inp ? inp.checked : null;
+  })()`);
+
+  if (masterChecked === true) {
+    await ev(`(()=>{
+      const rows = [...document.querySelectorAll('.row')];
+      const row = rows.find(r => { const lbl = r.querySelector('.row-label'); return lbl && lbl.textContent.includes("Enable background scanning"); });
+      if (!row) return;
+      const inp = row.querySelector('input[type="checkbox"]');
+      if (inp) inp.click();
+    })()`);
+    await sleep(400);
+  }
+
+  const intervalDisabled  = await rowDisabled("Scan every");
+  const notifyDisabled    = await rowDisabled("Windows notification");
+  const autoApplyDisabled = await ev(`(()=>{
+    const rows = [...document.querySelectorAll('.row')];
+    const row = rows.find(r => {
+      const lbl = r.querySelector('.row-label');
+      return lbl && lbl.textContent.includes("Auto-apply") && /background scan/i.test(r.textContent || "");
+    });
+    if (!row) return null;
+    const ctrl = row.querySelector('input[type="checkbox"],select');
+    return ctrl ? ctrl.disabled : null;
+  })()`);
+
+  const closeToTrayDisabled  = await rowDisabled("Close to tray");
+  const runAtStartupDisabled = await rowDisabled("Start with Windows");
+
+  if (masterChecked === true) {
+    await ev(`(()=>{
+      const rows = [...document.querySelectorAll('.row')];
+      const row = rows.find(r => { const lbl = r.querySelector('.row-label'); return lbl && lbl.textContent.includes("Enable background scanning"); });
+      if (!row) return;
+      const inp = row.querySelector('input[type="checkbox"]');
+      if (inp) inp.click();
+    })()`);
+    await sleep(300);
+  }
+
+  await shot("12-settings-daemon.png");
+
+  const gatedOk   = intervalDisabled === true && notifyDisabled === true && autoApplyDisabled === true;
+  const ungatedOk = closeToTrayDisabled === false && runAtStartupDisabled === false;
+  const pass = sectionVisible && gatedOk && ungatedOk;
+  return {
+    pass,
+    detail: [
+      `sectionVisible=${sectionVisible}`,
+      `masterChecked=${masterChecked}`,
+      `gated[interval=${intervalDisabled},notify=${notifyDisabled},autoApply=${autoApplyDisabled}]`,
+      `ungated[closeToTray=${closeToTrayDisabled},runAtStartup=${runAtStartupDisabled}]`,
+    ].join(" "),
+  };
+});
+
+await check("library:apply-all affordance present when pending updates exist", async () => {
+  await goto("Library"); await sleep(900);
+  const heroCount = await count(".updates-hero");
+  const applyAllBtn = await count(".btn-apply-all, .updates-hero-apply");
+  if (heroCount === 0) {
+    return { gated: true, pass: true, detail: "GATED: no outdated DLLs in library at test time; updates-hero absent, apply-all not expected" };
+  }
+  const pass = applyAllBtn > 0;
+  await shot("13-library-apply-all.png");
+  return { pass, detail: `updatesHero=${heroCount} applyAllBtn=${applyAllBtn}` };
+});
+
+await check("gameDetail:anti-cheat apply-risk affordance (gated on data)", async () => {
+  await goto("Library"); await sleep(700);
+  const cardCount = await count(".game-card");
+  if (cardCount === 0) {
+    return { gated: true, pass: true, detail: "GATED: no games in library" };
+  }
+
+  let foundAcGame = false;
+  let acRiskPresent = null;
+
+  const cards = await ev(`document.querySelectorAll('.game-card').length`);
+  const limit = Math.min(Number(cards) || 0, 5);
+
+  for (let i = 0; i < limit; i++) {
+    await ev(`document.querySelectorAll('.game-card')[${i}]?.click()`);
+    await sleep(1200);
+
+    const detailOpen = await count(".detail-view");
+    if (!detailOpen) {
+      await ev(`document.querySelector('.detail-back')?.click()`);
+      await sleep(500);
+      continue;
+    }
+
+    const acBanner = await ev(`!!document.querySelector('.drawer-body .warning-banner, .detail-view .warning-banner')`);
+
+    if (acBanner) {
+      foundAcGame = true;
+      acRiskPresent = await ev(`
+        !!document.querySelector('.ac-apply-risk, .ac-apply-confirm, [class*=ac-apply]')
+      `);
+      await shot("14-ac-apply-risk.png");
+    }
+
+    await ev(`document.querySelector('.detail-back')?.click()`);
+    await sleep(500);
+
+    if (foundAcGame) break;
+  }
+
+  if (!foundAcGame) {
+    return { gated: true, pass: true, detail: "GATED: no anti-cheat game found in first 5 library entries at test time" };
+  }
+
+  return {
+    pass: acRiskPresent === true,
+    detail: `foundAcGame=${foundAcGame} acRiskPresent=${acRiskPresent} (selectors: .ac-apply-risk, .ac-apply-confirm)`,
+  };
 });
 
 await check("console:0 errors + 0 exceptions across the run", async () => {

@@ -105,7 +105,7 @@ dependencies = [
 
 [[package]]
 name = "anticheat-detect"
-version = "1.6.4"
+version = "1.6.5"
 dependencies = [
  "jwalk",
  "memchr",
@@ -352,7 +352,7 @@ checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
 name = "backup-store"
-version = "1.6.4"
+version = "1.6.5"
 dependencies = [
  "chrono",
  "rusqlite",
@@ -374,6 +374,12 @@ name = "base64"
 version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
+
+[[package]]
+name = "base64ct"
+version = "1.8.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
 
 [[package]]
 name = "bit-set"
@@ -720,6 +726,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "const-oid"
+version = "0.9.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c2459377285ad874054d797f3ccebf984978aa39129f6eafde5cdc8315b612f8"
+
+[[package]]
 name = "cookie"
 version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -899,6 +911,33 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "52560adf09603e58c9a7ee1fe1dcb95a16927b17c127f0ac02d6e768a0e25bc1"
 
 [[package]]
+name = "curve25519-dalek"
+version = "4.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97fb8b7c4503de7d6ae7b42ab72a5a59857b4c937ec27a3d4539dba95b5ab2be"
+dependencies = [
+ "cfg-if",
+ "cpufeatures",
+ "curve25519-dalek-derive",
+ "digest",
+ "fiat-crypto",
+ "rustc_version",
+ "subtle",
+ "zeroize",
+]
+
+[[package]]
+name = "curve25519-dalek-derive"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f46882e17999c6cc590af592290432be3bce0428cb0d5f8b6715e4dc7b383eb3"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
+
+[[package]]
 name = "darling"
 version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -969,6 +1008,16 @@ name = "deadpool-runtime"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "092966b41edc516079bdf31ec78a2e0588d1d0c08f78b91d8307215928642b2b"
+
+[[package]]
+name = "der"
+version = "0.7.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7c1832837b905bbfb5101e07cc24c8deddf52f93225eee6ead5f4d63d53ddcb"
+dependencies = [
+ "const-oid",
+ "zeroize",
+]
 
 [[package]]
 name = "deranged"
@@ -1094,11 +1143,13 @@ dependencies = [
 
 [[package]]
 name = "dll-catalog"
-version = "1.6.4"
+version = "1.6.5"
 dependencies = [
  "bytes",
  "chrono",
+ "ed25519-dalek",
  "futures-util",
+ "hex",
  "md-5",
  "once_cell",
  "parking_lot",
@@ -1117,7 +1168,7 @@ dependencies = [
 
 [[package]]
 name = "dll-scanner"
-version = "1.6.4"
+version = "1.6.5"
 dependencies = [
  "jwalk",
  "once_cell",
@@ -1154,7 +1205,7 @@ dependencies = [
 
 [[package]]
 name = "dlssync"
-version = "1.6.4"
+version = "1.6.5"
 dependencies = [
  "anticheat-detect",
  "anyhow",
@@ -1236,7 +1287,7 @@ dependencies = [
 
 [[package]]
 name = "driver-catalog"
-version = "1.6.4"
+version = "1.6.5"
 dependencies = [
  "async-trait",
  "chrono",
@@ -1252,7 +1303,7 @@ dependencies = [
 
 [[package]]
 name = "driver-install"
-version = "1.6.4"
+version = "1.6.5"
 dependencies = [
  "dll-catalog",
  "futures-util",
@@ -1309,6 +1360,30 @@ name = "dyn-clone"
 version = "1.0.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
+
+[[package]]
+name = "ed25519"
+version = "2.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "115531babc129696a58c64a4fef0a8bf9e9698629fb97e9e40767d235cfbcd53"
+dependencies = [
+ "pkcs8",
+ "signature",
+]
+
+[[package]]
+name = "ed25519-dalek"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "70e796c081cee67dc755e1a36a0a172b897fab85fc3f6bc48307991f64e4eca9"
+dependencies = [
+ "curve25519-dalek",
+ "ed25519",
+ "serde",
+ "sha2",
+ "subtle",
+ "zeroize",
+]
 
 [[package]]
 name = "either"
@@ -1458,6 +1533,12 @@ checksum = "1e6853b52649d4ac5c0bd02320cddc5ba956bdb407c4b75a2c6b75bf51500f8c"
 dependencies = [
  "simd-adler32",
 ]
+
+[[package]]
+name = "fiat-crypto"
+version = "0.2.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
 
 [[package]]
 name = "field-offset"
@@ -2558,7 +2639,7 @@ dependencies = [
 
 [[package]]
 name = "launcher-scan"
-version = "1.6.4"
+version = "1.6.5"
 dependencies = [
  "serde",
  "serde_json",
@@ -2695,12 +2776,13 @@ dependencies = [
 
 [[package]]
 name = "manifest-builder"
-version = "1.6.4"
+version = "1.6.5"
 dependencies = [
  "anyhow",
  "chrono",
  "clap",
  "dll-catalog",
+ "ed25519-dalek",
  "hex",
  "reqwest 0.12.28",
  "serde",
@@ -2880,7 +2962,7 @@ dependencies = [
 
 [[package]]
 name = "notifications-store"
-version = "1.6.4"
+version = "1.6.5"
 dependencies = [
  "chrono",
  "rusqlite",
@@ -2972,7 +3054,7 @@ dependencies = [
 
 [[package]]
 name = "nvapi-drs"
-version = "1.6.4"
+version = "1.6.5"
 dependencies = [
  "serde",
  "windows-sys 0.59.0",
@@ -3335,12 +3417,13 @@ checksum = "df94ce210e5bc13cb6651479fa48d14f601d9858cfe0467f43ae157023b938d3"
 
 [[package]]
 name = "pe-version"
-version = "1.6.4"
+version = "1.6.5"
 dependencies = [
  "pelite",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
+ "tracing",
  "windows-sys 0.59.0",
 ]
 
@@ -3448,6 +3531,16 @@ dependencies = [
  "atomic-waker",
  "fastrand",
  "futures-io",
+]
+
+[[package]]
+name = "pkcs8"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f950b2377845cebe5cf8b5165cb3cc1a5e0fa5cfa3e1f7f55707d8fd82e0a7b7"
+dependencies = [
+ "der",
+ "spki",
 ]
 
 [[package]]
@@ -3724,7 +3817,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "44c5af06bb1b7d3216d91932aed5265164bf384dc89cd6ba05cf59a35f5f76ea"
 dependencies = [
  "rand_chacha",
- "rand_core",
+ "rand_core 0.9.5",
 ]
 
 [[package]]
@@ -3734,7 +3827,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3022b5f1df60f26e1ffddd6c66e8aa15de382ae63b3a0c1bfc0e4d3e3f325cb"
 dependencies = [
  "ppv-lite86",
- "rand_core",
+ "rand_core 0.9.5",
+]
+
+[[package]]
+name = "rand_core"
+version = "0.6.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
+dependencies = [
+ "getrandom 0.2.17",
 ]
 
 [[package]]
@@ -4470,6 +4572,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "signature"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77549399552de45a898a580c1b41d445bf730df867cc44e6c0233bbc4b8329de"
+dependencies = [
+ "rand_core 0.6.4",
+]
+
+[[package]]
 name = "simd-adler32"
 version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4565,6 +4676,16 @@ dependencies = [
  "gobject-sys",
  "libc",
  "system-deps",
+]
+
+[[package]]
+name = "spki"
+version = "0.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d91ed6c858b01f942cd56b37a94b3e0a1798290327d1236e4d9cf4eaca44d29d"
+dependencies = [
+ "base64ct",
+ "der",
 ]
 
 [[package]]
@@ -4705,7 +4826,7 @@ dependencies = [
 
 [[package]]
 name = "system-drivers"
-version = "1.6.4"
+version = "1.6.5"
 dependencies = [
  "serde",
  "tempfile",

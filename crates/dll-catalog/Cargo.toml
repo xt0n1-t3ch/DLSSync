@@ -11,6 +11,8 @@ thiserror.workspace = true
 reqwest.workspace = true
 sha2.workspace = true
 md-5.workspace = true
+ed25519-dalek.workspace = true
+hex.workspace = true
 chrono.workspace = true
 tracing.workspace = true
 tokio = { workspace = true }

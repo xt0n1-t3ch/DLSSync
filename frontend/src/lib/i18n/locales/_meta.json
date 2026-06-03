@@ -2690,13 +2690,13 @@
     "where": "frontend/src/views/Settings.svelte"
   },
   "view.settings.general.performance.title": {
-    "en": "Performance & startup",
-    "desc": "Section head — performance & startup",
+    "en": "Performance",
+    "desc": "Section head — performance (efficiency mode only after close-to-tray/autostart moved to Background section)",
     "where": "frontend/src/views/Settings.svelte"
   },
   "view.settings.general.performance.help": {
-    "en": "Footprint controls. With all three enabled, DLSSync sits in the tray with near-zero CPU between scheduled update checks.",
-    "desc": "Section help — performance & startup",
+    "en": "CPU and battery footprint. EcoQoS schedules DLSSync onto efficient cores while minimized, dropping its impact near zero.",
+    "desc": "Section help — performance. Describes only the Efficiency Mode toggle that remains here.",
     "where": "frontend/src/views/Settings.svelte"
   },
   "view.settings.general.updateBehavior.title": {
@@ -4134,6 +4134,51 @@
     "desc": "Tooltip on the anti-cheat Learn more button.",
     "where": "GameDetailDrawer.svelte"
   },
+  "component.gameDrawer.anticheat.apply.chipRisk": {
+    "en": "Anti-cheat",
+    "desc": "Short label on the apply-time risk chip for warning-severity anti-tamper/DRM games (e.g. Denuvo). Shown next to the Apply button.",
+    "where": "GameDetailDrawer.svelte apply footer"
+  },
+  "component.gameDrawer.anticheat.apply.chipBan": {
+    "en": "Ban risk",
+    "desc": "Short label on the apply-time risk chip for danger-severity online anti-cheat games (EAC/BattlEye/VAC). Shown next to the Apply button.",
+    "where": "GameDetailDrawer.svelte apply footer"
+  },
+  "component.gameDrawer.anticheat.apply.chipTitle": {
+    "en": "{names} detected — review before applying",
+    "desc": "Tooltip on the apply-time risk chip. {names} is a comma-joined list of detected anti-cheat / anti-tamper product names and is NOT translated.",
+    "where": "GameDetailDrawer.svelte apply footer"
+  },
+  "component.gameDrawer.anticheat.apply.applyAnyway": {
+    "en": "Apply anyway",
+    "desc": "Label the primary Apply button takes after the user has triggered the danger confirm step.",
+    "where": "GameDetailDrawer.svelte apply footer"
+  },
+  "component.gameDrawer.anticheat.apply.confirmAria": {
+    "en": "Confirm applying to an anti-cheat protected game",
+    "desc": "Accessible label for the inline danger confirmation row (role=alertdialog).",
+    "where": "GameDetailDrawer.svelte apply footer"
+  },
+  "component.gameDrawer.anticheat.apply.confirmBody": {
+    "en": "This game uses {names} — replacing DLLs can trigger a ban. Apply anyway?",
+    "desc": "Inline confirmation prompt shown before applying to a danger-severity anti-cheat game. {names} is the detected product name(s) and is NOT translated.",
+    "where": "GameDetailDrawer.svelte apply footer"
+  },
+  "component.gameDrawer.anticheat.apply.confirmBodyGeneric": {
+    "en": "This game uses anti-cheat — replacing DLLs can trigger a ban. Apply anyway?",
+    "desc": "Fallback confirmation prompt when no specific anti-cheat product name is available.",
+    "where": "GameDetailDrawer.svelte apply footer"
+  },
+  "component.gameDrawer.anticheat.apply.confirmProceed": {
+    "en": "Apply anyway",
+    "desc": "Button in the danger confirmation row that proceeds with the apply.",
+    "where": "GameDetailDrawer.svelte apply footer"
+  },
+  "component.gameDrawer.anticheat.apply.confirmCancel": {
+    "en": "Cancel",
+    "desc": "Button in the danger confirmation row that dismisses the confirm without applying.",
+    "where": "GameDetailDrawer.svelte apply footer"
+  },
   "component.gameDrawer.loading.scanning": {
     "en": "Scanning DLLs",
     "desc": "Loading-state text while the initial scan runs; followed by the folder name.",
@@ -5338,5 +5383,150 @@
     "en": "Starting…",
     "desc": "Transient progress message shown when a driver install begins.",
     "where": "lib/stores.ts startDriverInstall / startSystemDriverInstall"
+  },
+  "notif.background.toastTitle": {
+    "en": "{count} updates ready",
+    "desc": "Native toast title (background daemon), singular. {count} = total pending DLL updates.",
+    "where": "OS notification fired by the background scan tick."
+  },
+  "notif.background.toastBody": {
+    "en": "Across {games} - open DLSSync to apply",
+    "desc": "Native toast body. {games} = an already-pluralised games phrase. Keep DLSSync.",
+    "where": "OS notification fired by the background scan tick."
+  },
+  "view.library.applyAllCount": {
+    "en": "Apply all updates ({count})",
+    "desc": "Library header Apply-All button label, singular. {count} = total outdated DLLs across the library.",
+    "where": "Library header action button."
+  },
+  "view.library.applyAllTitle": {
+    "en": "Apply every detected update across the library",
+    "desc": "Tooltip on the Library header Apply-All button.",
+    "where": "Library header action button."
+  },
+  "view.library.toast.autoApplySkippedAnticheat": {
+    "en": "Auto-apply skipped {count} games with anti-cheat",
+    "desc": "Toast when auto-apply excludes anti-cheat-flagged games, singular. {count} = number of skipped games.",
+    "where": "Background auto-apply flow."
+  },
+  "view.library.toast.autoApplyAllSkipped": {
+    "en": "All pending updates are in anti-cheat games - auto-apply skipped them",
+    "desc": "Toast when every pending update is in an anti-cheat game and auto-apply applied nothing. Translate fully.",
+    "where": "Background auto-apply flow."
+  },
+  "tray.menu.show": {
+    "en": "Show DLSSync",
+    "desc": "Tray menu item: restore + focus the main window. Keep DLSSync.",
+    "where": "System-tray context menu."
+  },
+  "tray.menu.checkNow": {
+    "en": "Check for updates now",
+    "desc": "Tray menu item: trigger an immediate background scan tick. Translate fully.",
+    "where": "System-tray context menu."
+  },
+  "tray.menu.applyAll": {
+    "en": "Apply all updates",
+    "desc": "Tray menu item: run the Apply-All flow. Translate fully.",
+    "where": "System-tray context menu."
+  },
+  "tray.menu.quit": {
+    "en": "Quit",
+    "desc": "Tray menu item: fully exit the app. Translate fully.",
+    "where": "System-tray context menu."
+  },
+  "tray.tooltip.pending": {
+    "en": "DLSSync - {count} games have updates",
+    "desc": "Tray tooltip when games have pending updates, singular. Keep DLSSync. {count} = games with updates.",
+    "where": "System-tray icon tooltip."
+  },
+  "tray.tooltip.idle": {
+    "en": "DLSSync",
+    "desc": "Tray tooltip when nothing is pending - the bare brand. Keep identical in every language.",
+    "where": "System-tray icon tooltip."
+  },
+  "view.settings.general.background.title": {
+    "en": "Background updates",
+    "desc": "Settings section heading for the background-scan daemon. Translate fully.",
+    "where": "Settings > General."
+  },
+  "view.settings.general.background.badge": {
+    "en": "New",
+    "desc": "Small New badge next to the Background updates heading. Translate fully.",
+    "where": "Settings > General."
+  },
+  "view.settings.general.background.help": {
+    "en": "Let DLSSync keep watch in the background and tell you the moment a game has updates ready. Off by default.",
+    "desc": "Help line under the Background updates heading. Keep DLSSync.",
+    "where": "Settings > General."
+  },
+  "view.settings.general.background.enabled.label": {
+    "en": "Enable background scanning",
+    "desc": "Master toggle label for the daemon. Translate fully.",
+    "where": "Settings > General > Background updates."
+  },
+  "view.settings.general.background.enabled.sub": {
+    "en": "Rescan the library and refresh the catalog on a schedule, even when the window is hidden.",
+    "desc": "Sub-line for the daemon master toggle. Translate fully.",
+    "where": "Settings > General > Background updates."
+  },
+  "view.settings.general.background.interval.label": {
+    "en": "Scan every",
+    "desc": "Label for the scan-interval select. Translate fully.",
+    "where": "Settings > General > Background updates."
+  },
+  "view.settings.general.background.interval.sub": {
+    "en": "How often the background scan runs (1 to 168 hours).",
+    "desc": "Sub-line for the scan-interval select. Translate fully.",
+    "where": "Settings > General > Background updates."
+  },
+  "view.settings.general.background.interval.option": {
+    "en": "{count} hours",
+    "desc": "Scan-interval option label, singular. {count} = hours.",
+    "where": "Settings > General > Background updates interval select."
+  },
+  "view.settings.general.background.closeToTray.label": {
+    "en": "Close to tray instead of quitting",
+    "desc": "Daemon close-to-tray toggle label. Translate fully.",
+    "where": "Settings > General > Background updates."
+  },
+  "view.settings.general.background.closeToTray.sub": {
+    "en": "Clicking the window X hides DLSSync to the system tray. Quit from the tray menu to exit fully.",
+    "desc": "Sub-line for the close-to-tray toggle. Scanning-agnostic — useful on its own. Keep DLSSync.",
+    "where": "Settings > General > Background updates."
+  },
+  "view.settings.general.background.runAtStartup.label": {
+    "en": "Start with Windows (minimized to tray)",
+    "desc": "Run-at-startup toggle label. Keep Windows.",
+    "where": "Settings > General > Background updates."
+  },
+  "view.settings.general.background.runAtStartup.sub": {
+    "en": "Launch DLSSync hidden in the tray when Windows starts — no visible window until you open it.",
+    "desc": "Sub-line for the run-at-startup toggle. Scanning-agnostic — useful on its own. Keep DLSSync/Windows.",
+    "where": "Settings > General > Background updates."
+  },
+  "view.settings.general.background.notifyToast.label": {
+    "en": "Windows notification when updates are ready",
+    "desc": "Daemon OS-toast toggle label. Keep Windows.",
+    "where": "Settings > General > Background updates."
+  },
+  "view.settings.general.background.notifyToast.sub": {
+    "en": "Show a native Windows toast after a background scan finds pending updates. Falls back to the in-app bell if notifications are blocked.",
+    "desc": "Sub-line for the OS-toast toggle. Keep Windows.",
+    "where": "Settings > General > Background updates."
+  },
+  "view.settings.general.background.autoApply.label": {
+    "en": "Auto-apply updates",
+    "desc": "Daemon auto-apply toggle label. Translate fully.",
+    "where": "Settings > General > Background updates."
+  },
+  "view.settings.general.background.autoApply.badge": {
+    "en": "Advanced",
+    "desc": "Small badge marking auto-apply as an advanced opt-in. Translate fully.",
+    "where": "Settings > General > Background updates."
+  },
+  "view.settings.general.background.autoApply.sub": {
+    "en": "After each background scan, install every eligible update automatically. Anti-cheat games are always skipped and a backup is always made first.",
+    "desc": "Sub-line for the auto-apply toggle. Translate fully.",
+    "where": "Settings > General > Background updates."
   }
 }

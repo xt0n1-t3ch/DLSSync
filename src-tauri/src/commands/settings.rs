@@ -235,6 +235,50 @@ impl Default for NetworkConfig {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackgroundConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_background_interval_hours")]
+    pub interval_hours: u32,
+    #[serde(default)]
+    pub close_to_tray: bool,
+    #[serde(default)]
+    pub run_at_startup: bool,
+    #[serde(default = "default_true")]
+    pub notify_os_toast: bool,
+    #[serde(default)]
+    pub auto_apply: bool,
+}
+
+pub const DEFAULT_BACKGROUND_INTERVAL_HOURS: u32 = 24;
+pub const MIN_BACKGROUND_INTERVAL_HOURS: u32 = 1;
+pub const MAX_BACKGROUND_INTERVAL_HOURS: u32 = 168;
+
+fn default_background_interval_hours() -> u32 {
+    DEFAULT_BACKGROUND_INTERVAL_HOURS
+}
+
+impl Default for BackgroundConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            interval_hours: DEFAULT_BACKGROUND_INTERVAL_HOURS,
+            close_to_tray: false,
+            run_at_startup: false,
+            notify_os_toast: true,
+            auto_apply: false,
+        }
+    }
+}
+
+impl BackgroundConfig {
+    pub fn effective_interval_hours(&self) -> u32 {
+        self.interval_hours
+            .clamp(MIN_BACKGROUND_INTERVAL_HOURS, MAX_BACKGROUND_INTERVAL_HOURS)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AppSettings {
     #[serde(default)]
@@ -259,6 +303,8 @@ pub struct AppSettings {
     pub advanced: AdvancedConfig,
     #[serde(default)]
     pub network: NetworkConfig,
+    #[serde(default)]
+    pub background: BackgroundConfig,
 }
 
 impl AppSettings {
@@ -448,5 +494,102 @@ mod ui_prefs_tests {
             back.command_palette_recent,
             vec!["action.apply_all_outdated"]
         );
+    }
+}
+
+#[cfg(test)]
+mod background_config_tests {
+    use super::*;
+
+    #[test]
+    fn default_background_config_is_disabled_with_safe_defaults() {
+        let cfg = BackgroundConfig::default();
+        assert!(!cfg.enabled);
+        assert_eq!(cfg.interval_hours, DEFAULT_BACKGROUND_INTERVAL_HOURS);
+        assert!(!cfg.close_to_tray);
+        assert!(!cfg.run_at_startup);
+        assert!(cfg.notify_os_toast);
+        assert!(!cfg.auto_apply);
+    }
+
+    #[test]
+    fn legacy_settings_without_background_migrates_to_defaults() {
+        let legacy = r#"{
+            "blacklist": ["game-1"],
+            "ignored": []
+        }"#;
+        let settings: AppSettings = serde_json::from_str(legacy).expect("legacy parse");
+        let bg = &settings.background;
+        assert!(!bg.enabled);
+        assert_eq!(bg.interval_hours, DEFAULT_BACKGROUND_INTERVAL_HOURS);
+        assert!(!bg.close_to_tray);
+        assert!(!bg.run_at_startup);
+        assert!(bg.notify_os_toast);
+        assert!(!bg.auto_apply);
+        assert_eq!(settings.blacklist, vec!["game-1"]);
+    }
+
+    #[test]
+    fn partial_background_object_fills_missing_fields_with_defaults() {
+        let partial = r#"{ "enabled": true, "auto_apply": true }"#;
+        let cfg: BackgroundConfig = serde_json::from_str(partial).expect("partial parse");
+        assert!(cfg.enabled);
+        assert!(cfg.auto_apply);
+        assert_eq!(cfg.interval_hours, DEFAULT_BACKGROUND_INTERVAL_HOURS);
+        assert!(cfg.notify_os_toast);
+        assert!(!cfg.close_to_tray);
+    }
+
+    #[test]
+    fn effective_interval_clamps_below_minimum() {
+        let cfg = BackgroundConfig {
+            interval_hours: 0,
+            ..Default::default()
+        };
+        assert_eq!(
+            cfg.effective_interval_hours(),
+            MIN_BACKGROUND_INTERVAL_HOURS
+        );
+    }
+
+    #[test]
+    fn effective_interval_clamps_above_maximum() {
+        let cfg = BackgroundConfig {
+            interval_hours: 10_000,
+            ..Default::default()
+        };
+        assert_eq!(
+            cfg.effective_interval_hours(),
+            MAX_BACKGROUND_INTERVAL_HOURS
+        );
+    }
+
+    #[test]
+    fn effective_interval_passes_through_in_range() {
+        let cfg = BackgroundConfig {
+            interval_hours: 12,
+            ..Default::default()
+        };
+        assert_eq!(cfg.effective_interval_hours(), 12);
+    }
+
+    #[test]
+    fn background_config_round_trips_through_json() {
+        let cfg = BackgroundConfig {
+            enabled: true,
+            interval_hours: 48,
+            close_to_tray: true,
+            run_at_startup: true,
+            notify_os_toast: false,
+            auto_apply: true,
+        };
+        let json = serde_json::to_string(&cfg).expect("serialize");
+        let back: BackgroundConfig = serde_json::from_str(&json).expect("deserialize");
+        assert!(back.enabled);
+        assert_eq!(back.interval_hours, 48);
+        assert!(back.close_to_tray);
+        assert!(back.run_at_startup);
+        assert!(!back.notify_os_toast);
+        assert!(back.auto_apply);
     }
 }

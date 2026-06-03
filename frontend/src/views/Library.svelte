@@ -22,10 +22,10 @@
     rescanGame,
     manifestUpdatedAt,
     requestApplyAllOutdated,
+    outdatedDllItems,
     type StatusFilter,
   } from "../lib/stores";
-  import { dllRelation, targetVersion, recordUpdatable } from "../lib/relation";
-  import { addBlacklistEntry, removeBlacklistEntry, type DllRecord } from "../lib/api";
+  import { addBlacklistEntry, removeBlacklistEntry } from "../lib/api";
   import type { DetectedGame, LibraryViewMode, LibraryDensity, LibrarySort } from "../lib/api";
   import {
     LIBRARY_VIEW_MODES,
@@ -46,28 +46,18 @@
   import { t, locale, translate } from "../lib/i18n/index";
   import { get } from "svelte/store";
 
-  function outdatedDllsAcrossLibrary(): { game: DetectedGame; record: DllRecord; target: string }[] {
-    const out: { game: DetectedGame; record: DllRecord; target: string }[] = [];
-    for (const game of $games) {
-      if ($hiddenIds.has(game.id)) continue;
-      if ($gameStatuses[game.id] !== "outdated") continue;
-      const records = $gameDlls[game.id] ?? [];
-      const disabled = $settings?.game_preferences[game.id]?.disabled_families ?? [];
-      const pinned = $settings?.game_preferences[game.id]?.pinned_versions ?? {};
-      for (const r of records) {
-        if (disabled.includes(r.family)) continue;
-        if (!recordUpdatable(r, $settings?.update_prefs ?? null)) continue;
-        const pin = pinned[`${r.family}|${r.path}`] ?? null;
-        if (dllRelation(r, $relationContext, pin) !== "outdated") continue;
-        const target = targetVersion(r, $relationContext, pin);
-        if (!target) continue;
-        out.push({ game, record: r, target });
-      }
-    }
-    return out;
-  }
-
-  let outdatedItems = $derived(outdatedDllsAcrossLibrary());
+  // Derive from the centralized `outdatedDllItems()` (shared with the daemon and
+  // the digest). Touch the source stores so Svelte tracks them, since the helper
+  // reads via `get(...)` internally.
+  let outdatedItems = $derived.by(() => {
+    void $games;
+    void $gameDlls;
+    void $gameStatuses;
+    void $relationContext;
+    void $settings;
+    void $hiddenIds;
+    return outdatedDllItems();
+  });
   let outdatedTotal = $derived(outdatedItems.length);
   let outdatedBreakdown = $derived.by(() => {
     const counts: Record<FamilyGroup, number> = { dlss: 0, fsr: 0, xess: 0, advanced: 0 };
@@ -77,7 +67,7 @@
   });
 
   async function updateAllOutdated(): Promise<void> {
-    const items = outdatedDllsAcrossLibrary();
+    const items = outdatedDllItems();
     if (items.length === 0) {
       showToast("info", translate(get(locale), "view.library.toast.allUpToDate"));
       return;
@@ -364,6 +354,16 @@
     </p>
   </div>
   <div class="header-actions">
+    {#if outdatedTotal > 0}
+      <button
+        class="btn btn-apply-all"
+        onclick={updateAllOutdated}
+        title={$t("view.library.applyAllTitle")}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+        {$t("view.library.applyAllCount", { count: outdatedTotal })}
+      </button>
+    {/if}
     <button class="btn btn-ghost" onclick={addCustomFolder}>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
       {$t("view.library.addFolder")}
@@ -598,6 +598,17 @@
   }
   .view-header > div:first-child { flex: 1 1 240px; min-width: 0; }
   .header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; flex-shrink: 0; }
+  .btn-apply-all {
+    background: var(--accent);
+    color: var(--accent-fg);
+    border-color: transparent;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    transition: background var(--dur-fast) var(--ease);
+  }
+  .btn-apply-all:hover { background: var(--accent-hover); }
+  .btn-apply-all:focus-visible { outline: none; box-shadow: var(--shadow-ring); }
   .filter-toolbar {
     position: sticky;
     top: var(--space-2);

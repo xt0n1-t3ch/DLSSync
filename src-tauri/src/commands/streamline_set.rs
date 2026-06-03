@@ -118,6 +118,16 @@ fn rollback_all(handles: &StateHandles, backup_ids: &[String]) -> bool {
     for id in backup_ids {
         match store.get(id) {
             Ok(entry) => {
+                if !backup_path_under_root(&entry.backup_path, &store.root_dir) {
+                    tracing::warn!(
+                        backup_id = %id,
+                        backup_path = %entry.backup_path.display(),
+                        root = %store.root_dir.display(),
+                        "rollback skipped: backup path escapes the backup store root"
+                    );
+                    all_restored = false;
+                    continue;
+                }
                 if std::fs::copy(&entry.backup_path, &entry.original_path).is_err() {
                     all_restored = false;
                 }
@@ -126,6 +136,14 @@ fn rollback_all(handles: &StateHandles, backup_ids: &[String]) -> bool {
         }
     }
     all_restored
+}
+
+/// A backup may only be restored from inside the backup store root. The DB-stored
+/// `backup_path` is otherwise an unvalidated copy SOURCE, so a tampered row could
+/// point the restore at an arbitrary file. `None`/non-`starts_with` paths are
+/// rejected.
+fn backup_path_under_root(backup_path: &std::path::Path, root: &std::path::Path) -> bool {
+    backup_path.starts_with(root)
 }
 
 #[cfg(test)]
@@ -150,5 +168,29 @@ mod tests {
         let v210 = "https://github.com/NVIDIA-RTX/Streamline/releases/download/v2.10.3/sdk.zip";
         let reason = coherence_error(&urls(&[v211, v211, v210])).unwrap();
         assert!(reason.contains("version-locked"));
+    }
+
+    #[test]
+    fn backup_path_inside_root_is_restorable() {
+        let root = std::path::Path::new("/data/DLSSync/Backups");
+        let inside = std::path::Path::new("/data/DLSSync/Backups/Cyberpunk/2026/sl.dlss_g.dll");
+        assert!(backup_path_under_root(inside, root));
+    }
+
+    #[test]
+    fn backup_path_outside_root_is_rejected() {
+        let root = std::path::Path::new("/data/DLSSync/Backups");
+        assert!(!backup_path_under_root(
+            std::path::Path::new("/etc/passwd"),
+            root
+        ));
+        assert!(!backup_path_under_root(
+            std::path::Path::new("/data/DLSSync/Other/sl.dlss_g.dll"),
+            root
+        ));
+        assert!(!backup_path_under_root(
+            std::path::Path::new("/data/DLSSync/BackupsEvil/x.dll"),
+            root
+        ));
     }
 }

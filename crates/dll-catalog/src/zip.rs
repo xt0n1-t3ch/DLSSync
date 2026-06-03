@@ -1,6 +1,6 @@
 use crate::hash::{hash_file_with, HashAlgo};
 use crate::{CatalogError, Release};
-use std::io::Cursor;
+use std::io::{self, Cursor, Write};
 use std::path::{Path, PathBuf};
 
 pub const MAX_UNCOMPRESSED_ENTRY_BYTES: u64 = 200 * 1024 * 1024;
@@ -78,8 +78,20 @@ pub fn extract_dll_from_bytes(
             ))
         })?;
         let mut entry = zip.by_index(target)?;
-        let mut out = std::fs::File::create(&out_path)?;
-        std::io::copy(&mut entry, &mut out)?;
+        let out = std::fs::File::create(&out_path)?;
+        let mut limited = LimitedWriter::new(out, MAX_UNCOMPRESSED_ENTRY_BYTES);
+        if let Err(e) = std::io::copy(&mut entry, &mut limited) {
+            let _ = std::fs::remove_file(&out_path);
+            if limited.exceeded {
+                return Err(CatalogError::Unsafe(format!(
+                    "zip entry '{}' wrote more than the size cap ({} bytes) — declared header was {}",
+                    release.zip_entry.as_deref().unwrap_or(&release.filename),
+                    MAX_UNCOMPRESSED_ENTRY_BYTES,
+                    entry.size()
+                )));
+            }
+            return Err(CatalogError::Io(e));
+        }
     } else {
         std::fs::write(&out_path, bytes)?;
     }
@@ -94,6 +106,47 @@ pub fn extract_dll_from_bytes(
     }
 
     Ok(out_path)
+}
+
+/// Wraps a writer and caps the actual bytes written at `limit`, independent of
+/// any declared central-directory size. A crafted zip can under-report an
+/// entry's uncompressed size in the header, so the header check alone is not a
+/// real bound — this enforces the cap on the bytes that genuinely stream out.
+struct LimitedWriter<W> {
+    inner: W,
+    written: u64,
+    limit: u64,
+    exceeded: bool,
+}
+
+impl<W: Write> LimitedWriter<W> {
+    fn new(inner: W, limit: u64) -> Self {
+        Self {
+            inner,
+            written: 0,
+            limit,
+            exceeded: false,
+        }
+    }
+}
+
+impl<W: Write> Write for LimitedWriter<W> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        let projected = self.written.saturating_add(buf.len() as u64);
+        if projected > self.limit {
+            self.exceeded = true;
+            return Err(io::Error::other(
+                "uncompressed zip entry exceeds the maximum allowed size",
+            ));
+        }
+        let n = self.inner.write(buf)?;
+        self.written = self.written.saturating_add(n as u64);
+        Ok(n)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.inner.flush()
+    }
 }
 
 fn normalize_zip_path(p: &Path) -> String {
@@ -404,6 +457,37 @@ mod tests {
         let err = extract_dll_from_bytes(&zip_bytes, &release, dir.path()).unwrap_err();
         assert!(matches!(err, CatalogError::Integrity { .. }));
         assert!(!dir.path().join("nvngx_dlss.dll").exists());
+    }
+
+    #[test]
+    fn limited_writer_allows_up_to_limit() {
+        let mut sink = Vec::new();
+        let mut w = LimitedWriter::new(&mut sink, 8);
+        assert!(w.write_all(b"12345678").is_ok());
+        assert_eq!(w.written, 8);
+        assert!(!w.exceeded);
+        assert_eq!(sink, b"12345678");
+    }
+
+    #[test]
+    fn limited_writer_rejects_when_actual_bytes_exceed_cap_regardless_of_header() {
+        let mut sink = Vec::new();
+        let mut w = LimitedWriter::new(&mut sink, 4);
+        let err = w.write_all(b"12345").unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::Other);
+        assert!(w.exceeded);
+        assert!(sink.len() <= 4, "no bytes beyond the cap may be written");
+    }
+
+    #[test]
+    fn limited_writer_caps_mid_stream_when_a_later_chunk_overflows() {
+        let mut sink = Vec::new();
+        let mut w = LimitedWriter::new(&mut sink, 6);
+        assert_eq!(w.write(b"abc").unwrap(), 3);
+        let err = w.write(b"defg").unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::Other);
+        assert!(w.exceeded);
+        assert_eq!(sink, b"abc");
     }
 
     #[test]

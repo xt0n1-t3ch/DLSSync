@@ -313,6 +313,32 @@ export interface NetworkConfig {
   chunk_timeout_secs: number;
 }
 
+/** Background-scan daemon settings. Mirrors the Rust `BackgroundConfig`
+ *  (commands/settings.rs) field-for-field in snake_case; every field is
+ *  `serde(default)` on the Rust side so legacy settings.json migrates cleanly. */
+export interface BackgroundConfig {
+  enabled: boolean;
+  /** Re-scan cadence; the scheduler clamps to 1..=168 when it reads it. */
+  interval_hours: number;
+  close_to_tray: boolean;
+  run_at_startup: boolean;
+  notify_os_toast: boolean;
+  auto_apply: boolean;
+}
+
+export const BACKGROUND_INTERVAL_MIN_HOURS = 1;
+export const BACKGROUND_INTERVAL_MAX_HOURS = 168;
+export const BACKGROUND_INTERVAL_DEFAULT_HOURS = 24;
+
+export const DEFAULT_BACKGROUND_CONFIG: BackgroundConfig = {
+  enabled: false,
+  interval_hours: BACKGROUND_INTERVAL_DEFAULT_HOURS,
+  close_to_tray: false,
+  run_at_startup: false,
+  notify_os_toast: true,
+  auto_apply: false,
+};
+
 export interface AppSettings {
   launcher_overrides: LauncherOverrides;
   update_prefs: UpdatePreferences;
@@ -325,6 +351,7 @@ export interface AppSettings {
   game_preferences: Record<string, GamePreference>;
   advanced: AdvancedConfig;
   network: NetworkConfig;
+  background: BackgroundConfig;
 }
 
 export interface ApplyRequest {
@@ -429,6 +456,11 @@ export const DOWNLOAD_PROGRESS_EVENT = "download_progress";
 export const APPLY_INFLIGHT_EVENT = "apply_inflight";
 export const TRAY_CHECK_UPDATE_EVENT = "tray://check-update";
 export const TRAY_SHOW_PROGRESS_EVENT = "tray://show-progress";
+
+/** Backend -> frontend: the background scheduler fired a scan tick. */
+export const BACKGROUND_SCAN_TICK_EVENT = "background:scan-tick";
+/** Backend -> frontend (tray "Apply all updates"): run the Apply-All flow. */
+export const BACKGROUND_APPLY_ALL_EVENT = "background:apply-all";
 
 export const DEFAULT_LAUNCHERS: LauncherKind[] = [
   "steam",
@@ -831,14 +863,6 @@ export async function buildIssueReport(context?: string): Promise<IssueReport> {
   return invoke("build_issue_report", { context });
 }
 
-export async function setCloseToTray(enable: boolean): Promise<void> {
-  return invoke("set_close_to_tray", { enable });
-}
-
-export async function getCloseToTray(): Promise<boolean> {
-  return invoke("get_close_to_tray");
-}
-
 export async function setEfficiencyMode(enable: boolean): Promise<void> {
   return invoke("set_efficiency_mode", { enable });
 }
@@ -849,4 +873,10 @@ export async function hideMainWindow(): Promise<void> {
 
 export async function showMainWindow(): Promise<void> {
   return invoke("show_main_window");
+}
+
+/** Set the tray tooltip/badge to the count of games with pending updates.
+ *  0 reverts the tray to its idle tooltip. */
+export async function traySetPending(count: number): Promise<void> {
+  return invoke("tray_set_pending", { count });
 }

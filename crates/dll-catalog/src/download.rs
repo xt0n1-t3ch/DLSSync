@@ -92,6 +92,15 @@ impl DownloadCache {
         self.inner.lock().clear();
     }
 
+    fn forget(&self, url: &str, entry: &CacheEntry) {
+        let mut guard = self.inner.lock();
+        if let Some((existing, _)) = guard.get(url) {
+            if Arc::ptr_eq(existing, entry) {
+                guard.remove(url);
+            }
+        }
+    }
+
     pub fn len(&self) -> usize {
         self.inner.lock().len()
     }
@@ -121,7 +130,10 @@ pub async fn fetch_shared(
         .await;
     match result {
         Ok(bytes) => Ok(bytes.clone()),
-        Err(err) => Err(CatalogError::Cached(err.to_string())),
+        Err(err) => {
+            cache.forget(url, &entry);
+            Err(CatalogError::Cached(err.to_string()))
+        }
     }
 }
 
@@ -306,5 +318,49 @@ mod tests {
             let v = pseudo_jitter_ms(seed, "https://example.test/url");
             assert!(v < RETRY_JITTER_MAX_MS);
         }
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn fetch_shared_does_not_cache_errors() {
+        let cache = DownloadCache::new();
+        let client = reqwest::Client::new();
+        let url = "http://127.0.0.1:1/never";
+        let opts = DownloadOptions {
+            max_retries: 1,
+            chunk_timeout: Duration::from_millis(200),
+            progress_tx: None,
+            cancel: None,
+        };
+        let first = fetch_shared(&cache, &client, url, opts.clone()).await;
+        assert!(first.is_err());
+        assert!(
+            cache.is_empty(),
+            "a failed download must not stay cached for the session"
+        );
+        let second = fetch_shared(&cache, &client, url, opts).await;
+        assert!(second.is_err());
+        assert!(cache.is_empty());
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn forget_only_removes_matching_entry() {
+        let cache = DownloadCache::new();
+        let url = "https://example.test/a";
+        let original = cache.get_or_init(url);
+        cache.forget(url, &original);
+        assert!(cache.is_empty());
+
+        let original = cache.get_or_init(url);
+        let replacement = {
+            cache.inner.lock().remove(url);
+            cache.get_or_init(url)
+        };
+        assert!(!Arc::ptr_eq(&original, &replacement));
+        cache.forget(url, &original);
+        assert_eq!(
+            cache.len(),
+            1,
+            "forget must not evict a newer entry under the same url"
+        );
     }
 }

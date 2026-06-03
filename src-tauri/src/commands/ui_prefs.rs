@@ -1,17 +1,5 @@
 use crate::efficiency;
-use crate::tray::TrayPrefs;
-use tauri::{AppHandle, Manager, State};
-
-#[tauri::command]
-pub fn set_close_to_tray(prefs: State<'_, TrayPrefs>, enable: bool) -> Result<(), String> {
-    prefs.set_close_to_tray(enable);
-    Ok(())
-}
-
-#[tauri::command]
-pub fn get_close_to_tray(prefs: State<'_, TrayPrefs>) -> bool {
-    prefs.close_to_tray()
-}
+use tauri::{AppHandle, Manager};
 
 #[tauri::command]
 pub fn set_efficiency_mode(enable: bool) -> Result<(), String> {

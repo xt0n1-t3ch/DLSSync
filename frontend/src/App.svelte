@@ -33,6 +33,7 @@
   } from "./lib/stores";
   import { activeArt, clearActiveArt } from "./lib/artContext";
   import { installApplyEventListeners } from "./lib/applyEvents";
+  import { installBackgroundScanListeners } from "./lib/backgroundScan";
   import {
     installDriverInstallListener,
     installSystemDriverListener,
@@ -77,6 +78,7 @@
     }
     document.documentElement.setAttribute("data-theme", theme);
     void installApplyEventListeners();
+    void installBackgroundScanListeners();
     void installDriverInstallListener();
     void installSystemDriverListener();
     void bootstrapCatalog();

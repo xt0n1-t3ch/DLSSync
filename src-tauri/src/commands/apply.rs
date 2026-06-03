@@ -170,6 +170,7 @@ pub async fn apply_update_batch(
         let state_c = state.inner().clone_handles();
         let sem = semaphore.clone();
         let tokens_c = tokens.clone();
+        let apply_ids_for_group: Vec<String> = items.iter().map(|r| r.apply_id.clone()).collect();
         let task = tokio::spawn(async move {
             let _permit = sem.acquire_owned().await.ok();
             let mut group_outcomes = Vec::with_capacity(items.len());
@@ -179,21 +180,21 @@ pub async fn apply_update_batch(
                     .cloned()
                     .unwrap_or_else(CancellationToken::new);
                 let outcome = apply_single_item(&handle_c, &state_c, &item, token).await;
-                group_outcomes.push(outcome);
+                group_outcomes.push((item.apply_id.clone(), outcome));
             }
             group_outcomes
         });
-        group_tasks.push(task);
+        group_tasks.push((apply_ids_for_group, task));
     }
     let mut outcomes = Vec::with_capacity(request.items.len());
-    for task in group_tasks {
+    for (group_apply_ids, task) in group_tasks {
         match task.await {
             Ok(group_outcomes) => {
-                for o in group_outcomes {
+                for (apply_id, o) in group_outcomes {
                     match o {
                         Ok(out) => outcomes.push(out),
                         Err(e) => outcomes.push(ApplyOutcome {
-                            apply_id: String::new(),
+                            apply_id,
                             success: false,
                             backup_id: None,
                             previous_version: None,
@@ -203,14 +204,18 @@ pub async fn apply_update_batch(
                     }
                 }
             }
-            Err(join_err) => outcomes.push(ApplyOutcome {
-                apply_id: String::new(),
-                success: false,
-                backup_id: None,
-                previous_version: None,
-                new_version: None,
-                error: Some(format!("task join failed: {join_err}")),
-            }),
+            Err(join_err) => {
+                for apply_id in group_apply_ids {
+                    outcomes.push(ApplyOutcome {
+                        apply_id,
+                        success: false,
+                        backup_id: None,
+                        previous_version: None,
+                        new_version: None,
+                        error: Some(format!("task join failed: {join_err}")),
+                    });
+                }
+            }
         }
     }
     for r in &request.items {
@@ -504,6 +509,10 @@ pub(crate) async fn apply_single_item(
             return Ok(failure_outcome(request, &group_id, err));
         }
     };
+    if cancel.is_cancelled() {
+        ctx.cancelled();
+        return Ok(failure_outcome(request, &group_id, "cancelled".into()));
+    }
     if let Err(e) = std::fs::copy(&dll_path, &backup_path) {
         ctx.fail("Backup copy failed", e.to_string(), Some("backup"));
         return Ok(failure_outcome(request, &group_id, e.to_string()));
@@ -544,6 +553,10 @@ pub(crate) async fn apply_single_item(
             ctx.fail("Symlink detected", err.clone(), Some("permission"));
             return Ok(failure_outcome(request, &group_id, err));
         }
+    }
+    if cancel.is_cancelled() {
+        ctx.cancelled();
+        return Ok(failure_outcome(request, &group_id, "cancelled".into()));
     }
     if let Err(e) = atomic_replace(&staged_dll, &dll_path) {
         let os = e.raw_os_error().unwrap_or(0);
