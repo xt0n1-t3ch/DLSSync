@@ -47,13 +47,24 @@ describe("NotificationsBell popup (rendered)", () => {
       makeNotificationEntry("apply_success", "ok"),
       makeNotificationEntry("apply_failure", "bad"),
       makeNotificationEntry("app_update_available", "v2"),
-      makeNotificationEntry("catalog_update_available", "dlss"),
+      makeNotificationEntry("catalog_update_available", "new catalog release"),
       makeNotificationEntry("catalog_refresh_failed", "warn"),
     ]);
     const { container } = render(NotificationsBell, { props: { open: true, onClose: vi.fn() } });
     await tick();
     const tints = Array.from(container.querySelectorAll(".bell-item-badge")).map((b) => b.getAttribute("data-tint"));
     expect(tints).toEqual(["green", "red", "blue", "purple", "orange"]);
+  });
+
+  it("renders a vendor brand logo (not a tint badge) for tech/vendor notifications", async () => {
+    notifications.set([
+      makeNotificationEntry("catalog_update_available", "DLSS 310.6 available"),
+      makeNotificationEntry("driver_update_available", "GPU driver 999 — RTX 4070 Ti SUPER"),
+    ]);
+    const { container } = render(NotificationsBell, { props: { open: true, onClose: vi.fn() } });
+    await tick();
+    expect(container.querySelectorAll(".bell-item-logo").length).toBe(2);
+    expect(container.querySelectorAll(".bell-item-badge[data-tint]").length).toBe(0);
   });
 
   it("renders external link actions: release entry gets GitHub + Nexus, driver entry gets one", async () => {
@@ -88,6 +99,18 @@ describe("NotificationsBell popup (rendered)", () => {
     await tick();
     const tints = Array.from(container.querySelectorAll(".bell-item-badge")).map((b) => b.getAttribute("data-tint"));
     expect(tints).toEqual(["green", "purple", "green"]);
+  });
+
+  it("renders the dll-updates digest with a blue tint badge (no vendor logo)", async () => {
+    notifications.set([
+      makeNotificationEntry("dll_updates_available", "8 updates ready in 3 games", "Open the Library to apply them"),
+    ]);
+    const { container } = render(NotificationsBell, { props: { open: true, onClose: vi.fn() } });
+    await tick();
+    expect(container.querySelectorAll(".bell-item-logo").length).toBe(0);
+    const badge = container.querySelector(".bell-item-badge[data-tint]");
+    expect(badge?.getAttribute("data-tint")).toBe("blue");
+    expect(container.textContent).toContain("8 updates ready in 3 games");
   });
 
   it("marks unread entries with the accent stripe", async () => {

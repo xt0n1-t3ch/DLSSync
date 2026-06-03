@@ -957,6 +957,7 @@
     "catalog_update_available": "Nueva versión del catálogo",
     "driver_update_available": "Actualización de controlador de GPU",
     "system_driver_update_available": "Actualización de controlador del sistema",
+    "dll_updates_available": "Actualizaciones listas",
     "backup_restored": "Copia de seguridad restaurada",
     "scan_failed": "Error al analizar la biblioteca",
     "catalog_refresh_failed": "Error al actualizar el catálogo",
@@ -1672,6 +1673,13 @@
       "available_other": "{count} actualizaciones de controladores del sistema disponibles",
       "categories_one": "En {count} categoría de hardware",
       "categories_other": "En {count} categorías de hardware"
+    },
+    "dll": {
+      "digestTitle_one": "{count} actualización lista en {games}",
+      "digestTitle_other": "{count} actualizaciones listas en {games}",
+      "digestGames_one": "{count} juego",
+      "digestGames_other": "{count} juegos",
+      "digestBody": "Abre la Biblioteca para aplicarlas"
     },
     "apply": {
       "successTitle": "{gameLabel} actualizado",

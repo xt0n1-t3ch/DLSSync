@@ -67,7 +67,7 @@
 </script>
 
 <aside class="sidebar" class:collapsed>
-  <div class="sidebar-brand">
+  <div class="sidebar-brand" data-tauri-drag-region>
     <span class="brand-pill" aria-hidden="true">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M3 12a9 9 0 1 0 3-6.7"/>
@@ -168,15 +168,15 @@
   .sidebar-brand {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: var(--space-3);
     height: var(--topbar-height);
-    padding: 0 14px;
+    padding: 0 var(--space-4);
     border-bottom: 1px solid var(--border);
   }
   .sidebar.collapsed .sidebar-brand { padding: 0; justify-content: center; }
   .brand-pill {
-    width: 44px;
-    height: 44px;
+    width: 40px;
+    height: 40px;
     border-radius: var(--radius-lg);
     background: var(--accent-dim);
     color: var(--accent);
@@ -184,55 +184,70 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    box-shadow: inset 0 0 0 1px var(--accent-ring);
   }
-  .brand-wrap { display: flex; flex-direction: column; gap: 0; line-height: 1.1; min-width: 0; }
+  .brand-wrap { display: flex; flex-direction: column; gap: 0; line-height: var(--lh-tight); min-width: 0; }
   .brand-name {
-    font-size: 15px;
+    font-size: var(--fs-lg);
     font-weight: 700;
-    letter-spacing: -0.01em;
+    letter-spacing: var(--letter-tight);
     color: var(--text-primary);
   }
-  .brand-version { font-size: 9.5px; color: var(--text-muted); margin-top: 2px; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+  .brand-version { font-size: var(--fs-2xs); color: var(--text-muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
   .sidebar-nav {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    padding: 14px 14px;
+    gap: var(--space-1);
+    padding: var(--space-4);
     overflow-y: auto;
   }
-  .sidebar.collapsed .sidebar-nav { padding: 14px 10px; align-items: center; }
+  .sidebar.collapsed .sidebar-nav { padding: var(--space-4) var(--space-2); align-items: center; }
   .nav-label {
-    font-size: 10px;
+    font-size: var(--fs-2xs);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: var(--letter-wider);
     color: var(--text-muted);
-    padding: 10px 10px 4px;
+    padding: var(--space-3) var(--space-3) var(--space-1);
   }
+  .nav-label:not(:first-child) { margin-top: var(--space-2); }
   .nav-pill {
     position: relative;
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: var(--space-3);
     width: 100%;
-    height: 44px;
-    padding: 0 12px;
-    border-radius: var(--radius-lg);
+    height: 42px;
+    padding: 0 var(--space-3);
+    border-radius: var(--radius-md);
     color: var(--text-secondary);
-    font-size: 14px;
+    font-size: var(--fs-md);
     font-weight: 500;
     transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--spring);
   }
-  .sidebar.collapsed .nav-pill { width: 44px; height: 44px; justify-content: center; padding: 0; }
+  .sidebar.collapsed .nav-pill { width: 42px; height: 42px; justify-content: center; padding: 0; }
   .nav-pill :global(svg) { width: 20px; height: 20px; flex-shrink: 0; }
   .nav-pill:hover { background: var(--bg-card-hover); color: var(--text-primary); transform: translateX(2px); }
   .nav-pill:active { transform: translateX(2px) scale(0.99); }
+  .nav-pill:focus-visible { outline: none; box-shadow: var(--shadow-ring); }
   .nav-pill.active {
-    background: var(--accent);
-    color: var(--accent-fg);
-    box-shadow: 0 4px 14px var(--accent-dim);
+    background: var(--accent-dim);
+    color: var(--accent);
+    font-weight: 600;
   }
-  .nav-pill.active:hover { background: var(--accent-hover); }
+  .nav-pill.active::before {
+    content: "";
+    position: absolute;
+    left: calc(-1 * var(--space-3));
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 18px;
+    border-radius: var(--radius-full);
+    background: var(--accent);
+  }
+  .sidebar.collapsed .nav-pill.active::before { left: -7px; }
+  .nav-pill.active:hover { background: var(--accent-dim); transform: none; }
   .nav-label-text { flex: 1; text-align: left; }
   .nav-counter {
     font-family: var(--font-mono);
@@ -245,50 +260,51 @@
     font-variant-numeric: tabular-nums;
     min-width: 18px;
     text-align: center;
-    line-height: 1.4;
+    line-height: var(--lh-tight);
   }
   .nav-counter.is-update { background: var(--update-dim); color: var(--update); }
-  .nav-pill.active .nav-counter { background: rgba(255, 255, 255, 0.22); color: var(--accent-fg); }
+  .nav-pill.active .nav-counter { background: var(--bg-card); color: var(--accent); }
   .nav-counter.is-collapsed {
     position: absolute;
     top: 2px;
     right: 2px;
     padding: 0 4px;
     min-width: 14px;
-    font-size: 9px;
-    line-height: 1.4;
+    font-size: var(--fs-2xs);
+    line-height: var(--lh-tight);
   }
 
   .lang-switcher {
-    margin: auto 14px 0;
+    margin: auto var(--space-4) 0;
     width: auto;
     border-top: 1px solid var(--border);
     border-radius: 0;
-    padding: 14px 12px 12px;
+    padding: var(--space-4) var(--space-3) var(--space-3);
     height: auto;
   }
   .sidebar.collapsed .lang-switcher {
-    width: 44px;
+    width: 42px;
     height: auto;
-    margin: auto 10px 0;
-    padding: 14px 0 0;
+    margin: auto var(--space-2) 0;
+    padding: var(--space-4) 0 0;
     justify-content: center;
     border-radius: 0;
   }
   .lang-switcher:hover { transform: none; }
   .lang-switcher:active { transform: scale(0.99); }
   .lang-switcher.active { background: transparent; color: var(--accent); box-shadow: none; }
+  .lang-switcher.active::before { content: none; }
   .lang-switcher.active:hover { background: var(--bg-card-hover); }
   .lang-code { flex-shrink: 0; }
 
   .sidebar-toggle {
-    margin: 10px 14px 14px;
+    margin: var(--space-2) var(--space-4) var(--space-4);
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
     height: 40px;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-md);
     background: transparent;
     color: var(--text-muted);
     font-size: var(--fs-xs);
@@ -299,10 +315,10 @@
   .sidebar-toggle:hover { background: var(--bg-card-hover); color: var(--text-primary); }
   .sidebar-toggle:focus-visible { outline: none; box-shadow: var(--shadow-ring); }
   .sidebar.collapsed .sidebar-toggle {
-    width: 44px;
-    height: 44px;
+    width: 42px;
+    height: 42px;
     padding: 0;
-    margin: 10px 10px 14px;
+    margin: var(--space-2) var(--space-2) var(--space-4);
     justify-content: center;
   }
   .toggle-label { white-space: nowrap; }

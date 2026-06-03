@@ -169,6 +169,7 @@
   --topbar-height: 52px;
   --content-max: 1600px;
   --drawer-width: clamp(440px, 38vw, 600px);
+  --rail-width: clamp(400px, 32vw, 480px);
   --card-art-aspect: 2 / 1;
 
   --glass-1: rgba(22, 24, 34, 0.44);
@@ -281,7 +282,7 @@
   --vendor-microsoft-dim: rgba(134, 97, 197, 0.10);
   --vendor-microsoft-glow: rgba(134, 97, 197, 0.20);
 
-  --shadow-halo: 0 0 0 1px var(--accent), 0 0 16px var(--accent-glow), 0 0 36px var(--accent-dim);
+  --shadow-halo: 0 0 0 1px var(--accent), 0 2px 10px var(--accent-glow);
 
   --border: rgba(0, 0, 0, 0.06);
   --border-strong: rgba(0, 0, 0, 0.20);
@@ -297,21 +298,21 @@
   --glass-1: rgba(255, 255, 255, 0.55);
   --glass-2: rgba(255, 255, 255, 0.48);
   --glass-3: rgba(255, 255, 255, 0.66);
-  --glass-strong: rgba(252, 253, 255, 0.70);
+  --glass-strong: rgba(252, 253, 255, 0.95);
   --glass-edge: inset 0 1px 0 rgba(255, 255, 255, 0.7);
   --accent-progress: #0aa2a2;
 
   --art-blur: 90px;
   --art-dim: 0.82;
-  --art-opacity: 0.30;
-  --art-sat: 1.15;
+  --art-opacity: 0.05;
+  --art-sat: 1.0;
   --art-edge-left: 23.8%;
   --art-edge-left-fade: 32.3%;
   --art-edge-top: 16.9%;
   --art-edge-top-fade: 25.4%;
-  --ambient-glow-1: hsla(211, 100%, 62%, 0.26);
-  --ambient-glow-2: hsla(168, 72%, 52%, 0.20);
-  --ambient-glow-3: hsla(266, 85%, 66%, 0.20);
+  --ambient-glow-1: hsla(211, 100%, 62%, 0.07);
+  --ambient-glow-2: hsla(168, 72%, 52%, 0.05);
+  --ambient-glow-3: hsla(266, 85%, 66%, 0.05);
 }
 
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -658,6 +659,13 @@ input::placeholder, textarea::placeholder { color: var(--text-placeholder); }
 .halo.is-update::after { box-shadow: 0 0 0 1px var(--update), 0 0 18px var(--update-glow), 0 0 40px var(--update-dim); }
 .halo.is-danger::after { box-shadow: 0 0 0 1px var(--danger), 0 0 18px var(--danger-glow), 0 0 40px var(--danger-dim); }
 .halo.is-success::after { box-shadow: 0 0 0 1px var(--success), 0 0 18px var(--success-glow), 0 0 40px var(--success-dim); }
+
+/* Light mode: glows read as a dirty bloom on a near-white surface, so the status
+   halo collapses to a crisp colored ring plus a soft downward-tinted shadow —
+   the light-native elevation cue. Dark keeps the full additive glow above. */
+[data-theme="light"] .halo.is-update::after  { box-shadow: 0 0 0 1px var(--update),  0 2px 10px var(--update-glow); }
+[data-theme="light"] .halo.is-danger::after  { box-shadow: 0 0 0 1px var(--danger),  0 2px 10px var(--danger-glow); }
+[data-theme="light"] .halo.is-success::after { box-shadow: 0 0 0 1px var(--success), 0 2px 10px var(--success-glow); }
 
 .surface-elevated-2 { background: var(--bg-elevated-2); }
 .surface-cap { background: var(--bg-cap); }

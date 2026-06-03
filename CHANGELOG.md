@@ -5,6 +5,27 @@ All notable changes to DLSSync are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.4] - 2026-06-02
+
+A visual overhaul. The game detail panel, the library filters, and the About, Settings, and Backups pages were rebuilt, the whole app reads correctly in light mode, and notifications stop repeating themselves and start telling you something worth reading.
+
+### Added
+
+- A "DLL updates ready" notification that sums up what is waiting — "8 updates ready in 3 games" — and opens the Library when you click it, so you are not counting per game.
+
+### Changed
+
+- The game detail panel is part of the window now, not a card floating beside it. The title bar runs the full width with minimize, maximize, and close in the corner where they belong, the whole top edge drags the window, and the panel keeps a fixed header and footer so the cover, the anti-cheat warning, and the Apply button stay put while the rest scrolls. The thin line above the cover takes its color from the game's art.
+- Library filters went from two rows of scattered pills to two compact menus, Launcher and Status, that never wrap; sort, view, and density sit together on the right.
+- About, Settings, and Backups were redesigned for clearer hierarchy and tidier stat cards, and every tab shows one title instead of two.
+- Notifications carry the vendor's logo — NVIDIA, AMD, Intel, Microsoft — in place of a generic glyph.
+
+### Fixed
+
+- Light mode is legible everywhere. White text over a bright cover no longer washes out, and the version picker, command palette, and notifications no longer bleed the blurred cover art into a reddish smear behind the content.
+- The same "new driver available" alert was re-posted on every launch; identical notifications collapse to one now.
+- The command palette search box dropped its boxy focus outline, and the page title no longer appears twice at the top of every tab.
+
 ## [1.6.3] - 2026-06-01
 
 DLSSync speaks your language now, and it stops standing between you and the DLSS Enabler.
@@ -94,6 +115,7 @@ of the Arc desktop package, and install progress no longer breaks when you switc
 - AMD opens its official download page instead of a constructed installer URL. The direct `.exe` is gated behind a license prompt and its filename changes per release, so a fabricated link was unreliable; version and changelog detection are unchanged.
 - Vendor installer exit codes are reported with a readable message. Intel's "no compatible device" (exit code 8) now explains the GPU may be OEM-locked or need a different driver branch, pointing to the manufacturer or Windows Update.
 
+[1.6.4]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.4
 [1.6.3]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.3
 [1.6.2]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.2
 [1.6.1]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.1

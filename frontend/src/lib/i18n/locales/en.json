@@ -957,6 +957,7 @@
     "catalog_update_available": "New catalog version",
     "driver_update_available": "GPU driver update",
     "system_driver_update_available": "System driver update",
+    "dll_updates_available": "Updates ready",
     "backup_restored": "Backup restored",
     "scan_failed": "Library scan failed",
     "catalog_refresh_failed": "Catalog refresh failed",
@@ -1672,6 +1673,13 @@
       "available_other": "{count} system driver updates available",
       "categories_one": "Across {count} hardware category",
       "categories_other": "Across {count} hardware categories"
+    },
+    "dll": {
+      "digestTitle_one": "{count} update ready in {games}",
+      "digestTitle_other": "{count} updates ready in {games}",
+      "digestGames_one": "{count} game",
+      "digestGames_other": "{count} games",
+      "digestBody": "Open the Library to apply them"
     },
     "apply": {
       "successTitle": "{gameLabel} updated",

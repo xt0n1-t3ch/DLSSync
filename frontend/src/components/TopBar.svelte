@@ -51,7 +51,6 @@
   }
 
   let showSearch = $derived($currentView === "library");
-  let pageTitle = $derived(showSearch ? "" : $t("view." + $currentView + ".title"));
   let unread = $derived($notificationsUnreadCount);
   let modKeyLabel = $derived(typeof navigator !== "undefined" && navigator.platform.toLowerCase().includes("mac") ? "⌘" : "Ctrl");
 </script>
@@ -71,8 +70,6 @@
         />
         <span class="kbd">/</span>
       </div>
-    {:else if pageTitle}
-      <span class="page-title">{pageTitle}</span>
     {/if}
   </div>
 
@@ -128,6 +125,7 @@
 <style>
   .topbar {
     height: var(--topbar-height);
+    width: 100%;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -139,25 +137,17 @@
     box-shadow: var(--glass-edge);
     gap: 16px;
     user-select: none;
-    -webkit-app-region: drag;
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 50;
   }
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
     .topbar { background: var(--glass-fallback); }
   }
   .topbar-left { flex: 1; min-width: 0; display: flex; align-items: center; }
-  .page-title { font-size: var(--fs-lg); font-weight: 600; color: var(--text-primary); letter-spacing: var(--letter-tighter); -webkit-app-region: no-drag; }
   .search-wrap {
     position: relative;
     width: 100%;
     max-width: 320px;
     display: flex;
     align-items: center;
-    -webkit-app-region: no-drag;
   }
   .search-icon {
     position: absolute;
@@ -179,7 +169,7 @@
   .search-wrap input:focus { background: var(--bg-card); border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
   .search-wrap .kbd { position: absolute; right: 12px; pointer-events: none; }
 
-  .topbar-right { display: flex; align-items: center; gap: 6px; -webkit-app-region: no-drag; }
+  .topbar-right { display: flex; align-items: center; gap: 6px; }
 
   .bell-wrap { position: relative; display: inline-flex; }
   .topbar-btn { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-md); color: var(--text-muted); transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease); position: relative; }
@@ -204,10 +194,20 @@
     pointer-events: none;
   }
 
-  .window-controls { display: flex; gap: 2px; margin-left: 6px; padding-left: 6px; border-left: 1px solid var(--border); }
-  .win-btn { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-md); color: var(--text-muted); transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease); }
+  .window-controls { display: flex; gap: 2px; margin-left: 8px; padding-left: 8px; border-left: 1px solid var(--border); }
+  .win-btn {
+    width: 34px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-md);
+    color: var(--text-muted);
+    transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+  }
+  .win-btn:focus-visible { outline: none; box-shadow: var(--shadow-ring); }
   .win-quiet { color: var(--text-placeholder); }
-  .win-quiet:hover { color: var(--text-secondary); background: var(--bg-elevated); }
+  .win-quiet:hover { color: var(--text-primary); background: var(--bg-elevated); }
   .win-close { color: var(--text-muted); }
-  .win-close:hover { color: #fff; background: var(--danger); }
+  .win-close:hover { color: var(--accent-fg); background: var(--danger); }
 </style>

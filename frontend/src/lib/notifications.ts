@@ -12,6 +12,7 @@ export type NotificationKind =
   | "catalog_update_available"
   | "driver_update_available"
   | "system_driver_update_available"
+  | "dll_updates_available"
   | "backup_restored"
   | "scan_failed"
   | "catalog_refresh_failed";

@@ -35,6 +35,10 @@ describe("design tokens — spacing scale, density, tactile + glass-dialog utili
     expect(css).toMatch(/--density:\s*1;/);
   });
 
+  it("defines the master-detail right-rail width token", () => {
+    expect(css).toMatch(/--rail-width:\s*clamp\([^;]+\);/);
+  });
+
   it("provides the shared tactile utilities .hover-lift and .press", () => {
     expect(ruleBody(css, ".hover-lift:hover")).toMatch(
       /translateY\(-2px\)\s*scale\(1\.02\)/,

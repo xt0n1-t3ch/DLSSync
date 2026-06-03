@@ -14,6 +14,7 @@
   import { EXTERNAL_URLS } from "../lib/ux";
   import { t, translate, locale } from "../lib/i18n/index";
   import { get } from "svelte/store";
+  import BrandMark from "./BrandMark.svelte";
 
   let { open, onClose }: { open: boolean; onClose: () => void } = $props();
   let panelEl: HTMLDivElement | undefined = $state();
@@ -60,6 +61,9 @@
       onClose();
     } else if (entry.kind === "driver_update_available" || entry.kind === "system_driver_update_available") {
       currentView.set("drivers");
+      onClose();
+    } else if (entry.kind === "dll_updates_available") {
+      currentView.set("library");
       onClose();
     } else if (entry.kind === "backup_restored") {
       currentView.set("backups");
@@ -127,6 +131,7 @@
       case "apply_cancelled": return "↺";
       case "app_update_available": return "↑";
       case "catalog_update_available": return "★";
+      case "dll_updates_available": return "⟳";
       case "driver_update_available":
       case "system_driver_update_available": return "⬇";
       case "backup_restored": return "↺";
@@ -136,6 +141,15 @@
     }
   }
 
+  function vendorKeyForEntry(entry: NotificationEntry): string | null {
+    const s = `${entry.title} ${entry.body ?? ""}`.toLowerCase();
+    if (/nvidia|dlss|reflex|streamline|geforce|\brtx\b|nvngx/.test(s)) return "nvidia";
+    if (/\bamd\b|\bfsr\b|fidelityfx|radeon/.test(s)) return "amd";
+    if (/intel|xess|\barc\b/.test(s)) return "intel";
+    if (/microsoft|directstorage/.test(s)) return "microsoft";
+    return null;
+  }
+
   function tintForKind(kind: NotificationKind): string {
     switch (kind) {
       case "apply_success": return "green";
@@ -143,6 +157,7 @@
       case "apply_cancelled": return "orange";
       case "app_update_available": return "blue";
       case "catalog_update_available": return "purple";
+      case "dll_updates_available": return "blue";
       case "driver_update_available": return "green";
       case "system_driver_update_available": return "purple";
       case "backup_restored": return "green";
@@ -165,6 +180,7 @@
         <div class="bell-panel-empty">{$t("component.notif.empty")}</div>
       {:else}
         {#each entries as entry (entry.id)}
+          {@const vendorKey = vendorKeyForEntry(entry)}
           <div
             class="bell-item"
             class:bell-item-unread={entry.read_at == null}
@@ -180,9 +196,15 @@
                 onclick={() => handleItemClick(entry)}
                 aria-label="{$t('notifKind.' + entry.kind)}: {entry.title}"
               >
-                <span class="aura-badge bell-item-badge" data-tint={tintForKind(entry.kind)} aria-hidden="true">
-                  {kindIcon(entry.kind)}
-                </span>
+                {#if vendorKey}
+                  <span class="bell-item-badge bell-item-logo" aria-hidden="true">
+                    <BrandMark key={vendorKey} tone="color" size={18} showLabel={false} />
+                  </span>
+                {:else}
+                  <span class="aura-badge bell-item-badge" data-tint={tintForKind(entry.kind)} aria-hidden="true">
+                    {kindIcon(entry.kind)}
+                  </span>
+                {/if}
                 <span class="bell-item-text">
                   <span class="bell-item-title">{entry.title}</span>
                   {#if entry.body}
@@ -243,6 +265,7 @@
     box-shadow: var(--shadow-lg);
     z-index: 200;
   }
+  .bell-panel.glass-dialog::before { display: none; }
   @media (max-width: 460px) {
     .bell-panel {
       left: 12px;
@@ -328,6 +351,14 @@
     font-size: 14px;
     font-weight: 700;
     line-height: 1;
+    flex-shrink: 0;
+  }
+  .bell-item-logo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
   }
   .bell-item-text {
     display: flex;
