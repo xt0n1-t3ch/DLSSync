@@ -21,7 +21,7 @@
 </p>
 
 <p align="center">
-  <sub><b>New in v1.6.3:</b> DLSSync now speaks English and Spanish — switch from the globe button in the sidebar, and translate it into any language by editing a plain JSON file (<a href="docs/translations.md">guide</a>). Under a detected DLSS Enabler it also updates the Streamline set within the same major version again, so you can give the Enabler the Streamline 2.11+ it needs without the cross-major swap that crashes games. See <a href="CHANGELOG.md#163---2026-06-01">CHANGELOG</a>.</sub>
+  <sub><b>New in v1.6.5:</b> DLSSync can now keep your DLLs current on its own — an opt-in background daemon scans on a schedule even when the window is closed, lives in the system tray, and applies everything in one click. It also warns you before you touch a game that can ban you for it: titles protected by Easy Anti-Cheat, BattlEye, or Riot Vanguard show a ban-risk chip and ask for confirmation right at the apply step. See <a href="CHANGELOG.md#165---2026-06-03">CHANGELOG</a>.</sub>
 </p>
 
 <p align="center">
@@ -294,6 +294,7 @@ cargo check --workspace
 - [x] v1.0: Windows portable, NSIS installer, auto-update banner, tray, EcoQoS Efficiency Mode, all 7 launchers, hash and Authenticode gates, Apache 2.0.
 - [x] v1.2: Apply pipeline hardening — shared per-URL download cache, streaming downloads with retry ladder, per-apply cancellation, failure-centric apply modal, tray inflight badge.
 - [x] v1.5: GPU driver updater for NVIDIA, AMD and Intel with per-card version history and signature-verified installs; DLSS preset and frame-generation overrides through the NVIDIA driver profile; per-game anti-cheat and anti-tamper detection; broader FSR and XeSS coverage; redesigned Library, Drivers tab and game drawer.
+- [x] v1.6: NVIDIA Streamline set updater with version-scheme awareness, a background-update daemon (scheduled scans, system tray, one-click Apply All, run-at-startup), apply-time anti-cheat ban-risk warnings, Ed25519-signed manifests, and English/Spanish localization.
 - [ ] Next: SignPath OSS Authenticode signing to remove the SmartScreen warning on first run.
 - [ ] Later: per-DLL changelog viewer with a diff against the installed build, and custom catalog sources for community-maintained DLL trees.
 
