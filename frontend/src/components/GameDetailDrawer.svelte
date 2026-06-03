@@ -3,6 +3,7 @@
   import { get } from "svelte/store";
   import { t, locale, translate } from "../lib/i18n/index";
   import { setActiveArt, clearActiveArt } from "../lib/artContext";
+  import { coverAccent } from "../lib/coverAccent";
   import { EXTERNAL_URLS, STREAMLINE_OVERRIDE_NOTE } from "../lib/ux";
   import {
     games,
@@ -51,8 +52,21 @@
   } = $props();
 
   let game = $derived($games.find((g) => g.id === gameId));
+  let coverAccentColor = $state<string | null>(null);
   $effect(() => {
     if (game?.image_url) setActiveArt(game.image_url);
+  });
+  $effect(() => {
+    const url = game?.image_url;
+    coverAccentColor = null;
+    if (!url) return;
+    let active = true;
+    void coverAccent(url).then((color) => {
+      if (active) coverAccentColor = color;
+    });
+    return () => {
+      active = false;
+    };
   });
 
   onDestroy(() => {
@@ -491,10 +505,9 @@
 <svelte:window onkeydown={(e) => { if (game && e.key === "Escape") onClose(); }} />
 
 {#if game}
-  <div class="detail-view" style:--launcher-accent={accent} aria-label={game.name}>
-    <button class="detail-back" onclick={onClose} title={$t("component.gameDrawer.backToLibraryTitle")}>
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-      {$t("component.gameDrawer.backToLibrary")}
+  <div class="detail-view" style:--launcher-accent={accent} style:--game-accent={coverAccentColor ?? "var(--accent)"} aria-label={game.name}>
+    <button class="detail-back" onclick={onClose} title={$t("component.gameDrawer.backToLibraryTitle")} aria-label={$t("component.gameDrawer.backToLibrary")}>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
     </button>
     <header class="detail-hero">
       <div class="drawer-art">
@@ -506,7 +519,7 @@
         <div class="drawer-art-overlay"></div>
       </div>
       <div class="drawer-meta">
-        <span class="launcher-chip" style:background={accent}>{launcherLabel(game.launcher)}</span>
+        <span class="launcher-chip">{launcherLabel(game.launcher)}</span>
         <h2 class="drawer-title">{game.name}</h2>
         <p class="drawer-path mono truncate" title={game.install_dir}>{game.install_dir}</p>
       </div>
@@ -542,7 +555,7 @@
       {#if acActive}
         <div class="warning-banner edge-accent" class:is-warning={acSeverity !== "danger"} class:is-danger={acSeverity === "danger"} role="alert">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          <span>{warningMessage(acReport!)}{#if acStatus} {acStatus}{/if}</span>
+          <span class="warning-text">{warningMessage(acReport!)}{#if acStatus} {acStatus}{/if}</span>
           <button
             class="learn-more"
             title={$t("component.gameDrawer.anticheat.learnMoreTitle")}
@@ -559,7 +572,7 @@
       {#if dlssEnabler}
         <div class="warning-banner edge-accent is-info" role="status">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-          <span>{$t("note.enablerManaged")}</span>
+          <span class="warning-text">{$t("note.enablerManaged")}</span>
         </div>
       {/if}
 
@@ -620,7 +633,7 @@
         {/if}
 
         {#if featureBuckets.length > 0}
-          <ul class="feature-list">
+          <ul class="feature-list stagger">
             {#each featureBuckets as b (b.feature)}
               {@const selState = featureSelectionState(b)}
               {@const expanded = !!expandedFeatures[b.feature]}
@@ -868,7 +881,7 @@
       {/if}
 
       {#if game && !loading && !rescanning}
-        <section class="advanced-block" class:open={dlssExpanded} style="margin-top: 12px;">
+        <section class="advanced-block" class:open={dlssExpanded}>
           <button type="button" class="advanced-head" onclick={toggleDlss} aria-expanded={dlssExpanded}>
             <span class="advanced-titles">
               <span class="advanced-name">
@@ -899,22 +912,21 @@
     </div>
 
     <footer class="drawer-foot">
-      <button class="btn btn-ghost" onclick={openFolder} title={$t("component.gameDrawer.foot.openFolderTitle")}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-        {$t("view.library.menu.openFolder")}
+      <button class="btn btn-ghost foot-util" onclick={openFolder} title={$t("component.gameDrawer.foot.openFolderTitle")} aria-label={$t("view.library.menu.openFolder")}>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
       </button>
-      <button class="btn btn-ghost" onclick={doRescan} title={$t("component.gameDrawer.foot.rescanTitle")} disabled={loading || rescanning}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-        {$t("view.library.rescan")}
+      <button class="btn btn-ghost foot-util" onclick={doRescan} title={$t("component.gameDrawer.foot.rescanTitle")} aria-label={$t("view.library.rescan")} disabled={loading || rescanning}>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
       </button>
-      <button class="btn btn-ghost" onclick={toggleHidden}>{isHidden ? $t("component.gameDrawer.foot.restore") : $t("component.gameDrawer.foot.hide")}</button>
-      <div class="foot-spacer"></div>
+      <button class="btn btn-ghost foot-util" onclick={toggleHidden} title={isHidden ? $t("component.gameDrawer.foot.restore") : $t("component.gameDrawer.foot.hide")} aria-label={isHidden ? $t("component.gameDrawer.foot.restore") : $t("component.gameDrawer.foot.hide")}>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+      </button>
       {#if aheadCount > 0}
         <span class="chip chip-info ahead-chip">{$t("component.gameDrawer.foot.aheadChip", { count: aheadCount })}</span>
       {/if}
       {#if streamlineSetMembers.length > 0}
         <button
-          class="btn btn-ghost"
+          class="btn btn-ghost foot-streamline"
           onclick={applyStreamlineSetAction}
           title={`${$t("component.gameDrawer.streamlineSet.title")} ${STREAMLINE_OVERRIDE_NOTE}`}
         >
@@ -924,7 +936,7 @@
         </button>
       {/if}
       <button
-        class="btn btn-primary halo is-update"
+        class="btn btn-primary halo is-update foot-apply"
         class:is-active={selectedCount > 0}
         disabled={selectedCount === 0}
         onclick={applySelected}
@@ -946,35 +958,50 @@
 
 <style>
   .detail-view {
+    container-type: inline-size;
+    container-name: drawer;
+    position: relative;
     display: flex;
     flex-direction: column;
+    height: 100%;
+    width: 100%;
+    min-height: 0;
+    gap: 0;
+    background: var(--bg-card);
+    border: none;
+    border-radius: 0;
+    overflow: hidden;
   }
   .detail-back {
+    position: absolute;
+    top: var(--space-3);
+    left: var(--space-3);
+    z-index: 5;
     display: inline-flex;
     align-items: center;
-    gap: 7px;
-    align-self: flex-start;
-    margin-bottom: 14px;
-    padding: 7px 13px 7px 10px;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
     border-radius: var(--radius-full);
-    font-size: var(--fs-sm);
-    font-weight: 600;
-    color: var(--text-secondary);
-    background: var(--bg-card);
-    border: 1px solid var(--border);
+    color: #fff;
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.3);
     cursor: pointer;
-    transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+    backdrop-filter: var(--glass-blur-bar);
+    -webkit-backdrop-filter: var(--glass-blur-bar);
+    transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
   }
-  .detail-back:hover { color: var(--text-primary); background: var(--bg-card-hover); border-color: var(--border-hover); }
+  .detail-back:hover { background: rgba(0, 0, 0, 0.72); border-color: rgba(255, 255, 255, 0.5); transform: translateX(-1px); }
   .detail-back:focus-visible { outline: none; box-shadow: var(--shadow-ring); }
 
   .detail-hero {
+    flex-shrink: 0;
     position: relative;
-    border-radius: var(--radius-xl);
+    border: none;
+    border-radius: 0;
     overflow: hidden;
-    border: 1px solid var(--border);
   }
-  .drawer-art { width: 100%; height: clamp(180px, 26vh, 260px); overflow: hidden; position: relative; }
+  .drawer-art { width: 100%; height: clamp(132px, 20vh, 190px); overflow: hidden; position: relative; }
   .drawer-art::before {
     content: "";
     position: absolute;
@@ -982,7 +1009,7 @@
     left: 0;
     right: 0;
     height: 2px;
-    background: var(--launcher-accent, var(--accent));
+    background: var(--game-accent, var(--launcher-accent, var(--accent)));
     z-index: 2;
     pointer-events: none;
   }
@@ -994,15 +1021,22 @@
     align-items: center;
     justify-content: center;
     background: var(--bg-art-fallback);
-    color: var(--launcher-accent, var(--accent));
-    font-size: 96px;
+    color: var(--accent);
+    font-size: var(--fs-display);
     font-weight: 700;
     opacity: 0.55;
   }
   .drawer-art-overlay {
     position: absolute;
     inset: 0;
-    background: linear-gradient(180deg, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.95) 100%);
+    background: linear-gradient(
+      180deg,
+      rgba(0, 0, 0, 0.5) 0%,
+      rgba(0, 0, 0, 0.12) 22%,
+      rgba(0, 0, 0, 0) 44%,
+      rgba(0, 0, 0, 0.58) 72%,
+      rgba(0, 0, 0, 0.92) 100%
+    );
     pointer-events: none;
   }
   .drawer-meta {
@@ -1010,101 +1044,131 @@
     bottom: 0;
     left: 0;
     right: 0;
-    padding: 18px 22px 20px;
+    padding: var(--space-4) var(--space-5) var(--space-4);
     z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
   }
   .launcher-chip {
     display: inline-flex;
     align-items: center;
-    padding: 3px 9px;
+    padding: 3px var(--space-2);
     border-radius: var(--radius-full);
-    font-size: 10px;
+    font-size: var(--fs-2xs);
     font-weight: 700;
     letter-spacing: var(--letter-wider);
     text-transform: uppercase;
-    color: #0a0d13;
-    margin-bottom: 8px;
+    background: var(--accent);
+    color: var(--accent-fg);
   }
   .drawer-title {
-    font-size: 22px;
+    font-size: var(--fs-xl-plus);
     font-weight: 700;
+    line-height: var(--lh-tight);
     letter-spacing: var(--letter-tighter);
     color: #fff;
-    margin-bottom: 4px;
-    text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6), 0 2px 12px rgba(0, 0, 0, 0.8);
   }
-  .drawer-path { font-size: 11px; color: rgba(255,255,255,0.78); }
+  .drawer-path {
+    font-size: var(--fs-xs);
+    color: rgba(255, 255, 255, 0.88);
+    max-width: 100%;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+  }
 
   .drawer-body {
-    padding: 18px 2px 24px;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: var(--space-4) var(--space-4) var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    scrollbar-width: none;
+    -ms-overflow-style: none;
   }
+  .drawer-body::-webkit-scrollbar { display: none; width: 0; height: 0; }
 
   .warning-banner {
     position: relative;
-    overflow: hidden;
     display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 12px 14px 12px 16px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    column-gap: var(--space-3);
+    row-gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
     border-radius: var(--radius-md);
     background: var(--warning-dim);
     border: 1px solid var(--warning);
     color: var(--warning);
-    font-size: 11.5px;
-    line-height: 1.45;
-    margin-bottom: 20px;
+    font-size: var(--fs-sm);
+    line-height: var(--lh-snug);
   }
   .warning-banner.is-danger {
-    background: var(--danger-dim, rgba(220, 70, 70, 0.14));
-    border-color: var(--danger, #dc4646);
-    color: var(--danger, #dc4646);
+    background: var(--danger-dim);
+    border-color: var(--danger);
+    color: var(--danger);
   }
   .warning-banner.is-info {
-    background: var(--info-dim, rgba(10, 132, 255, 0.12));
+    background: var(--info-dim);
     border-color: var(--info);
     color: var(--info);
   }
-  .warning-banner svg { flex-shrink: 0; margin-top: 1px; }
+  .warning-banner svg { flex-shrink: 0; margin-top: 2px; }
+  .warning-text {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
   .learn-more {
     margin-left: auto;
     height: 28px;
-    padding: 0 12px;
+    padding: 0 var(--space-3);
     border-radius: var(--radius-md);
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--bg-cap);
     color: currentColor;
-    font-size: 11px;
+    font-size: var(--fs-xs);
     font-weight: 600;
-    letter-spacing: 0.02em;
+    letter-spacing: var(--letter-wide);
     border: 1px solid currentColor;
-    flex-shrink: 0;
+    flex: 0 0 auto;
+    align-self: flex-start;
     display: inline-flex;
     align-items: center;
+    white-space: nowrap;
+    cursor: pointer;
     transition:
       background var(--dur-fast) var(--ease),
       color var(--dur-fast) var(--ease);
   }
   .learn-more:hover {
-    background: rgba(255, 255, 255, 0.18);
+    background: var(--bg-elevated);
     color: var(--text-primary);
   }
   .learn-more:focus-visible { outline: none; box-shadow: var(--shadow-ring); }
 
   .status-ribbon {
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-top: 14px;
-    padding: 10px 16px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    margin: 0;
+    padding: 11px 16px;
+    border: none;
+    border-top: 1px solid var(--border);
+    border-radius: 0;
     font-size: var(--fs-sm);
     color: var(--text-secondary);
-    background: var(--bg-elevated);
+    background: var(--bg-card);
     font-variant-numeric: tabular-nums;
   }
-  .status-ribbon.is-update { color: var(--update); background: var(--update-dim); border-color: var(--update-glow); }
-  .status-ribbon.is-success { color: var(--success); background: var(--success-dim); border-color: var(--success-glow); }
-  .status-ribbon.is-danger { color: var(--danger); background: var(--danger-dim); border-color: var(--danger-glow); }
+  .status-ribbon.is-update { color: var(--update); background: var(--update-dim); }
+  .status-ribbon.is-success { color: var(--success); background: var(--success-dim); }
+  .status-ribbon.is-danger { color: var(--danger); background: var(--danger-dim); }
   .status-ribbon.is-muted { color: var(--text-muted); }
   .ribbon-dot {
     width: 7px;
@@ -1136,55 +1200,67 @@
   .empty-state .error-hint { color: var(--text-secondary); }
 
   .summary-row {
-    display: flex;
-    gap: 6px;
-    padding: 10px 12px;
-    background: var(--bg-elevated);
-    border-radius: var(--radius-md);
-    margin-bottom: 16px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-2);
   }
   .summary-stat {
-    flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 4px;
+    gap: var(--space-1);
+    padding: var(--space-3) var(--space-2);
+    background: var(--bg-cap);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
   }
   .stat-num {
-    font-size: 20px;
+    font-size: var(--fs-xl);
     font-weight: 700;
     color: var(--text-primary);
     letter-spacing: var(--letter-tighter);
     font-variant-numeric: tabular-nums;
+    line-height: var(--lh-tight);
   }
   .stat-num.is-update { color: var(--update); }
   .stat-num.is-accent { color: var(--accent); }
   .stat-label {
-    font-size: 9.5px;
-    color: var(--text-muted);
+    font-size: var(--fs-2xs);
     text-transform: uppercase;
     letter-spacing: var(--letter-wider);
-    margin-top: 2px;
+    color: var(--text-muted);
   }
 
-  .quick-actions { display: flex; gap: 8px; margin-bottom: 16px; }
+  .quick-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 
-  .feature-list { list-style: none; padding: 0; margin: 0 0 20px; display: flex; flex-direction: column; gap: 10px; }
+  .feature-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--space-2); }
   .feature-row {
     position: relative;
     display: grid;
     grid-template-columns: 22px 36px 1fr auto;
-    gap: 12px;
+    gap: var(--space-3);
     align-items: flex-start;
-    padding: 14px 16px;
+    padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    transition: border-color 0.15s var(--ease), background 0.15s var(--ease);
+    transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
   }
-  .feature-row.is-update { border-color: rgba(34, 211, 238, 0.30); }
-  .feature-row.is-update:hover { background: var(--bg-card-hover); border-color: var(--accent-ring); box-shadow: 0 0 0 3px var(--accent-dim); }
-  .feature-row:hover { background: var(--bg-card-hover); }
+  .feature-row:hover { background: var(--bg-card-hover); border-color: var(--border-hover); }
+  .feature-row.is-update {
+    border-color: color-mix(in srgb, var(--update) 40%, var(--border));
+    background: color-mix(in srgb, var(--update-dim) 50%, var(--bg-card));
+  }
+  .feature-row.is-update::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: var(--space-3);
+    bottom: var(--space-3);
+    width: 3px;
+    border-radius: 0 var(--radius-full) var(--radius-full) 0;
+    background: var(--update);
+  }
   .feature-row.disabled { opacity: 0.55; }
 
   .feature-check { display: inline-flex; cursor: pointer; padding-top: 3px; }
@@ -1237,7 +1313,8 @@
     width: 36px;
     height: 36px;
     border-radius: var(--radius-md);
-    background: color-mix(in srgb, var(--feature-accent) 14%, var(--bg-elevated));
+    background: color-mix(in srgb, var(--feature-accent) 16%, var(--bg-elevated));
+    border: 1px solid color-mix(in srgb, var(--feature-accent) 28%, transparent);
     color: var(--feature-accent);
     display: inline-flex;
     align-items: center;
@@ -1246,9 +1323,9 @@
   }
 
   .feature-body { min-width: 0; }
-  .feature-head { display: flex; align-items: center; gap: 8px; }
-  .feature-title { font-size: 13.5px; font-weight: 600; color: var(--text-primary); letter-spacing: var(--letter-tight); }
-  .feature-blurb { font-size: 11px; color: var(--text-muted); margin-top: 2px; line-height: 1.45; }
+  .feature-head { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+  .feature-title { font-size: var(--fs-base); font-weight: 600; color: var(--text-primary); letter-spacing: var(--letter-tight); }
+  .feature-blurb { font-size: var(--fs-xs); color: var(--text-muted); margin-top: var(--space-1); line-height: var(--lh-snug); }
 
   .feature-versions {
     display: flex;
@@ -1332,7 +1409,7 @@
   .files-list {
     grid-column: 1 / -1;
     list-style: none;
-    margin: 14px -4px 0;
+    margin: 12px 0 2px;
     padding: 8px 6px;
     background: var(--bg-input);
     border: 1px solid var(--border);
@@ -1342,9 +1419,9 @@
   }
   .files-list.flat {
     grid-column: auto;
+    margin: 0;
     background: var(--bg-card);
     border-radius: var(--radius-md);
-    margin: 0;
   }
   .file-row {
     position: relative;
@@ -1377,20 +1454,20 @@
   .small-chip { padding: 1px 7px; font-size: 9.5px; letter-spacing: 0.04em; }
 
   .advanced-block {
-    margin-top: 16px;
     background: transparent;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
+    border: none;
+    border-top: 1px solid var(--border);
+    border-radius: 0;
     overflow: hidden;
-    transition: background 0.15s var(--ease);
+    transition: background var(--dur-fast) var(--ease);
   }
-  .advanced-block.open { background: var(--bg-elevated); }
+  .advanced-block.open { background: transparent; }
   .advanced-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
     width: 100%;
-    padding: 12px 14px;
+    padding: 14px 4px;
     background: none;
     border: none;
     color: inherit;
@@ -1398,7 +1475,7 @@
     cursor: pointer;
     text-align: left;
   }
-  .advanced-head:hover { background: var(--bg-elevated); }
+  .advanced-head:hover { background: var(--bg-card-hover); border-radius: var(--radius-md); }
   .advanced-titles { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   .advanced-name {
     display: inline-flex;
@@ -1418,46 +1495,57 @@
   }
   .advanced-chevron.open { transform: rotate(180deg); color: var(--text-primary); }
   .count.chip { padding: 1px 7px; }
-  .dlss-drawer-body { padding: 0 14px 14px; display: flex; flex-direction: column; gap: 10px; }
+  .dlss-drawer-body { padding: 0 4px 12px; display: flex; flex-direction: column; gap: 10px; }
 
   .drawer-foot {
     position: sticky;
-    bottom: 16px;
-    margin-top: 20px;
-    padding: 12px 14px;
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-lg);
-    background: var(--bg-elevated);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+    bottom: 0;
+    flex-shrink: 0;
+    margin: 0;
+    padding: var(--space-3) var(--space-4);
+    background: var(--glass-2);
+    backdrop-filter: var(--glass-blur-bar);
+    -webkit-backdrop-filter: var(--glass-blur-bar);
+    border-top: 1px solid var(--border);
+    box-shadow: var(--glass-edge);
     display: flex;
-    gap: 8px;
-    align-items: center;
     flex-wrap: wrap;
-    container-type: inline-size;
+    gap: var(--space-2);
+    align-items: center;
     z-index: 4;
   }
-  .foot-spacer { flex: 1 1 0; min-width: 0; }
-  .ahead-chip { padding: 3px 8px; flex-shrink: 0; }
-
-  @container (max-width: 460px) {
-    .drawer-foot { padding: 12px 14px; gap: 6px; row-gap: 8px; }
-    .drawer-foot .btn-primary {
-      order: 99;
-      width: 100%;
-      justify-content: center;
-    }
-    .foot-spacer { display: none; }
-    .ahead-chip { order: 98; flex: 1 0 100%; text-align: center; }
+  .drawer-foot::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(-1 * var(--space-4));
+    height: var(--space-4);
+    background: linear-gradient(to top, var(--bg-card), transparent);
+    pointer-events: none;
   }
-
-  @container (max-width: 360px) {
-    .drawer-foot .btn-ghost {
-      padding-left: 8px;
-      padding-right: 8px;
-      font-size: 0;
-    }
-    .drawer-foot .btn-ghost svg { margin: 0; }
+  .drawer-foot .foot-util {
+    flex: 0 0 auto;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    justify-content: center;
   }
+  .drawer-foot .foot-util svg { margin: 0; }
+  .drawer-foot .foot-apply {
+    flex: 1 1 auto;
+    min-width: 150px;
+    height: 40px;
+    order: 9;
+    justify-content: center;
+  }
+  .drawer-foot .foot-streamline {
+    flex: 1 1 100%;
+    height: 40px;
+    order: 8;
+    justify-content: center;
+  }
+  .ahead-chip { order: 7; padding: 4px var(--space-3); flex: 0 0 auto; }
 
   .spinner {
     width: 14px;
@@ -1468,4 +1556,15 @@
     animation: spin 0.7s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  @container drawer (max-width: 420px) {
+    .summary-row { gap: var(--space-1); }
+    .summary-stat { padding: var(--space-2) var(--space-1); }
+    .feature-row {
+      grid-template-columns: 22px 1fr auto;
+      column-gap: var(--space-2);
+    }
+    .feature-glyph { display: none; }
+    .drawer-foot .foot-apply { flex: 1 1 100%; order: 9; }
+  }
 </style>

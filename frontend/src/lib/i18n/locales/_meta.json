@@ -654,6 +654,11 @@
     "desc": "Notification headline for a new system (non-GPU) driver. Translate fully. Source: NotificationsBell kindLabel case system_driver_update_available.",
     "where": "NotificationsBell entry title."
   },
+  "notifKind.dll_updates_available": {
+    "en": "Updates ready",
+    "desc": "Notification headline / aria for the proactive DLL-updates digest. Translate fully. Source: NotificationsBell aria notifKind.dll_updates_available.",
+    "where": "NotificationsBell entry aria-label."
+  },
   "notifKind.backup_restored": {
     "en": "Backup restored",
     "desc": "Notification headline for a restored backup. Translate fully. Source: NotificationsBell kindLabel case backup_restored.",
@@ -5228,6 +5233,21 @@
     "en": "Across {count} hardware categories",
     "desc": "Notification body counting hardware categories with updates (plural)",
     "where": "stores.ts emitSystemDriverUpdateNotification"
+  },
+  "notif.dll.digestTitle": {
+    "en": "{count} updates ready in {games}",
+    "desc": "Proactive digest notification title; {count} is total pending DLL updates (plural), {games} is the localized digestGames sub-phrase",
+    "where": "stores.ts emitDllUpdatesDigest"
+  },
+  "notif.dll.digestGames": {
+    "en": "{count} games",
+    "desc": "Sub-phrase counting distinct games with pending updates (plural), composed into notif.dll.digestTitle",
+    "where": "stores.ts emitDllUpdatesDigest"
+  },
+  "notif.dll.digestBody": {
+    "en": "Open the Library to apply them",
+    "desc": "Body of the proactive DLL-updates digest notification",
+    "where": "stores.ts emitDllUpdatesDigest"
   },
   "feature.dlss_sr.title": {
     "en": "DLSS Super Resolution",

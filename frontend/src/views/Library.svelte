@@ -38,6 +38,7 @@
   import { launcherLabel, familyGroup, type FamilyGroup } from "../lib/labels";
   import GameCard from "../components/GameCard.svelte";
   import GameListRow from "../components/GameListRow.svelte";
+  import FilterMenu from "../components/FilterMenu.svelte";
   import ContextMenu, { type ContextMenuAction, type ContextMenuItem } from "../components/ContextMenu.svelte";
   import { dispatchApply, type ApplyTarget } from "../lib/applyController";
   import { listen, type UnlistenFn } from "@tauri-apps/api/event";
@@ -141,6 +142,27 @@
   ];
 
   let hiddenCount = $derived($hiddenIds.size);
+
+  let launcherOptions = $derived.by(() =>
+    launcherFilters
+      .map((f) => ({
+        id: f.id,
+        label: f.brand ?? translate($locale, f.labelKey),
+        count: f.id === "all" ? $games.length : $games.filter((g) => g.launcher === f.id).length,
+      }))
+      .filter((o) => o.id === "all" || availableLaunchers.has(o.id) || o.count > 0),
+  );
+
+  let statusOptions = $derived.by(() =>
+    statusFilters
+      .filter((f) => f.id !== "hidden" || hiddenCount > 0)
+      .map((f) => ({
+        id: f.id,
+        label: translate($locale, f.labelKey),
+        count: f.id === "hidden" ? hiddenCount : undefined,
+        tone: f.id === "hidden" ? ("danger" as const) : null,
+      })),
+  );
 
   function onCardClick(game: DetectedGame): void {
     drawerGameId.set(game.id);
@@ -400,77 +422,40 @@
   </div>
 {/if}
 
-<div class="filters-bar">
-  <div class="filters-primary">
-    <div class="filter-group">
-      <span class="filter-group-label">{$t("view.library.filter.launcher")}</span>
-      <div class="pills">
-        {#each launcherFilters as f}
-          {@const total = f.id === "all" ? $games.length : $games.filter((g) => g.launcher === f.id).length}
-          {#if f.id === "all" || availableLaunchers.has(f.id) || total > 0}
-            <button
-              class="pill"
-              class:active={$launcherFilter === f.id}
-              onclick={() => launcherFilter.set(f.id)}
-            >
-              {f.brand ?? $t(f.labelKey)}
-              <span class="pill-count">{total}</span>
-            </button>
-          {/if}
-        {/each}
-      </div>
-    </div>
-    <span class="filter-divider" aria-hidden="true"></span>
-    <div class="filter-group">
-      <span class="filter-group-label">{$t("view.library.filter.status")}</span>
-      <div class="pills">
-        {#each statusFilters as f}
-          {#if f.id !== "hidden" || hiddenCount > 0}
-            <button
-              class="pill"
-              class:active={$statusFilter === f.id}
-              class:is-hidden={f.id === "hidden"}
-              onclick={() => statusFilter.set(f.id)}
-            >
-              {$t(f.labelKey)}
-              {#if f.id === "hidden"}
-                <span class="pill-count">{hiddenCount}</span>
-              {/if}
-            </button>
-          {/if}
-        {/each}
-      </div>
-    </div>
-  </div>
+<div class="filter-toolbar glass-panel" role="toolbar" aria-label={$t("view.library.filter.launcher")}>
+  <FilterMenu
+    label={$t("view.library.filter.launcher")}
+    options={launcherOptions}
+    selectedId={$launcherFilter}
+    onSelect={(id) => launcherFilter.set(id)}
+  />
 
-  <div class="filters-secondary">
-    <div class="filter-group">
-      <span class="filter-group-label">{$t("view.library.filter.sort")}</span>
-      <select class="sort-select" value={sortKey} onchange={(e) => void setSort((e.currentTarget as HTMLSelectElement).value as LibrarySort)} aria-label={$t("view.library.filter.sortAria")}>
-        {#each LIBRARY_SORT_LABELS as opt (opt.id)}
-          <option value={opt.id} title={opt.hint ? $t("librarySort." + opt.id + ".hint") : $t("librarySort." + opt.id + ".label")}>{$t("librarySort." + opt.id + ".label")}</option>
-        {/each}
-      </select>
+  <FilterMenu
+    label={$t("view.library.filter.status")}
+    options={statusOptions}
+    selectedId={$statusFilter}
+    onSelect={(id) => statusFilter.set(id as StatusFilter)}
+  />
+
+  <div class="filter-controls">
+    <select class="sort-select" value={sortKey} onchange={(e) => void setSort((e.currentTarget as HTMLSelectElement).value as LibrarySort)} aria-label={$t("view.library.filter.sortAria")} title={$t("view.library.filter.sort")}>
+      {#each LIBRARY_SORT_LABELS as opt (opt.id)}
+        <option value={opt.id} title={opt.hint ? $t("librarySort." + opt.id + ".hint") : $t("librarySort." + opt.id + ".label")}>{$t("librarySort." + opt.id + ".label")}</option>
+      {/each}
+    </select>
+    <div class="seg" aria-label={$t("view.library.filter.view")}>
+      <button class="seg-btn" class:active={viewMode === "grid"} onclick={() => void setViewMode("grid")} aria-pressed={viewMode === "grid"} title={$t("view.library.view.gridTitle")} aria-label={$t("view.library.view.grid")}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span class="seg-text">{$t("view.library.view.grid")}</span>
+      </button>
+      <button class="seg-btn" class:active={viewMode === "list"} onclick={() => void setViewMode("list")} aria-pressed={viewMode === "list"} title={$t("view.library.view.listTitle")} aria-label={$t("view.library.view.list")}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        <span class="seg-text">{$t("view.library.view.list")}</span>
+      </button>
     </div>
-    <div class="filter-group">
-      <span class="filter-group-label">{$t("view.library.filter.view")}</span>
-      <div class="seg">
-        <button class="seg-btn" class:active={viewMode === "grid"} onclick={() => void setViewMode("grid")} aria-pressed={viewMode === "grid"} title={$t("view.library.view.gridTitle")}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-          {$t("view.library.view.grid")}
-        </button>
-        <button class="seg-btn" class:active={viewMode === "list"} onclick={() => void setViewMode("list")} aria-pressed={viewMode === "list"} title={$t("view.library.view.listTitle")}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-          {$t("view.library.view.list")}
-        </button>
-      </div>
-    </div>
-    <div class="filter-group">
-      <span class="filter-group-label">{$t("view.library.filter.density")}</span>
-      <div class="seg">
-        <button class="seg-btn" class:active={density === "compact"} onclick={() => void setDensity("compact")} aria-pressed={density === "compact"} title={$t("view.library.density.compactTitle")}>{$t("view.library.density.compact")}</button>
-        <button class="seg-btn" class:active={density === "comfy"} onclick={() => void setDensity("comfy")} aria-pressed={density === "comfy"} title={$t("view.library.density.comfyTitle")}>{$t("view.library.density.comfy")}</button>
-      </div>
+    <div class="seg" aria-label={$t("view.library.filter.density")}>
+      <button class="seg-btn" class:active={density === "compact"} onclick={() => void setDensity("compact")} aria-pressed={density === "compact"} title={$t("view.library.density.compactTitle")}>{$t("view.library.density.compact")}</button>
+      <button class="seg-btn" class:active={density === "comfy"} onclick={() => void setDensity("comfy")} aria-pressed={density === "comfy"} title={$t("view.library.density.comfyTitle")}>{$t("view.library.density.comfy")}</button>
     </div>
   </div>
 </div>
@@ -607,54 +592,37 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 18px;
-    gap: 16px;
+    margin-bottom: var(--space-4);
+    gap: var(--space-4);
     flex-wrap: wrap;
   }
   .view-header > div:first-child { flex: 1 1 240px; min-width: 0; }
   .header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; flex-shrink: 0; }
-  .filters-bar {
+  .filter-toolbar {
+    position: sticky;
+    top: var(--space-2);
+    z-index: 4;
     display: flex;
-    flex-direction: column;
-    gap: 16px;
-    margin-bottom: 22px;
-    padding-bottom: 18px;
-    border-bottom: 1px solid var(--border);
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--space-4);
   }
-  .filters-primary {
+  .filter-controls {
     display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: 14px 22px;
+    align-items: center;
+    gap: var(--space-2);
+    margin-inline-start: auto;
+    flex-shrink: 0;
   }
-  .filters-secondary {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-end;
-    gap: 14px 20px;
+  .seg-text { display: none; }
+  @media (max-width: 560px) {
+    .filter-toolbar { position: static; }
   }
-  .filter-divider {
-    align-self: stretch;
-    width: 1px;
-    background: var(--border);
-    margin: 2px 0;
-  }
-  @media (max-width: 720px) {
-    .filter-divider { display: none; }
-  }
-  .filter-group { display: flex; flex-direction: column; gap: 7px; }
-  .filter-group-label {
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: var(--letter-wider);
-    color: var(--text-muted);
-  }
-  .pill.is-hidden { color: var(--text-muted); }
-  .pill.is-hidden.active { background: var(--danger-dim); border-color: var(--danger); color: var(--danger); }
-  .pill.is-hidden.active .pill-count { background: var(--danger-glow); color: var(--danger); }
 
-  .updates-hero-shell { container-type: inline-size; margin-bottom: 20px; }
+  .updates-hero-shell { container-type: inline-size; margin-bottom: var(--space-3); }
   .updates-hero {
     position: relative;
     display: flex;
@@ -761,15 +729,17 @@
 
   .sort-select {
     height: 32px;
-    padding: 0 12px;
+    padding: 0 var(--space-3);
     border-radius: var(--radius-md);
-    background: var(--bg-card);
+    background: var(--bg-input);
     border: 1px solid var(--border);
     color: var(--text-primary);
     font-size: var(--fs-sm);
     font-family: inherit;
     cursor: pointer;
-    min-width: 160px;
+    min-width: 7.5rem;
+    max-width: 100%;
+    flex-shrink: 1;
   }
   .sort-select:hover { border-color: var(--border-hover); }
   .sort-select:focus-visible { outline: none; border-color: var(--accent); box-shadow: var(--shadow-ring); }

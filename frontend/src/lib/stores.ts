@@ -34,7 +34,15 @@ import {
 } from "./api";
 import { sortDriverReports, hasDriverUpdate, driverPageUrl } from "./drivers";
 import { vendorLabel, familyLabel, familyShort, type UpdateStatus } from "./labels";
-import { buildShasByVendor, gameStatusFromRecords, type CatalogShasByVendor, type RelationContext } from "./relation";
+import {
+  buildShasByVendor,
+  gameStatusFromRecords,
+  dllRelation,
+  targetVersion,
+  recordUpdatable,
+  type CatalogShasByVendor,
+  type RelationContext,
+} from "./relation";
 import {
   notifications,
   pushNotification,
@@ -378,6 +386,64 @@ export const outdatedGameCount: Readable<number> = derived(
     $games.reduce((n, g) => (!$hidden.has(g.id) && $statuses[g.id] === "outdated" ? n + 1 : n), 0),
 );
 
+/** Total pending DLL updates and the number of distinct games carrying at least
+ *  one, computed from the same primitives the Library hero uses
+ *  (`outdatedDllsAcrossLibrary`): outdated, updatable, pinned-aware records with a
+ *  resolvable target. Reused by the proactive digest notification. */
+export function pendingDllUpdateDigest(): { total: number; games: number } {
+  const $games = get(games);
+  const $hidden = get(hiddenIds);
+  const $statuses = get(gameStatuses);
+  const $dlls = get(gameDlls);
+  const $ctx = get(relationContext);
+  const $settings = get(settings);
+  const prefs = $settings?.update_prefs ?? null;
+  let total = 0;
+  let gamesWithUpdates = 0;
+  for (const game of $games) {
+    if ($hidden.has(game.id)) continue;
+    if ($statuses[game.id] !== "outdated") continue;
+    const records = $dlls[game.id] ?? [];
+    const disabled = $settings?.game_preferences[game.id]?.disabled_families ?? [];
+    const pinned = $settings?.game_preferences[game.id]?.pinned_versions ?? {};
+    let gameCount = 0;
+    for (const r of records) {
+      if (disabled.includes(r.family)) continue;
+      if (!recordUpdatable(r, prefs)) continue;
+      const pin = pinned[`${r.family}|${r.path}`] ?? null;
+      if (dllRelation(r, $ctx, pin) !== "outdated") continue;
+      if (!targetVersion(r, $ctx, pin)) continue;
+      gameCount += 1;
+    }
+    if (gameCount > 0) {
+      total += gameCount;
+      gamesWithUpdates += 1;
+    }
+  }
+  return { total, games: gamesWithUpdates };
+}
+
+/** Push ONE proactive digest ("N updates ready in M games") when the library has
+ *  pending DLL updates. The title is stable for identical counts, so the backend
+ *  dedup (skip a non-dismissed entry with the same kind+title) prevents spam on
+ *  re-fire. No-ops when nothing is pending. */
+export function emitDllUpdatesDigest(): void {
+  const { total, games: gameCount } = pendingDllUpdateDigest();
+  if (total === 0) return;
+  const loc = get(locale);
+  const gamesPhrase = translate(loc, "notif.dll.digestGames", { count: gameCount });
+  const title = translate(loc, "notif.dll.digestTitle", { count: total, games: gamesPhrase });
+  if (alreadyEmitted("dll_updates_available", title)) return;
+  const entry = makeNotificationEntry(
+    "dll_updates_available",
+    title,
+    translate(loc, "notif.dll.digestBody"),
+  );
+  pushNotification(entry).catch((err) =>
+    console.warn("[dlssync] push dll-updates digest failed:", err),
+  );
+}
+
 export const restorableBackupCount: Readable<number> = derived(
   backups,
   ($entries) => $entries.reduce((n, b) => (b.restored_at == null ? n + 1 : n), 0),
@@ -516,6 +582,7 @@ async function loadAllDlls(list: DetectedGame[]): Promise<void> {
     failureToastShown = true;
     showToast("warning", translate(get(locale), "toast.gamesFailedToScan", { count: errCount }));
   }
+  emitDllUpdatesDigest();
 }
 
 export async function rescanGame(gameId: string): Promise<void> {
@@ -571,6 +638,7 @@ export async function loadCatalog(): Promise<void> {
     const after = get(catalogLatestByKey);
     const diffs = diffCatalogLatest(before, after);
     if (diffs.length > 0) emitCatalogUpdateNotifications(diffs);
+    emitDllUpdatesDigest();
   } catch (err: unknown) {
     catalogStatus.set({ kind: "danger", label: "error" });
     const message = formatError(err);

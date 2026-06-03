@@ -233,7 +233,7 @@
   .game-card:hover {
     transform: translateY(-2px);
     border-color: var(--accent-ring);
-    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--accent-dim);
+    box-shadow: var(--shadow-card-hover);
   }
   .game-card.is-hidden { opacity: 0.78; }
   .game-card.is-hidden .art-img { filter: grayscale(0.4) brightness(0.85); }

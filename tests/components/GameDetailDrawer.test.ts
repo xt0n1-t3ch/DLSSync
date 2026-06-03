@@ -50,7 +50,7 @@ describe("GameDetailView — full-page detail, not an overlay drawer", () => {
     expect(summary).not.toMatch(/position:\s*sticky/);
     const foot = ruleBody(drawerSource, ".drawer-foot");
     expect(foot).toMatch(/position:\s*sticky/);
-    expect(foot).toMatch(/bottom:\s*16px/);
+    expect(foot).toMatch(/bottom:\s*0/);
   });
 
   it("aligns the warning-banner Learn-more anchor with the link-btn doctrine", () => {
@@ -61,14 +61,19 @@ describe("GameDetailView — full-page detail, not an overlay drawer", () => {
   });
 });
 
-describe("GameDetailView — wired at the app level (replaces the library content)", () => {
-  it("App renders the detail in the content area when a game is open, not Library as an overlay", () => {
+describe("GameDetailView — wired at the app level (master-detail right rail)", () => {
+  it("App renders the detail in a persistent right rail beside the library, not replacing it", () => {
     expect(appSource).toMatch(/import GameDetailDrawer from "\.\/components\/GameDetailDrawer\.svelte"/);
-    expect(appSource).toMatch(/\$currentView === "library" && \$drawerGameId/);
+    expect(appSource).toMatch(/railGameId = \$derived\(\$currentView === "library" \? \$drawerGameId : null\)/);
+    expect(appSource).toMatch(/\{#if railGameId\}/);
+    expect(appSource).toMatch(/class="detail-rail"/);
+    expect(appSource).toMatch(/class:has-rail=\{!!railGameId\}/);
+    expect(appSource).toMatch(/var\(--rail-width\)/);
     expect(appSource).toContain("<GameDetailDrawer");
   });
 
-  it("Library no longer renders the detail itself and drops the push-padding side-panel", () => {
+  it("the library content stays mounted in its own primary column, never push-padded away", () => {
+    expect(appSource).toMatch(/class="main-primary"/);
     expect(librarySource).not.toContain("GameDetailDrawer");
     expect(appSource).not.toContain("data-drawer-open");
     expect(appSource).not.toMatch(/padding-right:\s*var\(--drawer-width\)/);

@@ -37,7 +37,7 @@
     installDriverInstallListener,
     installSystemDriverListener,
   } from "./lib/driverInstallEvents";
-  import { isLocale, localeFromNavigator, setLocale } from "./lib/i18n/index";
+  import { isLocale, localeFromNavigator, setLocale, t } from "./lib/i18n/index";
 
   let theme = $state(localStorage.getItem("dlssync-theme") || "dark");
 
@@ -54,6 +54,7 @@
   }
 
   let collapsed = $derived($settings?.ui_prefs.sidebar_collapsed ?? false);
+  let railGameId = $derived($currentView === "library" ? $drawerGameId : null);
 
   onMount(async () => {
     await loadSettings();
@@ -114,7 +115,7 @@
   });
 </script>
 
-<div class="app-shell">
+<div class="app-shell" class:rail-open={!!railGameId} class:sidebar-collapsed={collapsed}>
   <div class="app-ambient" aria-hidden="true">
     <div class="ambient-mesh"></div>
     {#if $activeArt}
@@ -123,36 +124,40 @@
     <div class="ambient-grain"></div>
   </div>
   <Sidebar />
-  <div class="app-main" class:sidebar-collapsed={collapsed}>
-    <TopBar onToggleTheme={toggleTheme} {theme} />
+  <TopBar onToggleTheme={toggleTheme} {theme} />
+  <div class="app-main">
     <main class="main-content">
       <div class="main-inner">
-        {#if $currentView === "library" && $drawerGameId}
-          <div in:fly={{ y: 8, duration: 200 }}>
-            <GameDetailDrawer
-              gameId={$drawerGameId}
-              onClose={() => drawerGameId.set(null)}
-              onApplyStart={() => applyModalOpen.set(true)}
-            />
-          </div>
-        {:else if $currentView === "library"}
-          <div in:fly={{ y: 8, duration: 200 }}><Library /></div>
-        {:else if $currentView === "catalog"}
-          <div in:fly={{ y: 8, duration: 200 }}><Catalog /></div>
-        {:else if $currentView === "backups"}
-          <div in:fly={{ y: 8, duration: 200 }}><Backups /></div>
-        {:else if $currentView === "drivers"}
-          <div in:fly={{ y: 8, duration: 200 }}><Drivers /></div>
-        {:else if $currentView === "settings"}
-          <div in:fly={{ y: 8, duration: 200 }}>
-            <Settings onToggleTheme={toggleTheme} currentTheme={theme} />
-          </div>
-        {:else if $currentView === "about"}
-          <div in:fly={{ y: 8, duration: 200 }}><About /></div>
-        {/if}
+        <div class="main-primary">
+          {#if $currentView === "library"}
+            <div in:fly={{ y: 8, duration: 200 }}><Library /></div>
+          {:else if $currentView === "catalog"}
+            <div in:fly={{ y: 8, duration: 200 }}><Catalog /></div>
+          {:else if $currentView === "backups"}
+            <div in:fly={{ y: 8, duration: 200 }}><Backups /></div>
+          {:else if $currentView === "drivers"}
+            <div in:fly={{ y: 8, duration: 200 }}><Drivers /></div>
+          {:else if $currentView === "settings"}
+            <div in:fly={{ y: 8, duration: 200 }}>
+              <Settings onToggleTheme={toggleTheme} currentTheme={theme} />
+            </div>
+          {:else if $currentView === "about"}
+            <div in:fly={{ y: 8, duration: 200 }}><About /></div>
+          {/if}
+        </div>
       </div>
     </main>
   </div>
+  {#if railGameId}
+    <button class="rail-scrim" aria-label={$t("common.close")} onclick={() => drawerGameId.set(null)}></button>
+    <aside class="detail-rail" class:has-rail={!!railGameId} in:fly={{ x: 24, duration: 220 }}>
+      <GameDetailDrawer
+        gameId={railGameId}
+        onClose={() => drawerGameId.set(null)}
+        onApplyStart={() => applyModalOpen.set(true)}
+      />
+    </aside>
+  {/if}
 </div>
 <Toast />
 <ActivityDock />
@@ -175,9 +180,35 @@
     position: fixed;
     inset: 0;
     z-index: 1;
-    display: flex;
+    display: grid;
+    grid-template-rows: var(--topbar-height) 1fr;
+    grid-template-columns: var(--sidebar-width) minmax(0, 1fr) 0fr;
     overflow: hidden;
     background: transparent;
+    transition: grid-template-columns var(--dur-normal) var(--ease-out);
+  }
+  .app-shell.sidebar-collapsed {
+    grid-template-columns: var(--sidebar-width-collapsed) minmax(0, 1fr) 0fr;
+  }
+  .app-shell.rail-open {
+    grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--drawer-width);
+  }
+  .app-shell.rail-open.sidebar-collapsed {
+    grid-template-columns: var(--sidebar-width-collapsed) minmax(0, 1fr) var(--drawer-width);
+  }
+  .app-shell :global(.sidebar) {
+    grid-row: 1 / -1;
+    grid-column: 1;
+    height: 100%;
+  }
+  .app-shell :global(.topbar) {
+    grid-row: 1;
+    grid-column: 2 / -1;
+    position: relative;
+    z-index: 70;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .app-shell { transition: none; }
   }
   .app-ambient {
     position: absolute;
@@ -232,24 +263,78 @@
   /* The content column: the topbar overlays the top so scrolling content frosts
      under it (real glass), and the sidebar is an integrated column to the left. */
   .app-main {
+    grid-row: 2;
+    grid-column: 2;
     position: relative;
     z-index: 1;
-    flex: 1;
     min-width: 0;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
   }
   .main-content {
     flex: 1;
     overflow-y: auto;
     background: transparent;
-    padding-top: var(--topbar-height);
   }
   .main-inner {
     max-width: var(--content-max);
     padding: clamp(18px, 2.4vw, 36px) clamp(18px, 3.2vw, 48px) clamp(16px, 2vw, 28px);
     margin: 0 auto;
   }
+  .main-primary { min-width: 0; }
+
+  .detail-rail {
+    grid-row: 2;
+    grid-column: 3;
+    position: relative;
+    z-index: 2;
+    height: 100%;
+    width: var(--drawer-width);
+    overflow: hidden;
+    border-inline-start: 1px solid var(--border);
+  }
+  .detail-rail :global(.detail-view) { width: 100%; height: 100%; }
+  .rail-scrim { display: none; }
+
+  @media (min-width: 1120px) {
+    .app-shell.rail-open {
+      grid-template-columns: var(--sidebar-width) minmax(var(--rail-width), 1fr) var(--drawer-width);
+    }
+    .app-shell.rail-open.sidebar-collapsed {
+      grid-template-columns: var(--sidebar-width-collapsed) minmax(var(--rail-width), 1fr) var(--drawer-width);
+    }
+  }
+
+  @media (max-width: 1119px) {
+    .app-shell.rail-open,
+    .app-shell.rail-open.sidebar-collapsed {
+      grid-template-columns: var(--sidebar-width) minmax(0, 1fr) 0fr;
+    }
+    .app-shell.rail-open.sidebar-collapsed {
+      grid-template-columns: var(--sidebar-width-collapsed) minmax(0, 1fr) 0fr;
+    }
+    .rail-scrim {
+      display: block;
+      position: fixed;
+      inset: var(--topbar-height) 0 0 0;
+      z-index: 59;
+      background: var(--bg-overlay);
+      border: none;
+      cursor: pointer;
+    }
+    .detail-rail {
+      position: fixed;
+      top: var(--topbar-height);
+      right: 0;
+      bottom: 0;
+      width: min(95vw, var(--drawer-width));
+      height: auto;
+      z-index: 60;
+      border-inline-start: 1px solid var(--border);
+    }
+  }
+
   @media (max-width: 720px) {
     .main-inner { padding: 16px 16px 20px; }
   }

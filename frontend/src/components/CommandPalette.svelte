@@ -463,6 +463,7 @@
     padding: 0;
     outline: none;
   }
+  .palette-search input:focus { outline: none; border: none; box-shadow: none; }
   .palette-search input::placeholder { color: var(--text-placeholder); font-weight: 400; }
   .palette-search input::selection { background: var(--accent-soft); color: var(--text-primary); }
   .palette-search-kbd {
