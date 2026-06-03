@@ -218,8 +218,9 @@ const MANIFEST_SIGNATURE_SUFFIX: &str = ".sig";
 /// Production Ed25519 public verification key (32 bytes, hex) for the DLSSync
 /// manifest. The matching private key is provisioned out-of-band and never lives
 /// in the repo; the manifest pipeline signs `manifest.json` into
-/// `manifest.json.sig` with it. A release build verifies every manifest against
-/// this key and fails closed on a missing/invalid signature.
+/// `manifest.json.sig` with it. Verification runs and logs in every build;
+/// fail-closed enforcement is staged off (see `ENFORCE_MANIFEST_SIGNATURE`)
+/// until the signed manifest is confirmed propagated across the CDN.
 pub const MANIFEST_PUBKEY_HEX: &str =
     "e9dd0828f9ee5ecb72e0a811723a79c6e5373ca1c20bd5b255d68a2b3928fcd3";
 

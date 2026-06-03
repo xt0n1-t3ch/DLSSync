@@ -12,7 +12,7 @@ DLSSync can keep your DLLs current on its own now — a background daemon that s
 ### Added
 
 - Background updates. Turn it on and DLSSync rescans your library on a schedule (every 1 to 168 hours) even with the window closed, shows how many games have updates ready in the tray, and raises a Windows notification when something is waiting. It can close to the tray instead of quitting, start with Windows minimized, and apply everything in one click from the tray, the notification, or the Library header. Optional auto-apply always skips anti-cheat games and makes a backup first. Off by default.
-- A ban-risk warning at the moment you apply. Games protected by EAC, BattlEye, or VAC now show a risk chip next to Apply and ask for one explicit confirmation before any DLL is replaced — the warning lands at the apply step, not buried in a panel.
+- A ban-risk warning at the moment you apply. Games protected by Easy Anti-Cheat, BattlEye, or Riot Vanguard now show a risk chip next to Apply and ask for one explicit confirmation before any DLL is replaced — the warning lands at the apply step, not buried in a panel.
 - Manifest signature verification (Ed25519) against a key baked into the app. Verification ships now; fail-closed enforcement is staged for a later release, once the signed manifest is live across the CDN.
 
 ### Changed

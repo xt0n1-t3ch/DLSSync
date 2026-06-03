@@ -21,10 +21,10 @@ pub const EVENT_BACKGROUND_APPLY_ALL: &str = "background:apply-all";
 pub const TRAY_TOOLTIP_IDLE: &str = "DLSSync";
 
 pub fn pending_tooltip(n: u32) -> String {
-    if n == 0 {
-        TRAY_TOOLTIP_IDLE.to_string()
-    } else {
-        format!("DLSSync — {n} games have updates")
+    match n {
+        0 => TRAY_TOOLTIP_IDLE.to_string(),
+        1 => "DLSSync — 1 game has an update".to_string(),
+        _ => format!("DLSSync — {n} games have updates"),
     }
 }
 
@@ -140,7 +140,7 @@ mod tests {
 
     #[test]
     fn pending_tooltip_reports_count() {
-        assert_eq!(pending_tooltip(1), "DLSSync — 1 games have updates");
+        assert_eq!(pending_tooltip(1), "DLSSync — 1 game has an update");
         assert_eq!(pending_tooltip(7), "DLSSync — 7 games have updates");
     }
 }
