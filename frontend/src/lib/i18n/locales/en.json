@@ -195,6 +195,8 @@
       "channelBeta": "Beta",
       "channelWhql": "WHQL",
       "updateTo": "Update to v{version}",
+      "restartToFinish": "Restart to finish",
+      "restartPending": "Restart to apply v{version}",
       "openDownloadPage": "Open download page",
       "findMyDriver": "Find my driver ↗",
       "releaseNotesTitle": "Open the official release notes",

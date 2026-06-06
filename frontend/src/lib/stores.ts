@@ -691,12 +691,24 @@ export const driverReports: Writable<DriverStatusReport[]> = writable([]);
 export const driverCheckInProgress: Writable<boolean> = writable(false);
 export const driverCheckError: Writable<string | null> = writable(null);
 
+/** GPU vendor -> version display whose install finished with reboot_required and
+ *  is staged but not yet active. Drives the "Restart to finish" card state until
+ *  the user reboots (process restart resets this) or the driver shows up_to_date. */
+export const driverRebootPending: Writable<Record<string, string>> = writable({});
+
 export async function loadDriverUpdates(): Promise<void> {
   driverCheckInProgress.set(true);
   driverCheckError.set(null);
   try {
     const reports = await checkDriverUpdates();
     driverReports.set(sortDriverReports(reports));
+    driverRebootPending.update((m) => {
+      const next = { ...m };
+      for (const r of reports) {
+        if (r.status === "up_to_date") delete next[r.device.vendor];
+      }
+      return next;
+    });
     emitDriverUpdateNotifications(reports);
   } catch (err: unknown) {
     const message = formatError(err);
@@ -749,6 +761,16 @@ export async function startDriverInstall(report: DriverStatusReport): Promise<vo
   try {
     const outcome = await installDriver(report.device.vendor, url);
     if (outcome.stage === "completed") {
+      if (outcome.reboot_required) {
+        const pending = report.latest?.version.display ?? "";
+        driverRebootPending.update((m) => ({ ...m, [report.device.vendor]: pending }));
+      } else {
+        driverRebootPending.update((m) => {
+          const next = { ...m };
+          delete next[report.device.vendor];
+          return next;
+        });
+      }
       showToast("success", outcome.message);
       await loadDriverUpdates();
     } else if (outcome.stage === "cancelled") {

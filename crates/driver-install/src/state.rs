@@ -74,6 +74,10 @@ impl InstallPhase {
     }
 }
 
+pub fn reboot_required(code: i32) -> bool {
+    code == EXIT_REBOOT_REQUIRED
+}
+
 pub fn classify_exit(code: i32) -> InstallStage {
     match code {
         EXIT_OK | EXIT_REBOOT_REQUIRED => InstallStage::Completed,
@@ -158,6 +162,14 @@ mod tests {
             assert!(terminal.is_terminal());
             assert!(!terminal.can_advance_to(InstallStage::Installing));
         }
+    }
+
+    #[test]
+    fn reboot_required_true_only_for_3010() {
+        assert!(reboot_required(3010));
+        assert!(!reboot_required(0));
+        assert!(!reboot_required(1602));
+        assert!(!reboot_required(1));
     }
 
     #[test]

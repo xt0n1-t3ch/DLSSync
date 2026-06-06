@@ -2079,6 +2079,16 @@
     "desc": "Install button label; {version} is a mono version string and is not translated.",
     "where": "frontend/src/views/Drivers.svelte"
   },
+  "view.drivers.restartToFinish": {
+    "en": "Restart to finish",
+    "desc": "Card state shown after a driver install completes with reboot_required: the new driver is staged but not active until the user restarts.",
+    "where": "frontend/src/views/Drivers.svelte"
+  },
+  "view.drivers.restartPending": {
+    "en": "Restart to apply v{version}",
+    "desc": "Tooltip on the restart-to-finish state; {version} is a mono version string and is not translated.",
+    "where": "frontend/src/views/Drivers.svelte"
+  },
   "view.drivers.openDownloadPage": {
     "en": "Open download page",
     "desc": "Button to open the vendor download page when in-app install is unavailable.",
