@@ -19,6 +19,7 @@
     loadDriverUpdates,
     startDriverInstall,
     driverInstall,
+    driverRebootPending,
     showToast,
     systemDriverGroups,
     systemScanInProgress,
@@ -198,6 +199,9 @@
       {@const showNotes = !!pageUrl}
       {@const installing = $driverInstall.vendor === report.device.vendor}
       {@const needsHelp = report.status === "unknown" || report.status === "unsupported"}
+      {@const rebootPendingVersion = $driverRebootPending[report.device.vendor]}
+      {@const showRebootPending =
+        rebootPendingVersion !== undefined && report.status !== "up_to_date"}
       <li class="driver-card">
         <div class="card-row">
           <div class="card-main">
@@ -228,7 +232,12 @@
                 <span class="install-msg">{$driverInstall.message}</span>
               </div>
             {:else}
-              {#if canInstall(report)}
+              {#if showRebootPending}
+                <span class="driver-state reboot-pending" data-tone="warning" title={$t("view.drivers.restartPending", { version: rebootPendingVersion })}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                  {$t("view.drivers.restartToFinish")}
+                </span>
+              {:else if canInstall(report)}
                 {@const size = sizeLabel(report.latest?.size_bytes ?? 0)}
                 <button class="driver-update" onclick={() => startDriverInstall(report)} disabled={installBusy}>
                   <span class="driver-update-label">{$t("view.drivers.updateTo", { version: report.latest?.version.display ?? "" })}</span>
@@ -570,6 +579,8 @@
   .driver-state[data-tone="success"] { background: var(--success-dim); color: var(--success); }
   .driver-state[data-tone="accent"] { background: var(--update-dim); color: var(--update); }
   .driver-state[data-tone="warning"] { background: var(--warning-dim); color: var(--warning); }
+  .driver-state.reboot-pending { display: inline-flex; align-items: center; gap: 6px; }
+  .driver-state.reboot-pending svg { flex-shrink: 0; }
   .driver-secondary { display: inline-flex; align-items: center; gap: 4px; }
   .driver-icon {
     width: 34px;

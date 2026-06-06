@@ -6,7 +6,7 @@ use driver_catalog::{
     sources::DEFAULT_HISTORY_LIMIT, DeviceClass, DeviceId, DriverRegistry, DriverRelease,
     DriverStatusReport, DriverVendor, DriverVersion, OsFamily, OsTarget, UpdateStatus,
 };
-use driver_install::state::{classify_exit, describe_exit, InstallStage};
+use driver_install::state::{classify_exit, describe_exit, reboot_required, InstallStage};
 use driver_install::{download_to_file, verify_signature, DownloadOpts};
 use serde::Serialize;
 use std::path::Path;
@@ -136,6 +136,7 @@ pub struct InstallOutcome {
     pub stage: InstallStage,
     pub exit_code: i32,
     pub message: String,
+    pub reboot_required: bool,
 }
 
 const DRIVER_INSTALL_EVENT: &str = "driver_install_progress";
@@ -183,6 +184,10 @@ fn emit_stage(app: &AppHandle, stage: InstallStage, message: &str, progress: Opt
             progress,
         },
     );
+}
+
+fn clear_system_info_cache(state: &AppState) {
+    *state.system_info.write() = None;
 }
 
 #[tauri::command]
@@ -299,10 +304,14 @@ pub async fn install_driver(
     let stage = classify_exit(exit_code);
     let message = describe_exit(exit_code, &vendor);
     emit_stage(&app, stage, &message, None);
+    if matches!(stage, InstallStage::Completed) {
+        clear_system_info_cache(state.inner());
+    }
     Ok(InstallOutcome {
         stage,
         exit_code,
         message,
+        reboot_required: reboot_required(exit_code),
     })
 }
 
@@ -413,5 +422,14 @@ mod tests {
             installer_filename("https://host/archive.zip"),
             "driver-setup.exe"
         );
+    }
+
+    #[test]
+    fn clear_system_info_cache_resets_to_none() {
+        let state = AppState::new();
+        *state.system_info.write() = Some(sysinfo_with_build("22631"));
+        assert!(state.system_info.read().is_some());
+        clear_system_info_cache(&state);
+        assert!(state.system_info.read().is_none());
     }
 }

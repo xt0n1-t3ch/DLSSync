@@ -20,10 +20,13 @@ vi.mock("@/lib/api", async (importOriginal) => {
 
 import {
   driverInstall,
+  driverRebootPending,
+  loadDriverUpdates,
   startDriverInstall,
   applyDriverInstallProgress,
   toasts,
 } from "@/lib/stores";
+import { checkDriverUpdates } from "@/lib/api";
 
 function report(vendor: GpuVendor, downloadUrl: string | null): DriverStatusReport {
   return {
@@ -57,8 +60,10 @@ function complete(outcome: DriverInstallOutcome): void {
 
 beforeEach(() => {
   driverInstall.set({ vendor: null, stage: null, message: "", fraction: null });
+  driverRebootPending.set({});
   toasts.set([]);
   pendingResolve = null;
+  vi.mocked(checkDriverUpdates).mockResolvedValue([]);
 });
 
 describe("driver install — shared store state machine", () => {
@@ -80,7 +85,7 @@ describe("driver install — shared store state machine", () => {
     applyDriverInstallProgress({ stage: "installing", message: "Installing", progress: null });
     expect(get(driverInstall).stage).toBe("installing");
 
-    complete({ stage: "completed", exit_code: 0, message: "Driver installed successfully." });
+    complete({ stage: "completed", exit_code: 0, message: "Driver installed successfully.", reboot_required: false });
     await p;
     expect(get(driverInstall).vendor).toBeNull();
     expect(get(toasts).at(-1)?.kind).toBe("success");
@@ -91,13 +96,13 @@ describe("driver install — shared store state machine", () => {
     expect(get(driverInstall).vendor).toBe("intel");
     await startDriverInstall(report("nvidia", "https://nv/driver.exe"));
     expect(get(driverInstall).vendor).toBe("intel");
-    complete({ stage: "completed", exit_code: 0, message: "done" });
+    complete({ stage: "completed", exit_code: 0, message: "done", reboot_required: false });
     await first;
   });
 
   it("maps a cancelled outcome to a warning toast and clears state", async () => {
     const p = startDriverInstall(report("intel", "https://intel/gfx.exe"));
-    complete({ stage: "cancelled", exit_code: 1602, message: "Installation cancelled." });
+    complete({ stage: "cancelled", exit_code: 1602, message: "Installation cancelled.", reboot_required: false });
     await p;
     expect(get(driverInstall).vendor).toBeNull();
     expect(get(toasts).at(-1)?.kind).toBe("warning");
@@ -105,7 +110,7 @@ describe("driver install — shared store state machine", () => {
 
   it("maps a failed outcome (e.g. Intel exit 8) to a danger toast and clears state", async () => {
     const p = startDriverInstall(report("intel", "https://intel/gfx.exe"));
-    complete({ stage: "failed", exit_code: 8, message: "This Intel driver does not list your GPU (exit code 8)." });
+    complete({ stage: "failed", exit_code: 8, message: "This Intel driver does not list your GPU (exit code 8).", reboot_required: false });
     await p;
     expect(get(driverInstall).vendor).toBeNull();
     expect(get(toasts).at(-1)?.kind).toBe("danger");
@@ -115,5 +120,40 @@ describe("driver install — shared store state machine", () => {
     await startDriverInstall(report("amd", ""));
     expect(get(driverInstall).vendor).toBeNull();
     expect(pendingResolve).toBeNull();
+  });
+});
+
+describe("driver install — reboot-pending state", () => {
+  it("a completed install with reboot_required marks the vendor pending with its version", async () => {
+    const p = startDriverInstall(report("nvidia", "https://nv/driver.exe"));
+    complete({ stage: "completed", exit_code: 3010, message: "Driver installed. Restart to finish.", reboot_required: true });
+    await p;
+    expect(get(driverRebootPending).nvidia).toBe("2.0");
+    expect(get(driverInstall).vendor).toBeNull();
+    expect(get(toasts).at(-1)?.kind).toBe("success");
+  });
+
+  it("a completed install without reboot_required clears any pending state for the vendor", async () => {
+    driverRebootPending.set({ nvidia: "1.9" });
+    const p = startDriverInstall(report("nvidia", "https://nv/driver.exe"));
+    complete({ stage: "completed", exit_code: 0, message: "Driver installed successfully.", reboot_required: false });
+    await p;
+    expect(get(driverRebootPending).nvidia).toBeUndefined();
+  });
+
+  it("loadDriverUpdates prunes a vendor that comes back up_to_date", async () => {
+    driverRebootPending.set({ nvidia: "2.0" });
+    const upToDate = report("nvidia", "https://nv/driver.exe");
+    upToDate.status = "up_to_date";
+    vi.mocked(checkDriverUpdates).mockResolvedValueOnce([upToDate]);
+    await loadDriverUpdates();
+    expect(get(driverRebootPending).nvidia).toBeUndefined();
+  });
+
+  it("loadDriverUpdates keeps a vendor still showing update_available (staged, not active)", async () => {
+    driverRebootPending.set({ nvidia: "2.0" });
+    vi.mocked(checkDriverUpdates).mockResolvedValueOnce([report("nvidia", "https://nv/driver.exe")]);
+    await loadDriverUpdates();
+    expect(get(driverRebootPending).nvidia).toBe("2.0");
   });
 });

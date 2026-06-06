@@ -576,6 +576,7 @@ export interface DriverInstallOutcome {
   stage: InstallStage;
   exit_code: number;
   message: string;
+  reboot_required: boolean;
 }
 
 export const DRIVER_INSTALL_EVENT = "driver_install_progress";
