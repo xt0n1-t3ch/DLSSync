@@ -1,7 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { get } from "svelte/store";
-  import { fly } from "svelte/transition";
   import { t, locale, translate } from "../lib/i18n/index";
   import { listReleases, type Release } from "../lib/api";
   import {
@@ -17,6 +16,7 @@
   import { mergeFamilyReleases } from "../lib/catalogReleases";
   import FeatureIcon from "./FeatureIcon.svelte";
   import Checkbox from "./Checkbox.svelte";
+  import FlyoutShell from "./FlyoutShell.svelte";
 
   let {
     vendor,
@@ -203,14 +203,12 @@
     }
   }
 
-  function handleKey(e: KeyboardEvent): void {
-    if (e.key === "Escape") {
-      e.stopPropagation();
-      if (mode === "versions" && catalogKey === "advanced") {
-        backToModules();
-      } else {
-        onClose();
-      }
+  function onEscape(e: KeyboardEvent): void {
+    e.stopPropagation();
+    if (mode === "versions" && catalogKey === "advanced") {
+      backToModules();
+    } else {
+      onClose();
     }
   }
 
@@ -222,8 +220,14 @@
   }
 </script>
 
-<div class="flyout-backdrop" role="presentation" onclick={onClose} onkeydown={handleKey} tabindex="-1"></div>
-<div class="flyout glass-dialog" transition:fly={{ y: -8, duration: 160 }} style:--edge-color={accent} role="dialog" aria-label={headerTitle} tabindex="-1" onkeydown={handleKey}>
+<FlyoutShell
+  {onClose}
+  {accent}
+  {onEscape}
+  ariaLabel={headerTitle}
+  backdropOpacity={0.45}
+  backdropBlur={3}
+>
   <header class="flyout-head">
     {#if mode === "versions" && catalogKey === "advanced"}
       <button class="flyout-back" onclick={backToModules} aria-label={$t("component.flyout.backToModules")}>
@@ -362,27 +366,9 @@
       <span class="foot-count">{$t("component.flyout.versionCount", { shown: filtered.length, count: releases.length })}</span>
     </footer>
   {/if}
-</div>
+</FlyoutShell>
 
 <style>
-  .flyout-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.45);
-    backdrop-filter: blur(3px);
-    z-index: 220;
-  }
-  .flyout {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: min(720px, 94vw);
-    max-height: 84vh;
-    display: flex;
-    flex-direction: column;
-    z-index: 221;
-  }
   .flyout-head {
     padding: 18px 52px 14px 20px;
     border-bottom: 1px solid var(--border);

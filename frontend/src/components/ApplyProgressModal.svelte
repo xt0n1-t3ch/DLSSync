@@ -313,6 +313,26 @@
     onClose();
   }
 
+  // v1.7: close the modal WITHOUT clearing in-flight applies. The ActivityDock
+  // keeps tracking the same `activeApplies` store and the user can click its
+  // expand chevron at any time to re-open the modal. We never lose progress.
+  async function pin(): Promise<void> {
+    onClose();
+    if (!anyRunning) return;
+    try {
+      if (!localStorage.getItem("dlssync.applyPinHintSeen")) {
+        localStorage.setItem("dlssync.applyPinHintSeen", "1");
+        showToast(
+          "info",
+          translate(get(locale), "component.applyModal.toast.movedToDock"),
+        );
+      }
+    } catch {
+      // localStorage may be blocked (private window, exotic config). Silent
+      // skip is safe — at worst the hint shows once next session.
+    }
+  }
+
   async function handleRetryGroup(g: ApplyGroup): Promise<void> {
     if (busy) return;
     busy = true;
@@ -540,9 +560,12 @@
   class="backdrop"
   transition:fade={{ duration: 150 }}
   role="presentation"
-  onclick={() => allDone && dismiss()}
+  onclick={() => (allDone ? void dismiss() : void pin())}
   onkeydown={(e) => {
-    if (e.key === "Escape" && allDone) void dismiss();
+    if (e.key === "Escape") {
+      if (allDone) void dismiss();
+      else void pin();
+    }
   }}
   tabindex="-1"
 ></div>
@@ -586,10 +609,13 @@
     </div>
     <button
       class="dialog-close"
-      onclick={() => allDone && dismiss()}
-      disabled={!allDone}
-      title={allDone ? $t("common.close") : $t("component.applyModal.closeBlockedTitle")}
-      aria-label={$t("common.close")}
+      onclick={() => (allDone ? void dismiss() : void pin())}
+      title={allDone
+        ? $t("common.close")
+        : $t("component.applyModal.action.minimize")}
+      aria-label={allDone
+        ? $t("common.close")
+        : $t("component.applyModal.action.minimize")}
     >
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>

@@ -1237,7 +1237,8 @@
         "reportIssueTitle": "Abrir una incidencia de GitHub precargada con este informe, tu versión de la app, el sistema operativo y los registros recientes",
         "preparing": "Preparando",
         "viewBackups": "Ver copias de seguridad",
-        "viewBackupsTitle": "Ver las instantáneas recién creadas"
+        "viewBackupsTitle": "Ver las instantáneas recién creadas",
+        "minimize": "Minimizar al dock"
       },
       "stageStep": "paso {current} de {total}",
       "retrying": "Reintentando",
@@ -1261,7 +1262,8 @@
         "errorCopied": "Error copiado",
         "reportCopied": "Informe copiado",
         "clipboardUnavailable": "Portapapeles no disponible",
-        "issueFailed": "No se pudo abrir el reporte de incidencia: {error}"
+        "issueFailed": "No se pudo abrir el reporte de incidencia: {error}",
+        "movedToDock": "Aplicación movida al dock — tócalo cuando quieras para volver a abrir."
       }
     },
     "banner": {
@@ -1364,6 +1366,8 @@
       },
       "sidebar": {
         "libraryGroup": "Biblioteca",
+        "catalogGroup": "Catálogo y drivers",
+        "historyGroup": "Historial",
         "generalGroup": "General",
         "outdatedCount_one": "{count} desactualizado",
         "outdatedCount_other": "{count} desactualizados",

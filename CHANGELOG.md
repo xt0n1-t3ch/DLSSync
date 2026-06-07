@@ -5,6 +5,31 @@ All notable changes to DLSSync are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.6] - 2026-06-07
+
+Quality-of-life on the X button, the apply modal, and Backups. The X minimizes to the system tray for new installs while your saved choice still wins. The Apply Progress wall is gone: close the modal mid-apply, navigate to Catalog or About, then pick it back up from the activity dock. And the date-grouped Backups view divides itself into month headers, so months of history read at a glance instead of a flat scroll.
+
+### Added
+
+- A token-driven `<CounterPill>` component shared by every sidebar counter so the badges line up the same way everywhere.
+- Three intent-named sidebar groups (Library, Catalog & Drivers, History) plus the existing General. Same icons, same view names, clearer headers.
+- A bundle-size contract test that fails the build if the main JS chunk exceeds 250 KB gzip or the CSS exceeds 75 KB gzip.
+- A rotating chevron on the language switcher tied to `aria-expanded` so the menu state reads correctly to screen readers and to the eye.
+- A month header divides the Backups date-grouped view at every month boundary, so multi-month histories read at a glance instead of a long flat list.
+- An axe-core accessibility contract over the core components (CounterPill, BrandMark, Checkbox, Toast) that fails the build on any critical or serious WCAG violation.
+
+### Changed
+
+- Close-to-tray is on by default for new installs. An explicit `false` from a prior config is preserved — never silently re-enabled.
+- The Apply Progress modal can be closed while applies are still running. Click the X, hit Escape, or click outside, and it minimizes to the activity dock. The apply keeps going, the rest of the app is yours. A one-time hint shows you where the dock is the first time.
+- The apply pipeline's pure decisions (error classification, signature-error hinting, version-major parsing, the Streamline cross-major ban check, the failure-outcome shape) moved into their own module with a focused 14-test cargo suite. The 400-line apply hot path stays the orchestrator; the decisions get their own contract.
+- Driver history and Catalog versions flyouts share a `<FlyoutShell>` primitive now. Backdrop, dialog frame, vendor-accent routing, and the Escape-close behavior live in one place instead of repeated in each consumer.
+
+### Fixed
+
+- Two concurrent driver checks used to collect WMI/DXGI system info twice in parallel under a stale read-lock pattern. A coordinator now serializes the collection so it runs exactly once, and the cached value is reused.
+- Large DLL copies during apply no longer block the tokio runtime — every `std::fs::copy` is wrapped in `spawn_blocking` so download-progress emits, cancellation signals, and tray pings stay responsive even while the file copy runs.
+
 ## [1.6.5] - 2026-06-03
 
 DLSSync can keep your DLLs current on its own now — a background daemon that scans on a schedule, sits in the tray, and warns you before you touch a game that can ban you for it.

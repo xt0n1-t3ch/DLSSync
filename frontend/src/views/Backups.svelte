@@ -602,6 +602,17 @@
       {#each filtered as g, i (g.game_id)}
         {@const accent = g.game ? launcherAccent(g.game.launcher) : DEFAULT_VENDOR_ACCENT}
         {@const groupSel = groupSelectionState(g)}
+        {@const monthThis = groupBy === "date" ? g.latestAt.slice(0, 7) : ""}
+        {@const monthPrev =
+          groupBy === "date" && i > 0 ? filtered[i - 1].latestAt.slice(0, 7) : null}
+        {#if groupBy === "date" && monthThis !== monthPrev}
+          <h2 class="timeline-month-header">
+            {new Date(g.latestAt).toLocaleDateString(undefined, {
+              year: "numeric",
+              month: "long",
+            })}
+          </h2>
+        {/if}
         <section class="group" in:fly={{ y: 6, duration: 260, delay: 40 + i * 30 }}>
           <div class="group-row">
             <label class="group-check" title={groupSel === "all" ? $t("view.backups.group.deselectAll") : $t("view.backups.group.selectAll")}>
@@ -1348,5 +1359,22 @@
     .entry,
     .bk-stat,
     .chevron { transition: none; }
+  }
+
+  .timeline-month-header {
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    letter-spacing: var(--letter-wider);
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: var(--space-5) 0 var(--space-2);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--border);
+    font-variant-numeric: tabular-nums;
+  }
+  .timeline-month-header:first-child {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
   }
 </style>
