@@ -1,6 +1,7 @@
 pub mod advanced;
 pub mod anticheat;
 pub mod apply;
+pub mod apply_decisions;
 pub mod background;
 pub mod backup;
 pub mod catalog;

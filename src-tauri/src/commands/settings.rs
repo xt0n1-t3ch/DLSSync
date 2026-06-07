@@ -241,7 +241,11 @@ pub struct BackgroundConfig {
     pub enabled: bool,
     #[serde(default = "default_background_interval_hours")]
     pub interval_hours: u32,
-    #[serde(default)]
+    /// Close-to-tray default flipped to `true` in v1.7 so the X button
+    /// minimizes to tray for new installs. Existing configs that already
+    /// serialized an explicit `false` keep their value — we never silently
+    /// override an explicit user choice.
+    #[serde(default = "default_true")]
     pub close_to_tray: bool,
     #[serde(default)]
     pub run_at_startup: bool,
@@ -264,7 +268,7 @@ impl Default for BackgroundConfig {
         Self {
             enabled: false,
             interval_hours: DEFAULT_BACKGROUND_INTERVAL_HOURS,
-            close_to_tray: false,
+            close_to_tray: true,
             run_at_startup: false,
             notify_os_toast: true,
             auto_apply: false,
@@ -503,10 +507,14 @@ mod background_config_tests {
 
     #[test]
     fn default_background_config_is_disabled_with_safe_defaults() {
+        // v1.7: `close_to_tray` flipped to true by default so the X button
+        // minimizes to tray for new installs. Every other flag stays
+        // conservative — no background scans, no autostart, no auto-apply
+        // until the user opts in.
         let cfg = BackgroundConfig::default();
         assert!(!cfg.enabled);
         assert_eq!(cfg.interval_hours, DEFAULT_BACKGROUND_INTERVAL_HOURS);
-        assert!(!cfg.close_to_tray);
+        assert!(cfg.close_to_tray);
         assert!(!cfg.run_at_startup);
         assert!(cfg.notify_os_toast);
         assert!(!cfg.auto_apply);
@@ -514,6 +522,8 @@ mod background_config_tests {
 
     #[test]
     fn legacy_settings_without_background_migrates_to_defaults() {
+        // A pre-v1.7 settings file with no `background` block must inherit the
+        // v1.7 defaults, including the new `close_to_tray = true`.
         let legacy = r#"{
             "blacklist": ["game-1"],
             "ignored": []
@@ -522,7 +532,7 @@ mod background_config_tests {
         let bg = &settings.background;
         assert!(!bg.enabled);
         assert_eq!(bg.interval_hours, DEFAULT_BACKGROUND_INTERVAL_HOURS);
-        assert!(!bg.close_to_tray);
+        assert!(bg.close_to_tray);
         assert!(!bg.run_at_startup);
         assert!(bg.notify_os_toast);
         assert!(!bg.auto_apply);
@@ -531,13 +541,15 @@ mod background_config_tests {
 
     #[test]
     fn partial_background_object_fills_missing_fields_with_defaults() {
+        // A partial JSON missing `close_to_tray` falls back to the field-level
+        // `default = "default_true"`, so `close_to_tray = true`.
         let partial = r#"{ "enabled": true, "auto_apply": true }"#;
         let cfg: BackgroundConfig = serde_json::from_str(partial).expect("partial parse");
         assert!(cfg.enabled);
         assert!(cfg.auto_apply);
         assert_eq!(cfg.interval_hours, DEFAULT_BACKGROUND_INTERVAL_HOURS);
         assert!(cfg.notify_os_toast);
-        assert!(!cfg.close_to_tray);
+        assert!(cfg.close_to_tray);
     }
 
     #[test]
@@ -591,5 +603,24 @@ mod background_config_tests {
         assert!(back.run_at_startup);
         assert!(!back.notify_os_toast);
         assert!(back.auto_apply);
+    }
+
+    #[test]
+    fn explicit_close_to_tray_false_is_preserved() {
+        // A user who deliberately toggled close-to-tray OFF in v1.6.x — or any
+        // saved config carrying `"close_to_tray": false` — must keep that
+        // value when upgrading to v1.7. We never silently re-enable an
+        // explicit user choice.
+        let json = r#"{ "close_to_tray": false }"#;
+        let cfg: BackgroundConfig = serde_json::from_str(json).expect("parse explicit false");
+        assert!(!cfg.close_to_tray);
+    }
+
+    #[test]
+    fn explicit_close_to_tray_true_round_trips() {
+        // The symmetric case: an explicit `true` round-trips faithfully too.
+        let json = r#"{ "close_to_tray": true }"#;
+        let cfg: BackgroundConfig = serde_json::from_str(json).expect("parse explicit true");
+        assert!(cfg.close_to_tray);
     }
 }

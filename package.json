@@ -1,6 +1,6 @@
 {
   "name": "dlssync",
-  "version": "1.6.5",
+  "version": "1.6.6",
   "private": true,
   "scripts": {
     "dev": "tauri dev",
@@ -13,7 +13,8 @@
     "test": "task test"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.0.0"
+    "@tauri-apps/cli": "^2.0.0",
+    "axe-core": "4.10.3"
   },
   "packageManager": "pnpm@9.0.0"
 }

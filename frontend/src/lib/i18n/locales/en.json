@@ -1237,7 +1237,8 @@
         "reportIssueTitle": "Open a pre-filled GitHub issue with this report, your app version, OS, and recent logs",
         "preparing": "Preparing",
         "viewBackups": "View backups",
-        "viewBackupsTitle": "See the snapshots just created"
+        "viewBackupsTitle": "See the snapshots just created",
+        "minimize": "Minimize to dock"
       },
       "stageStep": "step {current} of {total}",
       "retrying": "Retrying",
@@ -1261,7 +1262,8 @@
         "errorCopied": "Error copied",
         "reportCopied": "Report copied",
         "clipboardUnavailable": "Clipboard unavailable",
-        "issueFailed": "Could not open issue report: {error}"
+        "issueFailed": "Could not open issue report: {error}",
+        "movedToDock": "Apply moved to the dock — click any time to expand."
       }
     },
     "banner": {
@@ -1364,6 +1366,8 @@
       },
       "sidebar": {
         "libraryGroup": "Library",
+        "catalogGroup": "Catalog & Drivers",
+        "historyGroup": "History",
         "generalGroup": "General",
         "outdatedCount_one": "{count} outdated",
         "outdatedCount_other": "{count} outdated",

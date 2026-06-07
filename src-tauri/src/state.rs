@@ -71,6 +71,11 @@ pub struct AppState {
     pub settings: Arc<RwLock<AppSettings>>,
     pub paths: Arc<RwLock<Option<AppPaths>>>,
     pub system_info: Arc<RwLock<Option<SystemInfo>>>,
+    /// Coordinator for `ensure_system_info` so two concurrent callers don't both
+    /// pay the WMI/DXGI collection cost. Holding the lock guarantees only one
+    /// `collect` runs at a time; the cached value behind `system_info` is the
+    /// fast path and stays in `parking_lot::RwLock` for non-async reads.
+    pub collect_system_info_lock: Arc<tokio::sync::Mutex<()>>,
     pub http_catalog: reqwest::Client,
     pub http_downloads: reqwest::Client,
     pub http_art: reqwest::Client,
@@ -108,6 +113,7 @@ impl AppState {
             settings: Arc::new(RwLock::new(AppSettings::default())),
             paths: Arc::new(RwLock::new(None)),
             system_info: Arc::new(RwLock::new(None)),
+            collect_system_info_lock: Arc::new(tokio::sync::Mutex::new(())),
             http_catalog,
             http_downloads,
             http_art,
@@ -121,6 +127,35 @@ impl Default for AppState {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Double-checked locking helper. Returns the cached value if present;
+/// otherwise acquires `coordinator` and runs `collect` exactly once.
+/// Concurrent callers wait on the coordinator and share the same result —
+/// they re-check the cache after acquiring so a winning collector's value
+/// is reused, not re-computed. The cache stays in `parking_lot::RwLock` so
+/// non-async readers do not pay an async-await on the hot path; only the
+/// expensive `collect` is serialized.
+pub async fn coordinate_singleton<T, F, Fut, E>(
+    cache: &RwLock<Option<T>>,
+    coordinator: &tokio::sync::Mutex<()>,
+    collect: F,
+) -> Result<T, E>
+where
+    T: Clone,
+    F: FnOnce() -> Fut,
+    Fut: std::future::Future<Output = Result<T, E>>,
+{
+    if let Some(v) = cache.read().as_ref().cloned() {
+        return Ok(v);
+    }
+    let _guard = coordinator.lock().await;
+    if let Some(v) = cache.read().as_ref().cloned() {
+        return Ok(v);
+    }
+    let v = collect().await?;
+    *cache.write() = Some(v.clone());
+    Ok(v)
 }
 
 #[cfg(test)]
@@ -160,5 +195,54 @@ mod tests {
         assert_eq!(r.in_flight(), 1);
         r.release("a");
         assert_eq!(r.in_flight(), 0);
+    }
+
+    #[tokio::test]
+    async fn coordinate_singleton_runs_collect_exactly_once_under_concurrency() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        let cache: Arc<RwLock<Option<u32>>> = Arc::new(RwLock::new(None));
+        let coordinator: Arc<tokio::sync::Mutex<()>> = Arc::new(tokio::sync::Mutex::new(()));
+        let counter = Arc::new(AtomicUsize::new(0));
+
+        let mut tasks = Vec::new();
+        for _ in 0..8 {
+            let cache = cache.clone();
+            let coordinator = coordinator.clone();
+            let counter = counter.clone();
+            tasks.push(tokio::spawn(async move {
+                coordinate_singleton(&cache, &coordinator, || async {
+                    tokio::time::sleep(Duration::from_millis(25)).await;
+                    counter.fetch_add(1, Ordering::SeqCst);
+                    Ok::<u32, ()>(42)
+                })
+                .await
+                .unwrap()
+            }));
+        }
+
+        for t in tasks {
+            assert_eq!(t.await.unwrap(), 42);
+        }
+
+        assert_eq!(
+            counter.load(Ordering::SeqCst),
+            1,
+            "collect ran more than once under 8-way concurrency"
+        );
+    }
+
+    #[tokio::test]
+    async fn coordinate_singleton_returns_cached_value_on_fast_path() {
+        let cache: Arc<RwLock<Option<u32>>> = Arc::new(RwLock::new(Some(7)));
+        let coordinator: Arc<tokio::sync::Mutex<()>> = Arc::new(tokio::sync::Mutex::new(()));
+        let result = coordinate_singleton(&cache, &coordinator, || async {
+            panic!("collect must not run when the cache is already populated");
+            #[allow(unreachable_code)]
+            Ok::<u32, ()>(0)
+        })
+        .await
+        .unwrap();
+        assert_eq!(result, 7);
     }
 }

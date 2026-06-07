@@ -47,17 +47,16 @@ fn device_for(gpu: &GpuInfo) -> (DeviceId, DriverVersion) {
 }
 
 pub(crate) async fn ensure_system_info(state: &State<'_, AppState>) -> AppResult<SystemInfo> {
-    {
-        let guard = state.system_info.read();
-        if let Some(info) = guard.as_ref() {
-            return Ok(info.clone());
-        }
-    }
-    let collected = tokio::task::spawn_blocking(system_info::collect)
-        .await
-        .map_err(|e| crate::error::AppError::Other(format!("system_info collect: {e}")))?;
-    *state.system_info.write() = Some(collected.clone());
-    Ok(collected)
+    crate::state::coordinate_singleton(
+        &state.system_info,
+        &state.collect_system_info_lock,
+        || async {
+            tokio::task::spawn_blocking(system_info::collect)
+                .await
+                .map_err(|e| crate::error::AppError::Other(format!("system_info collect: {e}")))
+        },
+    )
+    .await
 }
 
 #[tauri::command]

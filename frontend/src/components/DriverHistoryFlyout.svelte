@@ -1,9 +1,9 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { get } from "svelte/store";
-  import { fly } from "svelte/transition";
   import { t, locale, translate } from "../lib/i18n/index";
   import Checkbox from "./Checkbox.svelte";
+  import FlyoutShell from "./FlyoutShell.svelte";
   import {
     driverHistory,
     driverHistoryLoading,
@@ -106,27 +106,14 @@
       installingVersion = null;
     }
   }
-
-  function handleKey(e: KeyboardEvent): void {
-    if (e.key === "Escape") onClose();
-  }
 </script>
 
-<div
-  class="flyout-backdrop"
-  role="presentation"
-  onclick={onClose}
-  onkeydown={handleKey}
-  tabindex="-1"
-></div>
-<div
-  class="flyout glass-dialog"
-  transition:fly={{ y: -8, duration: 160 }}
-  style:--edge-color={accent}
-  role="dialog"
-  aria-label={$t("component.flyout.driverHistoryAria", { vendor: vendorName, model })}
-  tabindex="-1"
-  onkeydown={handleKey}
+<FlyoutShell
+  {onClose}
+  {accent}
+  ariaLabel={$t("component.flyout.driverHistoryAria", { vendor: vendorName, model })}
+  zIndex={80}
+  backdropOpacity={0.55}
 >
   <header class="flyout-head">
     <span class="vendor-pill" data-vendor={vendor} style:color={accent}>
@@ -232,26 +219,9 @@
   <footer class="flyout-foot">
     <span>{$t("component.flyout.versionCount", { shown: filtered.length, count: releases.length })}</span>
   </footer>
-</div>
+</FlyoutShell>
 
 <style>
-  .flyout-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.55);
-    z-index: 80;
-  }
-  .flyout {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: min(720px, 92vw);
-    max-height: 84vh;
-    z-index: 81;
-    display: flex;
-    flex-direction: column;
-  }
   .flyout-head {
     display: flex;
     align-items: center;

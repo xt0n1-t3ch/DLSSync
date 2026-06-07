@@ -9,6 +9,7 @@
     languageMenuOpen,
   } from "../lib/stores";
   import { t, locale, LOCALE_LABELS } from "../lib/i18n/index";
+  import CounterPill from "./CounterPill.svelte";
 
   const STAGGER_STEP_MS = 28;
   const prefersReducedMotion =
@@ -32,15 +33,22 @@
     }
   });
 
-  type NavItem = { id: string; icon: string; counterKey?: "library" | "backups" };
+  type CounterKey = "library" | "backups";
+  type NavItem = { id: string; icon: string; counterKey?: CounterKey };
 
-  const librarySection: NavItem[] = [
+  // v1.7: the old "library" mega-group split into three intent-named sections.
+  // View ids, icons and titles are unchanged, so v1.6.5 muscle memory is
+  // preserved — only the section headers shift to match the actual domain.
+  const libraryGroup: NavItem[] = [
     { id: "library", icon: "library", counterKey: "library" },
+  ];
+  const catalogGroup: NavItem[] = [
     { id: "catalog", icon: "catalog" },
     { id: "drivers", icon: "drivers" },
+  ];
+  const historyGroup: NavItem[] = [
     { id: "backups", icon: "backups", counterKey: "backups" },
   ];
-
   const settingsSection: NavItem[] = [
     { id: "settings", icon: "settings" },
     { id: "about", icon: "about" },
@@ -55,6 +63,14 @@
   function counterValue(item: NavItem): number {
     if (!item.counterKey) return 0;
     return $sidebarCounts[item.counterKey];
+  }
+
+  function counterAria(item: NavItem, count: number): string | undefined {
+    if (item.counterKey === "library")
+      return $t("component.chrome.sidebar.outdatedCount", { count });
+    if (item.counterKey === "backups")
+      return $t("component.chrome.sidebar.restorableCount", { count });
+    return undefined;
   }
 
   async function toggleCollapsed(): Promise<void> {
@@ -82,40 +98,44 @@
     {/if}
   </div>
 
-  <nav class="sidebar-nav">
-    {#if !collapsed}<div class="nav-label">{$t("component.chrome.sidebar.libraryGroup")}</div>{/if}
-    {#each librarySection as item, i}
-      {@const count = counterValue(item)}
-      <button class="nav-pill" class:active={$currentView === item.id} title={$t("view." + item.id + ".title")} onclick={() => switchView(item.id)}>
-        {#if item.icon === "library"}
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
-        {:else if item.icon === "catalog"}
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-        {:else if item.icon === "backups"}
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5" rx="0.5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
-        {:else if item.icon === "drivers"}
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
-        {/if}
-        {#if !collapsed}<span class="nav-label-text" in:fly={labelStagger(i)}>{$t("view." + item.id + ".title")}</span>{/if}
-        {#if count > 0}
-          <span class="nav-counter" class:is-collapsed={collapsed} class:is-update={item.counterKey === "library"} aria-label={item.counterKey === "library" ? $t("component.chrome.sidebar.outdatedCount", { count }) : $t("component.chrome.sidebar.restorableCount", { count })}>
-            {count > 99 ? "99+" : count}
-          </span>
-        {/if}
-      </button>
-    {/each}
+  {#snippet navItem(item: NavItem, staggerIndex: number)}
+    {@const count = counterValue(item)}
+    <button class="nav-pill" class:active={$currentView === item.id} title={$t("view." + item.id + ".title")} onclick={() => switchView(item.id)}>
+      {#if item.icon === "library"}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      {:else if item.icon === "catalog"}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+      {:else if item.icon === "backups"}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5" rx="0.5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+      {:else if item.icon === "drivers"}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
+      {:else if item.icon === "settings"}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      {:else}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      {/if}
+      {#if !collapsed}<span class="nav-label-text" in:fly={labelStagger(staggerIndex)}>{$t("view." + item.id + ".title")}</span>{/if}
+      <CounterPill
+        count={count}
+        tone={item.counterKey === "library" ? "update" : "default"}
+        collapsed={collapsed}
+        ariaLabel={counterAria(item, count)}
+      />
+    </button>
+  {/snippet}
 
-    {#if !collapsed}<div class="nav-label">{$t("component.chrome.sidebar.generalGroup")}</div>{/if}
-    {#each settingsSection as item, i}
-      <button class="nav-pill" class:active={$currentView === item.id} title={$t("view." + item.id + ".title")} onclick={() => switchView(item.id)}>
-        {#if item.icon === "settings"}
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-        {:else}
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-        {/if}
-        {#if !collapsed}<span class="nav-label-text" in:fly={labelStagger(librarySection.length + i)}>{$t("view." + item.id + ".title")}</span>{/if}
-      </button>
+  {#snippet navGroup(items: NavItem[], labelKey: string, baseIndex: number)}
+    {#if !collapsed}<div class="nav-label">{$t(labelKey)}</div>{/if}
+    {#each items as item, i (item.id)}
+      {@render navItem(item, baseIndex + i)}
     {/each}
+  {/snippet}
+
+  <nav class="sidebar-nav">
+    {@render navGroup(libraryGroup, "component.chrome.sidebar.libraryGroup", 0)}
+    {@render navGroup(catalogGroup, "component.chrome.sidebar.catalogGroup", libraryGroup.length)}
+    {@render navGroup(historyGroup, "component.chrome.sidebar.historyGroup", libraryGroup.length + catalogGroup.length)}
+    {@render navGroup(settingsSection, "component.chrome.sidebar.generalGroup", libraryGroup.length + catalogGroup.length + historyGroup.length)}
   </nav>
 
   <button
@@ -129,8 +149,13 @@
     onclick={() => languageMenuOpen.update((v) => !v)}
   >
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-    {#if !collapsed}<span class="nav-label-text" in:fly={labelStagger(librarySection.length + settingsSection.length)}>{$t("language.label")}</span>{/if}
-    <span class="lang-code nav-counter" class:is-collapsed={collapsed}>{$locale.toUpperCase()}</span>
+    {#if !collapsed}
+      <span class="nav-label-text" in:fly={labelStagger(libraryGroup.length + catalogGroup.length + historyGroup.length + settingsSection.length)}>{$t("language.label")}</span>
+    {/if}
+    <span class="lang-pill" class:is-collapsed={collapsed}>{$locale.toUpperCase()}</span>
+    {#if !collapsed}
+      <svg class="lang-chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+    {/if}
   </button>
 
   <button class="sidebar-toggle" onclick={toggleCollapsed} title={collapsed ? $t("component.chrome.sidebar.expand") : $t("component.chrome.sidebar.collapse")} aria-label={collapsed ? $t("component.chrome.sidebar.expand") : $t("component.chrome.sidebar.collapse")}>
@@ -249,7 +274,18 @@
   .sidebar.collapsed .nav-pill.active::before { left: -7px; }
   .nav-pill.active:hover { background: var(--accent-dim); transform: none; }
   .nav-label-text { flex: 1; text-align: left; }
-  .nav-counter {
+
+  /* When an item is active, recolor the embedded CounterPill so it reads as
+     "part of the active row" rather than a contrasting badge. The :global()
+     escape is needed because CounterPill is a child component with scoped CSS. */
+  .nav-pill.active :global(.counter-pill) {
+    background: var(--bg-card);
+    color: var(--accent);
+  }
+
+  /* Lang-code text pill — same visual mass as a CounterPill but carries a
+     locale code, not a count, so it lives here next to the language switcher. */
+  .lang-pill {
     font-family: var(--font-mono);
     font-size: var(--fs-2xs);
     font-weight: 700;
@@ -257,21 +293,27 @@
     border-radius: var(--radius-full);
     background: var(--bg-elevated);
     color: var(--text-muted);
-    font-variant-numeric: tabular-nums;
     min-width: 18px;
     text-align: center;
     line-height: var(--lh-tight);
+    flex-shrink: 0;
   }
-  .nav-counter.is-update { background: var(--update-dim); color: var(--update); }
-  .nav-pill.active .nav-counter { background: var(--bg-card); color: var(--accent); }
-  .nav-counter.is-collapsed {
+  .lang-pill.is-collapsed {
     position: absolute;
     top: 2px;
     right: 2px;
     padding: 0 4px;
     min-width: 14px;
-    font-size: var(--fs-2xs);
-    line-height: var(--lh-tight);
+  }
+
+  .lang-chevron {
+    color: var(--text-muted);
+    flex-shrink: 0;
+    transition: transform var(--dur-fast) var(--ease);
+  }
+  .lang-switcher[aria-expanded="true"] .lang-chevron {
+    transform: rotate(180deg);
+    color: var(--accent);
   }
 
   .lang-switcher {
@@ -295,7 +337,6 @@
   .lang-switcher.active { background: transparent; color: var(--accent); box-shadow: none; }
   .lang-switcher.active::before { content: none; }
   .lang-switcher.active:hover { background: var(--bg-card-hover); }
-  .lang-code { flex-shrink: 0; }
 
   .sidebar-toggle {
     margin: var(--space-2) var(--space-4) var(--space-4);

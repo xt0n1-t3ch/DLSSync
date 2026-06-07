@@ -11,18 +11,26 @@ function source(name: string): string {
 }
 
 describe("Phase 8 — floating chrome shares the .glass-dialog material", () => {
-  const dialogPanels = [
+  const directPanels = [
     "ApplyProgressModal.svelte",
     "VersionPickerPopover.svelte",
-    "CatalogVersionsFlyout.svelte",
-    "DriverHistoryFlyout.svelte",
     "Select.svelte",
     "NotificationsBell.svelte",
   ];
+  const shellRoutedFlyouts = ["CatalogVersionsFlyout.svelte", "DriverHistoryFlyout.svelte"];
 
   it("applies the .glass-dialog class on every floating-chrome panel", () => {
-    for (const file of dialogPanels) {
+    for (const file of directPanels) {
       expect(source(file), `${file} should carry glass-dialog`).toContain("glass-dialog");
+    }
+    expect(
+      source("FlyoutShell.svelte"),
+      "FlyoutShell should carry glass-dialog for routed flyouts",
+    ).toContain("glass-dialog");
+    for (const file of shellRoutedFlyouts) {
+      expect(source(file), `${file} should route chrome through FlyoutShell`).toContain(
+        "<FlyoutShell",
+      );
     }
   });
 
@@ -44,7 +52,7 @@ describe("Phase 8 — floating chrome shares the .glass-dialog material", () => 
   });
 
   it("drops the bespoke per-component glass/vendor-stripe surfaces", () => {
-    for (const file of dialogPanels) {
+    for (const file of [...directPanels, ...shellRoutedFlyouts]) {
       const src = source(file);
       expect(src, `${file} must not redefine backdrop-filter locally`).not.toContain(
         "backdrop-filter: var(--glass-blur)",
@@ -55,7 +63,14 @@ describe("Phase 8 — floating chrome shares the .glass-dialog material", () => 
   });
 
   it("routes vendor accent through the shared stripe via --edge-color", () => {
-    expect(source("CatalogVersionsFlyout.svelte")).toContain("--edge-color={accent}");
-    expect(source("DriverHistoryFlyout.svelte")).toContain("--edge-color={accent}");
+    expect(
+      source("FlyoutShell.svelte"),
+      "FlyoutShell is the central --edge-color routing surface",
+    ).toContain("--edge-color={accent}");
+    for (const file of shellRoutedFlyouts) {
+      expect(source(file), `${file} must pass {accent} into FlyoutShell`).toMatch(
+        /<FlyoutShell[\s\S]*?\{accent\}/,
+      );
+    }
   });
 });

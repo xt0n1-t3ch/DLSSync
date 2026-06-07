@@ -3534,6 +3534,11 @@
     "desc": "Title on the View backups footer button",
     "where": "frontend/src/components/ApplyProgressModal.svelte"
   },
+  "component.applyModal.action.minimize": {
+    "en": "Minimize to dock",
+    "desc": "v1.7. Title + aria-label on the close X button while applies are still running. Clicking minimizes the modal to the ActivityDock without cancelling or losing progress.",
+    "where": "frontend/src/components/ApplyProgressModal.svelte"
+  },
   "component.applyModal.stageStep": {
     "en": "step {current} of {total}",
     "desc": "Per-file stage progress (current step of total stages)",
@@ -3607,6 +3612,11 @@
   "component.applyModal.toast.issueFailed": {
     "en": "Could not open issue report: {error}",
     "desc": "Toast when opening the GitHub issue report fails",
+    "where": "frontend/src/components/ApplyProgressModal.svelte"
+  },
+  "component.applyModal.toast.movedToDock": {
+    "en": "Apply moved to the dock — click any time to expand.",
+    "desc": "v1.7. First-time hint toast shown the first time a user minimizes the apply modal while updates are still running. Persisted via localStorage so it only shows once per machine.",
     "where": "frontend/src/components/ApplyProgressModal.svelte"
   },
   "common.shareCopied": {
@@ -3976,7 +3986,17 @@
   },
   "component.chrome.sidebar.libraryGroup": {
     "en": "Library",
-    "desc": "Sidebar section header above the Library/Catalog/Drivers/Backups nav items.",
+    "desc": "v1.7: Sidebar section header above the Library nav item only. (Pre-v1.7 this header sat above the full Library/Catalog/Drivers/Backups stack — that stack was split into intent-named groups in v1.7 so new users get a clearer mental model.)",
+    "where": "Sidebar.svelte"
+  },
+  "component.chrome.sidebar.catalogGroup": {
+    "en": "Catalog & Drivers",
+    "desc": "v1.7: Sidebar section header above the Catalog and Drivers nav items. Groups the two browsable-source dominions (DLL manifest and GPU/system drivers).",
+    "where": "Sidebar.svelte"
+  },
+  "component.chrome.sidebar.historyGroup": {
+    "en": "History",
+    "desc": "v1.7: Sidebar section header above the Backups nav item. Frames Backups as the time-travel record of every applied DLL/driver change.",
     "where": "Sidebar.svelte"
   },
   "component.chrome.sidebar.generalGroup": {
