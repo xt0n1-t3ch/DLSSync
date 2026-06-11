@@ -27,6 +27,7 @@
   import Select from "../components/Select.svelte";
   import { t, locale, setLocale, translate, LOCALES, LOCALE_LABELS, type Locale } from "../lib/i18n/index";
   import { get } from "svelte/store";
+  import type { BrandKey } from "../lib/brands";
 
   let { onToggleTheme, currentTheme }: { onToggleTheme: () => void; currentTheme: string } = $props();
   let dlssOverlayLive = $state(false);
@@ -245,8 +246,28 @@
     }
   }
 
+  async function confirmRemoval(body: string, title: string): Promise<boolean> {
+    const loc = get(locale);
+    try {
+      const { confirm } = await import("@tauri-apps/plugin-dialog");
+      return await confirm(body, {
+        title,
+        kind: "warning",
+        okLabel: translate(loc, "view.settings.detection.confirmRemove.ok"),
+        cancelLabel: translate(loc, "view.settings.detection.confirmRemove.cancel"),
+      });
+    } catch {
+      return window.confirm(body);
+    }
+  }
+
   async function removeCustomFolder(path: string): Promise<void> {
     if (!$settings) return;
+    const ok = await confirmRemoval(
+      translate(get(locale), "view.settings.detection.confirmRemove.folderBody", { path }),
+      translate(get(locale), "view.settings.detection.confirmRemove.folderTitle"),
+    );
+    if (!ok) return;
     await persistSettings({
       ...$settings,
       launcher_overrides: {
@@ -254,6 +275,18 @@
         custom: $settings.launcher_overrides.custom.filter((p) => p !== path),
       },
     });
+  }
+
+  async function removeLauncherPath(launcher: keyof LauncherOverrides, arr: string[], idx: number): Promise<void> {
+    const current = arr[idx] ?? "";
+    if (current.trim()) {
+      const ok = await confirmRemoval(
+        translate(get(locale), "view.settings.detection.confirmRemove.pathBody", { path: current }),
+        translate(get(locale), "view.settings.detection.confirmRemove.pathTitle"),
+      );
+      if (!ok) return;
+    }
+    updateOverride(launcher, arr.filter((_, j) => j !== idx));
   }
 
   const LAUNCHER_KEYS = LAUNCHER_BRAND_ORDER;
@@ -359,6 +392,15 @@
     { key: "update_direct_storage", labelKey: "view.settings.feature.update_direct_storage.label", subKey: "view.settings.feature.update_direct_storage.sub", files: "dstorage.dll · dstoragecore.dll" },
   ];
 
+  type FeatureGroup = { brand: BrandKey; labelKey: string; keys: (keyof UpdatePreferences)[] };
+  const featureGroups: FeatureGroup[] = [
+    { brand: "nvidia", labelKey: "view.settings.featureGroup.nvidia", keys: ["update_dlss", "update_dlss_fg", "update_dlss_rr", "update_streamline", "update_reflex"] },
+    { brand: "intel", labelKey: "view.settings.featureGroup.intel", keys: ["update_xess"] },
+    { brand: "amd", labelKey: "view.settings.featureGroup.amd", keys: ["update_fsr"] },
+    { brand: "microsoft", labelKey: "view.settings.featureGroup.microsoft", keys: ["update_direct_storage"] },
+  ];
+  const featureByKey = new Map(featureToggles.map((ft) => [ft.key, ft]));
+
   const updateBehaviorToggles: FeatureToggle[] = [
     { key: "create_backups", labelKey: "view.settings.feature.create_backups.label", subKey: "view.settings.feature.create_backups.sub", files: null },
     { key: "auto_apply_all_on_rescan", labelKey: "view.settings.feature.auto_apply_all_on_rescan.label", subKey: "view.settings.feature.auto_apply_all_on_rescan.sub", files: null },
@@ -457,7 +499,7 @@
               <div class="row-sub">{$t("view.settings.general.darkTheme.sub")}</div>
             </div>
             <label class="toggle">
-              <input type="checkbox" checked={currentTheme === "dark"} onchange={onToggleTheme} />
+              <input type="checkbox" checked={currentTheme === "dark"} aria-label={$t("view.settings.general.darkTheme.label")} onchange={onToggleTheme} />
               <span class="toggle-slider"></span>
             </label>
           </div>
@@ -497,6 +539,7 @@
                 <input
                   type="checkbox"
                   checked={$settings.update_prefs[ft.key]}
+                  aria-label={$t(ft.labelKey)}
                   onchange={(e) => updatePref(ft.key, (e.target as HTMLInputElement).checked)}
                 />
                 <span class="toggle-slider"></span>
@@ -522,6 +565,7 @@
               <input
                 type="checkbox"
                 checked={$settings.background.enabled}
+                aria-label={$t("view.settings.general.background.enabled.label")}
                 onchange={(e) => updateBackground("enabled", (e.target as HTMLInputElement).checked)}
               />
               <span class="toggle-slider"></span>
@@ -555,6 +599,7 @@
               <input
                 type="checkbox"
                 checked={$settings.background.close_to_tray}
+                aria-label={$t("view.settings.general.background.closeToTray.label")}
                 onchange={(e) => updateBackground("close_to_tray", (e.target as HTMLInputElement).checked)}
               />
               <span class="toggle-slider"></span>
@@ -570,6 +615,7 @@
               <input
                 type="checkbox"
                 checked={$settings.background.run_at_startup}
+                aria-label={$t("view.settings.general.background.runAtStartup.label")}
                 onchange={(e) => void setRunAtStartup((e.target as HTMLInputElement).checked)}
               />
               <span class="toggle-slider"></span>
@@ -585,6 +631,7 @@
               <input
                 type="checkbox"
                 checked={$settings.background.notify_os_toast}
+                aria-label={$t("view.settings.general.background.notifyToast.label")}
                 disabled={!$settings.background.enabled}
                 onchange={(e) => updateBackground("notify_os_toast", (e.target as HTMLInputElement).checked)}
               />
@@ -604,6 +651,7 @@
               <input
                 type="checkbox"
                 checked={$settings.background.auto_apply}
+                aria-label={$t("view.settings.general.background.autoApply.label")}
                 disabled={!$settings.background.enabled}
                 onchange={(e) => updateBackground("auto_apply", (e.target as HTMLInputElement).checked)}
               />
@@ -626,6 +674,7 @@
               <input
                 type="checkbox"
                 checked={$settings.ui_prefs.show_support_nudge}
+                aria-label={$t("view.settings.general.support.label")}
                 onchange={(e) => void setShowSupportNudge((e.target as HTMLInputElement).checked)}
               />
               <span class="toggle-slider"></span>
@@ -656,33 +705,45 @@
           <h2 class="section-title-h">{$t("view.settings.updates.prefs.title")}</h2>
           <p class="section-help">{$t("view.settings.updates.prefs.help")}</p>
         </header>
-        <div class="card">
-          {#each featureToggles as ft, i}
-            <div class="row" class:row-divider={i > 0}>
-              <div class="row-text">
-                <div class="row-label">{$t(ft.labelKey)}</div>
-                <div class="row-sub">{$t(ft.subKey)}</div>
-                {#if ft.files}
-                  <button class="files-disclosure" onclick={() => toggleFiles(ft.key)} aria-expanded={!!showFilesFor[ft.key]}>
-                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="chev" class:open={!!showFilesFor[ft.key]}><polyline points="6 9 12 15 18 9"/></svg>
-                    {showFilesFor[ft.key] ? $t("view.settings.filesDisclosure.hide") : $t("view.settings.filesDisclosure.show")}
-                  </button>
-                  {#if showFilesFor[ft.key]}
-                    <div class="files-meta mono">{ft.files}</div>
-                  {/if}
-                {/if}
-              </div>
-              <label class="toggle">
-                <input
-                  type="checkbox"
-                  checked={$settings.update_prefs[ft.key]}
-                  onchange={(e) => updatePref(ft.key, (e.target as HTMLInputElement).checked)}
-                />
-                <span class="toggle-slider"></span>
-              </label>
+        {#each featureGroups as group (group.brand)}
+          <div class="feature-group">
+            <div class="feature-group-head">
+              <span class="feature-group-logo" aria-hidden="true"><BrandMark key={group.brand} tone="color" size={16} showLabel={false} /></span>
+              <span class="feature-group-label">{$t(group.labelKey)}</span>
             </div>
-          {/each}
-        </div>
+            <div class="card">
+              {#each group.keys as fkey, i (fkey)}
+                {@const ft = featureByKey.get(fkey)}
+                {#if ft}
+                  <div class="row" class:row-divider={i > 0}>
+                    <div class="row-text">
+                      <div class="row-label">{$t(ft.labelKey)}</div>
+                      <div class="row-sub">{$t(ft.subKey)}</div>
+                      {#if ft.files}
+                        <button class="files-disclosure" onclick={() => toggleFiles(ft.key)} aria-expanded={!!showFilesFor[ft.key]}>
+                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="chev" class:open={!!showFilesFor[ft.key]}><polyline points="6 9 12 15 18 9"/></svg>
+                          {showFilesFor[ft.key] ? $t("view.settings.filesDisclosure.hide") : $t("view.settings.filesDisclosure.show")}
+                        </button>
+                        {#if showFilesFor[ft.key]}
+                          <div class="files-meta mono">{ft.files}</div>
+                        {/if}
+                      {/if}
+                    </div>
+                    <label class="toggle">
+                      <input
+                        type="checkbox"
+                        checked={$settings.update_prefs[ft.key]}
+                        aria-label={$t(ft.labelKey)}
+                        onchange={(e) => updatePref(ft.key, (e.target as HTMLInputElement).checked)}
+                      />
+                      <span class="toggle-slider"></span>
+                    </label>
+                  </div>
+                {/if}
+              {/each}
+            </div>
+          </div>
+        {/each}
       </section>
 
     {:else if activeTab === "detection"}
@@ -777,7 +838,7 @@
                         updateOverride(launcher as keyof LauncherOverrides, next);
                       }}
                     />
-                    <button class="path-remove" title={$t("view.settings.detection.launcher.removePathTitle")} onclick={() => updateOverride(launcher as keyof LauncherOverrides, arr.filter((_, j) => j !== idx))}>
+                    <button class="path-remove" title={$t("view.settings.detection.launcher.removePathTitle")} onclick={() => void removeLauncherPath(launcher as keyof LauncherOverrides, arr, idx)}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/></svg>
                     </button>
                   </div>
@@ -881,7 +942,7 @@
               <div class="row-sub">{$t("view.settings.advanced.overlay.sub")}</div>
             </div>
             <label class="toggle">
-              <input type="checkbox" checked={dlssOverlayLive} onchange={toggleOverlay} />
+              <input type="checkbox" checked={dlssOverlayLive} aria-label={$t("view.settings.advanced.overlay.label")} onchange={toggleOverlay} />
               <span class="toggle-slider"></span>
             </label>
           </div>
@@ -894,6 +955,7 @@
               <input
                 type="checkbox"
                 checked={$settings.advanced.verbose_logs}
+                aria-label={$t("view.settings.advanced.verboseLogs.label")}
                 onchange={(e) => updateAdvanced("verbose_logs", (e.target as HTMLInputElement).checked)}
               />
               <span class="toggle-slider"></span>
@@ -908,6 +970,7 @@
               <input
                 type="checkbox"
                 checked={$settings.advanced.prefer_stable_channel}
+                aria-label={$t("view.settings.advanced.preferStable.label")}
                 onchange={(e) => updateAdvanced("prefer_stable_channel", (e.target as HTMLInputElement).checked)}
               />
               <span class="toggle-slider"></span>
@@ -925,6 +988,7 @@
               <input
                 type="checkbox"
                 checked={$settings.advanced.allow_unsigned_dlls}
+                aria-label={$t("view.settings.advanced.allowUnsigned.label")}
                 onchange={(e) => updateAdvanced("allow_unsigned_dlls", (e.target as HTMLInputElement).checked)}
               />
               <span class="toggle-slider"></span>
@@ -1061,12 +1125,17 @@
 
   .settings-layout {
     display: grid;
-    grid-template-columns: 224px minmax(0, 1fr);
-    gap: clamp(var(--space-5), 3vw, var(--space-8));
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: clamp(var(--space-4), 2vw, var(--space-6));
     align-items: start;
+    padding: var(--space-4);
+    border-radius: var(--radius-xl);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-xs);
   }
   @media (max-width: 900px) {
-    .settings-layout { grid-template-columns: 1fr; gap: var(--space-4); }
+    .settings-layout { grid-template-columns: 1fr; gap: var(--space-4); padding: var(--space-3); }
   }
   .side-nav {
     position: sticky;
@@ -1074,13 +1143,20 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
-    padding: var(--space-2);
-    border-radius: var(--radius-xl);
-    background: var(--bg-card);
-    border: 1px solid var(--border);
+    padding-right: var(--space-4);
+    border-right: 1px solid var(--border);
   }
   @media (max-width: 900px) {
-    .side-nav { position: static; flex-direction: row; flex-wrap: wrap; gap: var(--space-1); }
+    .side-nav {
+      position: static;
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: var(--space-1);
+      padding-right: 0;
+      padding-bottom: var(--space-3);
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+    }
     .side-tab { flex: 1 1 auto; }
   }
   .side-tab {
@@ -1265,6 +1341,33 @@
   }
   .card-sub { font-size: var(--fs-xs); color: var(--text-secondary); margin-top: 3px; line-height: var(--lh-snug); }
   .card-cta { margin-top: var(--space-4); }
+
+  .feature-group { display: flex; flex-direction: column; gap: var(--space-2); }
+  .feature-group + .feature-group { margin-top: var(--space-4); }
+  .feature-group-head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding-left: var(--space-1);
+  }
+  .feature-group-logo {
+    width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-md);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .feature-group-label {
+    font-size: var(--fs-2xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: var(--letter-wider);
+    color: var(--text-secondary);
+  }
 
   .files-disclosure {
     display: inline-flex;

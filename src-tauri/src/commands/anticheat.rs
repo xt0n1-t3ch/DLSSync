@@ -1,7 +1,7 @@
 use crate::error::AppResult;
 use crate::state::AppState;
 use anticheat_detect::{classify, HitSource, ProtectionHit, ProtectionKind, DEFAULT_SCAN_DEPTH};
-use dll_catalog::AntiCheatIndex;
+use dll_catalog::{AntiCheatBinary, AntiCheatIndex};
 use serde::Serialize;
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -45,6 +45,25 @@ pub struct AntiCheatReport {
     pub detected: Vec<DetectedAntiCheat>,
     pub status: Option<String>,
     pub source_url: Option<String>,
+}
+
+/// Adapt the manifest's anti-cheat binary signatures into the `(needle, name)`
+/// pairs the detection crate consumes, dropping rows with a blank `needle` or
+/// `name` (an empty needle would substring-match every filename) and lowercasing
+/// the needle to match the static baseline's convention. Empty input → empty
+/// output → the compile-time baseline alone applies.
+fn manifest_binary_signatures(entries: &[AntiCheatBinary]) -> Vec<(String, String)> {
+    entries
+        .iter()
+        .filter_map(|e| {
+            let needle = e.needle.trim();
+            let name = e.name.trim();
+            if needle.is_empty() || name.is_empty() {
+                return None;
+            }
+            Some((needle.to_ascii_lowercase(), name.to_string()))
+        })
+        .collect()
 }
 
 /// Resolve the "Learn more" target for an anti-cheat banner.
@@ -125,20 +144,34 @@ pub async fn detect_anticheat(
     app_id: Option<String>,
     name: String,
 ) -> AppResult<AntiCheatReport> {
+    crate::paths::PathGuard::assert_safe_scan_dir(Path::new(&install_dir))
+        .map_err(|e| crate::error::AppError::Validation(e.to_string()))?;
+
+    let mut index = AntiCheatIndex::embedded();
+    let extra_binaries: Vec<(String, String)> = {
+        let guard = state.catalog.read();
+        if let Some(catalog) = guard.as_ref() {
+            if let Some(manifest) = catalog.anticheat.as_ref() {
+                index.merge(manifest);
+            }
+            manifest_binary_signatures(&catalog.anti_cheat_binaries)
+        } else {
+            Vec::new()
+        }
+    };
+
     let scan_dir = install_dir.clone();
     let local: Vec<ProtectionHit> = tokio::task::spawn_blocking(move || {
-        anticheat_detect::detect_protections(Path::new(&scan_dir), None, DEFAULT_SCAN_DEPTH)
+        anticheat_detect::detect_protections(
+            Path::new(&scan_dir),
+            None,
+            DEFAULT_SCAN_DEPTH,
+            &extra_binaries,
+        )
     })
     .await
     .map_err(|e| crate::error::AppError::Other(format!("protection scan task: {e}")))?;
 
-    let mut index = AntiCheatIndex::embedded();
-    {
-        let guard = state.catalog.read();
-        if let Some(manifest) = guard.as_ref().and_then(|c| c.anticheat.as_ref()) {
-            index.merge(manifest);
-        }
-    }
     let (dataset_names, dataset_status) = index
         .lookup(app_id.as_deref(), &name)
         .map(|entry| {
@@ -160,6 +193,54 @@ pub async fn detect_anticheat(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn bin(needle: &str, name: &str) -> AntiCheatBinary {
+        AntiCheatBinary {
+            needle: needle.to_string(),
+            name: name.to_string(),
+        }
+    }
+
+    #[test]
+    fn manifest_binary_signatures_empty_yields_empty() {
+        assert!(manifest_binary_signatures(&[]).is_empty());
+    }
+
+    #[test]
+    fn manifest_binary_signatures_lowercases_and_keeps_valid_rows() {
+        let pairs = manifest_binary_signatures(&[bin("NewGuard64", "New Guard AC")]);
+        assert_eq!(
+            pairs,
+            vec![("newguard64".to_string(), "New Guard AC".to_string())]
+        );
+    }
+
+    #[test]
+    fn manifest_binary_signatures_drops_blank_needle_or_name() {
+        let pairs = manifest_binary_signatures(&[
+            bin("", "Has No Needle"),
+            bin("   ", "Whitespace Needle"),
+            bin("hasnoname", ""),
+            bin("keep", "Keep AC"),
+        ]);
+        assert_eq!(pairs, vec![("keep".to_string(), "Keep AC".to_string())]);
+    }
+
+    #[test]
+    fn detection_merges_static_baseline_with_manifest_binaries() {
+        use anticheat_detect::match_anti_cheat_binary_with;
+        let extra = manifest_binary_signatures(&[bin("newguard", "New Guard AC")]);
+        // Static baseline still matches its own rows…
+        assert_eq!(
+            match_anti_cheat_binary_with("EasyAntiCheat_x64.dll", &extra),
+            Some("Easy Anti-Cheat")
+        );
+        // …and the manifest row adds a previously-unknown engine.
+        assert_eq!(
+            match_anti_cheat_binary_with("NewGuard64.sys", &extra),
+            Some("New Guard AC")
+        );
+    }
 
     fn hit(name: &str, kind: ProtectionKind, source: HitSource) -> ProtectionHit {
         ProtectionHit {

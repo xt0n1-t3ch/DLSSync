@@ -132,12 +132,19 @@ export function isOutdated(r: DllRecord, ctx: RelationContext, pinnedVersion: st
   return dllRelation(r, ctx, pinnedVersion) === "outdated";
 }
 
+/** Stable key for a per-game pinned version, mirroring the backend
+ * `game_preferences.pinned_versions` map and `outdatedDllItems` in stores.ts. */
+export function pinKey(r: DllRecord): string {
+  return `${r.family}|${r.path}`;
+}
+
 export function gameStatusFromRecords(
   records: DllRecord[] | undefined,
   ctx: RelationContext,
   disabledFamilies: string[] = [],
   scanError: string | null = null,
   prefs: UpdatePreferences | null = null,
+  pinnedVersions: Record<string, string> = {},
 ): UpdateStatus {
   if (scanError) return "scan_failed";
   if (!records) return "unknown";
@@ -145,7 +152,8 @@ export function gameStatusFromRecords(
   for (const r of records) {
     if (disabledFamilies.includes(r.family)) continue;
     if (!recordUpdatable(r, prefs)) continue;
-    if (dllRelation(r, ctx) === "outdated") return "outdated";
+    const pin = pinnedVersions[pinKey(r)] ?? null;
+    if (dllRelation(r, ctx, pin) === "outdated") return "outdated";
   }
   return "up_to_date";
 }

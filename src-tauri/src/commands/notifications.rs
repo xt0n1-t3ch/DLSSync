@@ -45,12 +45,57 @@ pub async fn dismiss_notification(state: State<'_, AppState>, id: String) -> App
     Ok(())
 }
 
+const ALLOWED_LINK_HOST_SUFFIXES: &[&str] = &[
+    "github.com",
+    "pcgamingwiki.com",
+    "nvidia.com",
+    "amd.com",
+    "intel.com",
+    "ko-fi.com",
+    "nexusmods.com",
+];
+
+/// A notification `link` is either an internal route token (e.g. `library`) or an
+/// external https URL. A webview-injected push must not be able to render a
+/// `javascript:`/`file:`/`http:` or off-allowlist phishing link as a trusted
+/// in-app notification, so anything else is dropped to `None`.
+fn sanitize_notification_link(link: Option<String>) -> Option<String> {
+    let raw = link?;
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    if !trimmed.contains(':') && !trimmed.contains('/') {
+        let is_route = trimmed
+            .bytes()
+            .next()
+            .is_some_and(|b| b.is_ascii_lowercase())
+            && trimmed
+                .bytes()
+                .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_' || b == b'-');
+        return is_route.then(|| trimmed.to_string());
+    }
+    let parsed = url::Url::parse(trimmed).ok()?;
+    if parsed.scheme() != "https" {
+        return None;
+    }
+    let host = match parsed.host() {
+        Some(url::Host::Domain(d)) => d.to_ascii_lowercase(),
+        _ => return None,
+    };
+    let allowed = ALLOWED_LINK_HOST_SUFFIXES
+        .iter()
+        .any(|suffix| host == *suffix || host.ends_with(&format!(".{suffix}")));
+    allowed.then(|| trimmed.to_string())
+}
+
 #[tauri::command]
 pub async fn push_notification(
     state: State<'_, AppState>,
     app: AppHandle,
-    entry: NotificationEntry,
+    mut entry: NotificationEntry,
 ) -> AppResult<()> {
+    entry.link = sanitize_notification_link(entry.link.take());
     let inserted = {
         let guard = state.notifications.read();
         let store = store_required(&guard)?;
@@ -96,12 +141,41 @@ mod tests {
             error_class: None,
             link: None,
             vendor: None,
+            dedup_key: None,
         }
     }
 
     #[test]
     fn event_name_constant_matches_frontend_literal() {
         assert_eq!(NOTIFICATION_PUSHED_EVENT, "notification:pushed");
+    }
+
+    #[test]
+    fn link_sanitizer_keeps_routes_and_allowlisted_https() {
+        use super::sanitize_notification_link as san;
+        assert_eq!(san(Some("library".into())), Some("library".into()));
+        assert_eq!(san(None), None);
+        assert_eq!(
+            san(Some(
+                "https://github.com/xt0n1-t3ch/DLSSync/releases".into()
+            )),
+            Some("https://github.com/xt0n1-t3ch/DLSSync/releases".into())
+        );
+        assert_eq!(
+            san(Some("https://www.nvidia.com/drivers".into())),
+            Some("https://www.nvidia.com/drivers".into())
+        );
+    }
+
+    #[test]
+    fn link_sanitizer_drops_phishing_and_dangerous_schemes() {
+        use super::sanitize_notification_link as san;
+        assert_eq!(san(Some("https://evil.example.com/login".into())), None);
+        assert_eq!(san(Some("http://github.com/x".into())), None);
+        assert_eq!(san(Some("javascript:alert(1)".into())), None);
+        assert_eq!(san(Some("file:///c:/windows/system32".into())), None);
+        assert_eq!(san(Some("https://github.com.evil.com/x".into())), None);
+        assert_eq!(san(Some("../../etc/passwd".into())), None);
     }
 
     #[test]

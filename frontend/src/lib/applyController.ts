@@ -3,6 +3,7 @@ import {
   applyUpdateBatch,
   applyUpdate,
   applyStreamlineSet,
+  applyDllSet,
   cancelApply as cancelApplyApi,
   cancelAllApplies as cancelAllAppliesApi,
   type ApplyRequest,
@@ -12,6 +13,8 @@ import {
 } from "./api";
 import {
   activeApplies,
+  downloadProgressByGroup,
+  formatError,
   showToast,
   type ApplyTracker,
   type Toast,
@@ -34,6 +37,41 @@ export interface DispatchOptions {
 }
 
 const DEFAULT_TOAST = (kind: Toast["kind"], message: string): void => showToast(kind, message);
+const ENDED_TRACKER_TTL_MS = 5 * 60 * 1000;
+
+/// True when any tracker in the store is still running (no `ended_at`). Mirrors the
+/// `isApplyInflight` guard used by the background daemon so a second dispatch never
+/// clobbers an in-flight batch's trackers.
+export function isApplyInflight(): boolean {
+  return Object.values(get(activeApplies)).some((t) => t.ended_at === null);
+}
+
+/// Drops trackers that finished more than `ENDED_TRACKER_TTL_MS` ago plus any
+/// download-progress entry whose group no longer backs a live tracker. Runs at
+/// every new dispatch so a long tray session with daily auto-applies cannot
+/// accrete state forever.
+export function pruneEndedApplyState(now = Date.now()): void {
+  const cutoff = now - ENDED_TRACKER_TTL_MS;
+  activeApplies.update((m) => {
+    const next: Record<string, ApplyTracker> = {};
+    for (const [id, tracker] of Object.entries(m)) {
+      if (tracker.ended_at === null || tracker.ended_at > cutoff) next[id] = tracker;
+    }
+    return next;
+  });
+  const liveGroups = new Set(
+    Object.values(get(activeApplies))
+      .map((t) => t.group_id)
+      .filter((g) => g !== ""),
+  );
+  downloadProgressByGroup.update((m) => {
+    const next: typeof m = {};
+    for (const [group, state] of Object.entries(m)) {
+      if (liveGroups.has(group)) next[group] = state;
+    }
+    return next;
+  });
+}
 
 export async function dispatchApply(
   targets: ApplyTarget[],
@@ -44,8 +82,13 @@ export async function dispatchApply(
     (opts.toast ?? DEFAULT_TOAST)("warning", translate(loc, "toast.nothingSelected"));
     return null;
   }
+  if (isApplyInflight()) {
+    (opts.toast ?? DEFAULT_TOAST)("warning", translate(loc, "toast.applyInProgress"));
+    return null;
+  }
+  pruneEndedApplyState();
   const { trackers, requests } = prepareApply(targets);
-  activeApplies.set(trackers);
+  activeApplies.update((m) => ({ ...m, ...trackers }));
   opts.showModal?.();
   const toast = opts.toast ?? DEFAULT_TOAST;
   const uniqueGames = new Set(targets.map((t) => t.game_id)).size;
@@ -145,8 +188,13 @@ export async function dispatchStreamlineSet(
     toast("warning", translate(loc, "toast.streamlineNoUpdates"));
     return null;
   }
+  if (isApplyInflight()) {
+    toast("warning", translate(loc, "toast.applyInProgress"));
+    return null;
+  }
+  pruneEndedApplyState();
   const { trackers, requests } = prepareApply(targets);
-  activeApplies.set(trackers);
+  activeApplies.update((m) => ({ ...m, ...trackers }));
   opts.showModal?.();
   const count = targets.length;
   toast("info", translate(loc, "toast.streamlineUpdating", { count }));
@@ -177,7 +225,64 @@ export async function dispatchStreamlineSet(
   }
 }
 
+/// Apply a coherent multi-DLL vendor set (FSR SDK / XeSS SDK) as one atomic
+/// transaction. Mirrors `dispatchStreamlineSet` but routes through the
+/// generalized `apply_dll_set` command, whose backend guard enforces set
+/// coherence plus the FSR4 hardware gate (fail-closed).
+export async function dispatchDllSet(
+  targets: ApplyTarget[],
+  setLabel: string,
+  opts: DispatchOptions = {},
+): Promise<StreamlineSetResult | null> {
+  const toast = opts.toast ?? DEFAULT_TOAST;
+  const loc = get(locale);
+  if (targets.length === 0) {
+    toast("warning", translate(loc, "toast.setNoUpdates", { label: setLabel }));
+    return null;
+  }
+  if (isApplyInflight()) {
+    toast("warning", translate(loc, "toast.applyInProgress"));
+    return null;
+  }
+  pruneEndedApplyState();
+  const { trackers, requests } = prepareApply(targets);
+  activeApplies.update((m) => ({ ...m, ...trackers }));
+  opts.showModal?.();
+  const count = targets.length;
+  toast("info", translate(loc, "toast.setUpdating", { label: setLabel, count }));
+  try {
+    const result = await applyDllSet(requests);
+    if (result.success) {
+      annotateOutcomes({ outcomes: result.applied });
+      toast("success", translate(loc, "toast.setUpdated", { label: setLabel, count }));
+      notifyApplySuccess(result.applied.length);
+    } else {
+      const rolledBack = result.rolled_back ? translate(loc, "toast.streamlineRolledBack") : "";
+      const reason = result.error ?? translate(loc, "toast.setFailed", { label: setLabel });
+      failAllTrackers(trackers, `${reason}${rolledBack}`);
+      toast(
+        "danger",
+        translate(loc, "toast.setUpdateFailed", {
+          label: setLabel,
+          error: result.error ?? translate(loc, "toast.unknownError"),
+          rolledBack,
+        }),
+      );
+    }
+    return result;
+  } catch (err: unknown) {
+    const msg = formatError(err);
+    failAllTrackers(trackers, msg);
+    toast("danger", translate(loc, "toast.setApplyFailed", { label: setLabel, msg }));
+    return null;
+  }
+}
+
 export async function retrySingleApply(tracker: ApplyTracker): Promise<void> {
+  if (isApplyInflight()) {
+    showToast("warning", translate(get(locale), "toast.applyInProgress"));
+    return;
+  }
   const retrying = translate(get(locale), "toast.trackerRetrying");
   activeApplies.update((m) => {
     const cur = m[tracker.apply_id];
@@ -230,6 +335,10 @@ export async function retrySingleApply(tracker: ApplyTracker): Promise<void> {
 export async function retryFailedTrackers(trackers: ApplyTracker[]): Promise<void> {
   const failed = trackers.filter((t) => t.stage === "failed" || t.stage === "cancelled");
   if (failed.length === 0) return;
+  if (isApplyInflight()) {
+    showToast("warning", translate(get(locale), "toast.applyInProgress"));
+    return;
+  }
   const items: ApplyRequest[] = failed.map((t) => ({
     apply_id: t.apply_id,
     game_id: t.game_id,
@@ -284,11 +393,19 @@ export async function retryFailedTrackers(trackers: ApplyTracker[]): Promise<voi
 }
 
 export async function cancelOne(applyId: string): Promise<void> {
-  await cancelApplyApi(applyId);
+  try {
+    await cancelApplyApi(applyId);
+  } catch (err: unknown) {
+    showToast("danger", translate(get(locale), "toast.cancelFailed", { msg: formatError(err) }));
+  }
 }
 
 export async function cancelAll(): Promise<void> {
-  await cancelAllAppliesApi();
+  try {
+    await cancelAllAppliesApi();
+  } catch (err: unknown) {
+    showToast("danger", translate(get(locale), "toast.cancelFailed", { msg: formatError(err) }));
+  }
 }
 
 export function snapshotActive(): ApplyTracker[] {
@@ -343,11 +460,4 @@ function annotateOutcomes(result: ApplyBatchResult): void {
     }
     return next;
   });
-}
-
-function formatError(err: unknown): string {
-  if (err && typeof err === "object" && "message" in err) {
-    return String((err as { message: unknown }).message);
-  }
-  return String(err);
 }

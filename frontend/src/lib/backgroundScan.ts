@@ -21,7 +21,12 @@ import {
   showToast,
   type OutdatedDllItem,
 } from "./stores";
-import { dispatchApply, buildTargetFromRecord, type ApplyTarget } from "./applyController";
+import {
+  dispatchApply,
+  buildTargetFromRecord,
+  isApplyInflight as trackersInflight,
+  type ApplyTarget,
+} from "./applyController";
 import { hasAntiCheat } from "./anticheat";
 import { translate, locale } from "./i18n/index";
 
@@ -85,9 +90,9 @@ async function fireNativeToast(title: string, body: string): Promise<boolean> {
 function liveDeps(): BackgroundDeps {
   return {
     isScanning: () => get(scanInProgress),
-    isApplyInflight: () => get(inflightCount) > 0,
-    scanGames: () => scanGamesStore(),
-    loadCatalog: () => loadCatalogStore(),
+    isApplyInflight: () => get(inflightCount) > 0 || trackersInflight(),
+    scanGames: () => scanGamesStore({ silent: true }),
+    loadCatalog: () => loadCatalogStore({ silent: true }),
     emitDigest: () => emitDllUpdatesDigest(),
     pendingDigest: () => pendingDllUpdateDigest(),
     outdatedItems: () => outdatedDllItems(),
@@ -142,35 +147,43 @@ export async function autoApplyExcludingAntiCheat(items: OutdatedDllItem[]): Pro
  *  scan + catalog refresh flow (which emits the in-app digest), updates the tray
  *  count, fires an OS toast when there are pending updates (falling back to the
  *  in-app digest if permission is denied), and optionally auto-applies. */
+let tickRunning = false;
+
 export async function handleScanTick(deps: BackgroundDeps = liveDeps()): Promise<void> {
+  if (tickRunning) return;
   const cfg = deps.config();
   if (!cfg.enabled) return;
   if (deps.isScanning() || deps.isApplyInflight()) return;
 
-  await deps.scanGames();
-  await deps.loadCatalog();
+  tickRunning = true;
+  try {
+    await deps.scanGames();
+    await deps.loadCatalog();
 
-  const { total, games } = deps.pendingDigest();
-  await deps.setTrayPending(games).catch((err) => {
-    console.warn("[dlssync] tray_set_pending failed:", err);
-  });
+    const { total, games } = deps.pendingDigest();
+    await deps.setTrayPending(games).catch((err) => {
+      console.warn("[dlssync] tray_set_pending failed:", err);
+    });
 
-  if (total <= 0) return;
+    if (total <= 0) return;
 
-  const loc = get(locale);
-  const gamesPhrase = translate(loc, "notif.dll.digestGames", { count: games });
-  const title = translate(loc, "notif.background.toastTitle", { count: total });
-  const body = translate(loc, "notif.background.toastBody", { games: gamesPhrase });
+    const loc = get(locale);
+    const gamesPhrase = translate(loc, "notif.dll.digestGames", { count: games });
+    const title = translate(loc, "notif.background.toastTitle", { count: total });
+    const body = translate(loc, "notif.background.toastBody", { games: gamesPhrase });
 
-  if (cfg.notify_os_toast) {
-    const shown = await deps.notifyToast(title, body);
-    if (!shown) deps.emitDigest();
-  } else {
-    deps.emitDigest();
-  }
+    if (cfg.notify_os_toast) {
+      const shown = await deps.notifyToast(title, body);
+      if (!shown) deps.emitDigest();
+    } else {
+      deps.emitDigest();
+    }
 
-  if (cfg.auto_apply) {
-    await deps.autoApply(deps.outdatedItems());
+    if (cfg.auto_apply) {
+      await deps.autoApply(deps.outdatedItems());
+    }
+  } finally {
+    tickRunning = false;
   }
 }
 

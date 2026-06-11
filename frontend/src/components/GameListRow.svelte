@@ -1,13 +1,10 @@
 <script lang="ts">
   import type { DetectedGame, DllRecord } from "../lib/api";
   import {
-    LAUNCHER_ACCENTS,
     launcherLabel,
     recordFeature,
     featureShort,
     featureVendor,
-    VENDOR_ACCENTS,
-    GROUP_ACCENT,
     type UpdateStatus,
   } from "../lib/labels";
   import { gameDlls, gameDllsLoading, gameStatuses, relationContext } from "../lib/stores";
@@ -29,7 +26,6 @@
   let loading = $derived($gameDllsLoading[game.id] ?? false);
   let dlls: DllRecord[] = $derived($gameDlls[game.id] ?? []);
   let imgErrored = $state(false);
-  let accent = $derived(LAUNCHER_ACCENTS[game.launcher] ?? "var(--accent)");
   let brandMark = $derived(launcherIcon(game.launcher));
 
   function isOutdated(r: DllRecord): boolean {
@@ -42,14 +38,14 @@
 
   let outdatedChips = $derived.by(() => {
     const seen = new Set<string>();
-    const chips: { label: string; accent: string }[] = [];
+    const chips: { label: string; vendor: string }[] = [];
     for (const r of outdatedDlls) {
       const f = recordFeature(r);
       if (seen.has(f)) continue;
       seen.add(f);
       chips.push({
         label: f === "advanced" ? $t("feature.advanced.short") : featureShort(f),
-        accent: f === "advanced" ? GROUP_ACCENT.advanced : VENDOR_ACCENTS[featureVendor(f)] ?? GROUP_ACCENT.advanced,
+        vendor: featureVendor(f),
       });
     }
     return chips;
@@ -65,26 +61,17 @@
   );
   let haloActive = $derived(status === "outdated" || status === "scan_failed");
 
-  function onKey(e: KeyboardEvent): void {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      onClick(game);
-    }
-  }
 </script>
 
 <div
   class="list-row halo {haloVariant}"
   class:is-active={haloActive}
   class:is-hidden={hidden}
-  role="button"
-  tabindex="0"
-  aria-label={$t("component.card.rowAria", { name: game.name, status: $t("status." + status) })}
-  onclick={() => onClick(game)}
+  role="presentation"
+  data-launcher={game.launcher}
   oncontextmenu={onContextMenu ? (e) => { e.preventDefault(); onContextMenu(game, e); } : undefined}
-  onkeydown={onKey}
 >
-  <div class="cover" style:--launcher-accent={accent}>
+  <div class="cover">
     {#if game.image_url && !imgErrored}
       <img src={game.image_url} alt={game.name} loading="lazy" onerror={() => (imgErrored = true)} />
     {:else}
@@ -93,8 +80,14 @@
   </div>
 
   <div class="meta">
-    <h3 class="row-name truncate" title={game.name}>{game.name}</h3>
-    <span class="launcher-chip chip" style:background={accent}>
+    <h3 class="row-name truncate" title={game.name}>
+      <button
+        class="row-name-btn truncate"
+        aria-label={$t("component.card.rowAria", { name: game.name, status: $t("status." + status) })}
+        onclick={() => onClick(game)}
+      >{game.name}</button>
+    </h3>
+    <span class="launcher-chip chip">
       <svg viewBox={brandMark.viewBox} width="10" height="10" fill="currentColor" aria-hidden="true">
         <path d={brandMark.path} />
       </svg>
@@ -106,9 +99,15 @@
     {#if loading}
       <span class="chip chip-neutral">{$t("status.scanning")}</span>
     {:else if status === "outdated"}
-      <span class="chip chip-update is-strong">{$t("component.card.updatesShort", { count: outdatedDlls.length })}</span>
+      <span class="chip chip-update is-strong"
+        ><span class="state-dot" data-state="outdated" aria-hidden="true"></span
+        >{$t("component.card.updatesShort", { count: outdatedDlls.length })}</span
+      >
     {:else if status === "up_to_date"}
-      <span class="chip chip-success">{$t("status.up_to_date")}</span>
+      <span class="chip chip-success"
+        ><span class="state-dot" data-state="current" aria-hidden="true"></span
+        >{$t("status.up_to_date")}</span
+      >
     {:else if status === "scan_failed"}
       <span class="chip chip-danger">{$t("status.scan_failed")}</span>
     {:else if status === "no_dlls"}
@@ -120,7 +119,7 @@
 
   <div class="chips">
     {#each visibleChips as c, i (i)}
-      <span class="feature-chip" style:--chip-accent={c.accent}>{c.label}</span>
+      <span class="chip chip-vendor is-solid feature-chip" data-vendor={c.vendor}>{c.label}</span>
     {/each}
     {#if overflowChips > 0}
       <span class="feature-chip overflow">+{overflowChips}</span>
@@ -159,6 +158,7 @@
 
 <style>
   .list-row {
+    position: relative;
     display: grid;
     grid-template-columns: 72px minmax(180px, 2fr) auto minmax(0, 2fr) auto auto;
     align-items: center;
@@ -172,8 +172,27 @@
     color: var(--text-primary);
   }
   .list-row:hover { background: var(--bg-card-hover); border-color: var(--border-hover); }
-  .list-row:focus-visible { outline: none; border-color: var(--accent); box-shadow: var(--shadow-ring); }
+  .list-row:focus-within { border-color: var(--accent); box-shadow: var(--shadow-ring); }
   .list-row.is-hidden { opacity: 0.7; }
+  .row-name-btn {
+    display: block;
+    max-width: 100%;
+    padding: 0;
+    background: transparent;
+    border: none;
+    font: inherit;
+    color: inherit;
+    letter-spacing: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .row-name-btn::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+  }
+  .row-name-btn:focus-visible { outline: none; }
 
   .cover {
     width: 64px;
@@ -207,32 +226,28 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    color: #0a0d13;
+    color: var(--launcher-chip-fg);
     text-transform: none;
     letter-spacing: 0;
     width: fit-content;
     border-color: transparent;
+    background: var(--launcher-accent, #94a3b8);
   }
 
   .status { min-width: 100px; }
 
   .chips { display: flex; flex-wrap: nowrap; gap: 4px; overflow: hidden; min-width: 0; }
-  .feature-chip {
+  .feature-chip { white-space: nowrap; }
+  .feature-chip.overflow {
     display: inline-flex;
     align-items: center;
     padding: 3px 8px;
     font-size: 10.5px;
     font-weight: 600;
     border-radius: var(--radius-sm);
-    background: color-mix(in oklab, var(--chip-accent, var(--update)) 12%, var(--bg-elevated));
-    color: var(--chip-accent, var(--update));
-    border: 1px solid color-mix(in oklab, var(--chip-accent, var(--update)) 32%, transparent);
-    white-space: nowrap;
-  }
-  .feature-chip.overflow {
     background: transparent;
     color: var(--text-muted);
-    border-color: var(--border);
+    border: 1px solid var(--border);
   }
 
   .version-diff {
@@ -250,6 +265,8 @@
   .ver-empty { color: var(--text-placeholder); }
 
   .actions {
+    position: relative;
+    z-index: 2;
     display: inline-flex;
     align-items: center;
     gap: 6px;

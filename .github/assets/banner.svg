@@ -1,130 +1,33 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 360" width="1280" height="360" role="img" aria-label="DLSSync">
   <title>DLSSync</title>
-  <desc>Open-source DLSS updater for Windows.</desc>
-
+  <desc>Premium open-source updater for DLSS, FSR, XeSS, Streamline, and Windows gaming drivers.</desc>
   <defs>
-    <linearGradient id="bg" x1="50%" y1="0%" x2="50%" y2="100%">
-      <stop offset="0%" stop-color="#0a0d13"/>
-      <stop offset="100%" stop-color="#07090d"/>
-    </linearGradient>
-    <radialGradient id="vignette" cx="50%" cy="50%" r="55%">
-      <stop offset="0%" stop-color="#22d3ee" stop-opacity="0.18"/>
-      <stop offset="60%" stop-color="#22d3ee" stop-opacity="0.04"/>
-      <stop offset="100%" stop-color="#22d3ee" stop-opacity="0"/>
-    </radialGradient>
-    <radialGradient id="halo" cx="50%" cy="50%" r="55%">
-      <stop offset="0%" stop-color="#22d3ee" stop-opacity="0.45"/>
-      <stop offset="55%" stop-color="#22d3ee" stop-opacity="0.10"/>
-      <stop offset="100%" stop-color="#22d3ee" stop-opacity="0"/>
-    </radialGradient>
-    <linearGradient id="ring" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#22d3ee"/>
-      <stop offset="100%" stop-color="#06b6d4"/>
-    </linearGradient>
-    <linearGradient id="wordBase" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#ffffff"/>
-      <stop offset="100%" stop-color="#9ca5b4"/>
-    </linearGradient>
-    <linearGradient id="shimmer" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#22d3ee" stop-opacity="0"/>
-      <stop offset="45%" stop-color="#22d3ee" stop-opacity="0"/>
-      <stop offset="50%" stop-color="#22d3ee" stop-opacity="1"/>
-      <stop offset="55%" stop-color="#22d3ee" stop-opacity="0"/>
-      <stop offset="100%" stop-color="#22d3ee" stop-opacity="0"/>
-    </linearGradient>
-    <linearGradient id="edge" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#22d3ee" stop-opacity="0"/>
-      <stop offset="50%" stop-color="#22d3ee" stop-opacity="0.7"/>
-      <stop offset="100%" stop-color="#22d3ee" stop-opacity="0"/>
-    </linearGradient>
-    <linearGradient id="ray" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#22d3ee" stop-opacity="0"/>
-      <stop offset="100%" stop-color="#22d3ee" stop-opacity="0.8"/>
-    </linearGradient>
-    <pattern id="grid" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
-      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1c2230" stroke-width="0.5"/>
-    </pattern>
-    <pattern id="dotsRight" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
-      <circle cx="2" cy="2" r="1" fill="#22d3ee" fill-opacity="0.10"/>
-    </pattern>
-    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="5" result="blur"/>
-      <feMerge>
-        <feMergeNode in="blur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-    <mask id="wordmarkMask">
-      <text x="0" y="0" font-family="-apple-system, 'Segoe UI', Inter, Roboto, sans-serif" font-size="132" font-weight="800" letter-spacing="-5" fill="white">DLSSync</text>
-    </mask>
-    <style>
-      @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-      @keyframes breath { 0%, 100% { opacity: 0.75; transform: scale(1); } 50% { opacity: 1; transform: scale(1.06); } }
-      @keyframes shimmer-sweep { 0% { transform: translateX(0); } 100% { transform: translateX(960px); } }
-      @keyframes ray-drift { 0% { transform: translateX(-200px); opacity: 0; } 20% { opacity: 0.6; } 80% { opacity: 0.6; } 100% { transform: translateX(1480px); opacity: 0; } }
-      @keyframes pulseDot { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
-      .mark { transform-box: fill-box; transform-origin: center; animation: spin 22s linear infinite; }
-      .halo { transform-box: fill-box; transform-origin: center; animation: breath 6s ease-in-out infinite; }
-      .shimmer { animation: shimmer-sweep 5.5s ease-in-out infinite; }
-      .ray { animation: ray-drift 11s linear infinite; }
-      .dot1 { animation: pulseDot 3s ease-in-out infinite; }
-      .dot2 { animation: pulseDot 3s ease-in-out 1s infinite; }
-      .dot3 { animation: pulseDot 3s ease-in-out 2s infinite; }
-      @media (prefers-reduced-motion: reduce) {
-        .mark, .halo, .shimmer, .ray, .dot1, .dot2, .dot3 { animation: none; }
-      }
-    </style>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#030303"/><stop offset="0.55" stop-color="#0b0b0d"/><stop offset="1" stop-color="#17181c"/></linearGradient>
+    <linearGradient id="metal" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="0.42" stop-color="#d8d9dd"/><stop offset="0.74" stop-color="#8d8f96"/><stop offset="1" stop-color="#ffffff"/></linearGradient>
+    <linearGradient id="muted" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#9a9ca3"/></linearGradient>
+    <linearGradient id="fade" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#000" stop-opacity="0.92"/><stop offset="0.5" stop-color="#000" stop-opacity="0.62"/><stop offset="1" stop-color="#000" stop-opacity="0.8"/></linearGradient>
+    <filter id="soft" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
   </defs>
-
   <rect width="1280" height="360" fill="url(#bg)"/>
-  <rect width="1280" height="360" fill="url(#grid)" opacity="0.55"/>
-  <ellipse cx="640" cy="180" rx="640" ry="280" fill="url(#vignette)"/>
-  <rect width="1280" height="360" fill="url(#dotsRight)" opacity="0.4"/>
-
-  <rect class="ray" x="0" y="0" width="300" height="360" fill="url(#ray)" opacity="0.35"/>
-
-  <line x1="0" y1="0" x2="1280" y2="0" stroke="url(#edge)" stroke-width="1"/>
-  <line x1="0" y1="359" x2="1280" y2="359" stroke="url(#edge)" stroke-width="1" opacity="0.5"/>
-
-  <g transform="translate(280 180)">
-    <circle class="halo" cx="0" cy="0" r="120" fill="url(#halo)"/>
-    <circle cx="0" cy="0" r="86" fill="#0a0d13" stroke="#1c2230" stroke-width="1"/>
-    <g class="mark" filter="url(#glow)">
-      <g transform="scale(5) translate(-12 -12)" fill="none" stroke="url(#ring)" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M3 12a9 9 0 1 0 3-6.7"/>
-        <polyline points="3 4 3 9 8 9"/>
-      </g>
-    </g>
+  <g opacity="0.42" fill="none" stroke="#fff" stroke-width="1">
+    <path d="M0 276c92-88 150-105 250-62s177 26 262-34 154-80 244-48 166 20 264-52 176-76 280-18" opacity="0.17"/>
+    <path d="M80 46h128l62 74 154-34 82 92 128-128 120 88 118-44 74 86 174-118" opacity="0.09"/>
   </g>
-
-  <g transform="translate(420 175)">
-    <text x="0" y="0" font-family="-apple-system, 'Segoe UI', Inter, Roboto, sans-serif" font-size="132" font-weight="800" letter-spacing="-5" fill="url(#wordBase)">DLSSync</text>
-    <g mask="url(#wordmarkMask)">
-      <rect class="shimmer" x="-400" y="-120" width="380" height="150" fill="url(#shimmer)"/>
-    </g>
+  <g opacity="0.25" fill="#fff">
+    <path d="M88 256h118l-28-84 52-38 74 122h92l-38-112 92-40 84 152h118l-68-146 88-76 112 222h128l-42-118 132-74 92 192h78v104H0v-80z"/>
+    <path d="M940 58l42 78 86 10-62 58 16 84-76-40-74 42 14-86-64-56 86-12z" opacity="0.26"/>
   </g>
-
-  <g transform="translate(420 245)" font-family="-apple-system, 'Segoe UI', Inter, Roboto, sans-serif" font-size="22" font-weight="500" fill="#9ca5b4" letter-spacing="-0.2">
-    <text x="0" y="0">Keep DLSS, FSR and XeSS in sync with vendor releases.</text>
+  <rect width="1280" height="360" fill="url(#fade)"/>
+  <g transform="translate(190 180)" filter="url(#soft)">
+    <rect x="-88" y="-88" width="176" height="176" rx="42" fill="#050505" stroke="#f5f5f5" stroke-opacity="0.24"/>
+    <path d="M-50 0a50 50 0 1 1 17 37" fill="none" stroke="url(#metal)" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M-49-48v38h38" fill="none" stroke="url(#metal)" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
-
-  <g transform="translate(420 295)" font-family="JetBrains Mono, Menlo, Consolas, monospace" font-size="12" font-weight="600" letter-spacing="2">
-    <text x="0" y="0" fill="#22d3ee">v1.0.0</text>
-    <text x="60" y="0" fill="#2a3142">/</text>
-    <text x="76" y="0" fill="#7a8597">APACHE-2.0</text>
-    <text x="186" y="0" fill="#2a3142">/</text>
-    <text x="202" y="0" fill="#7a8597">RUST</text>
-    <text x="246" y="0" fill="#2a3142">/</text>
-    <text x="262" y="0" fill="#7a8597">TAURI 2</text>
-    <text x="334" y="0" fill="#2a3142">/</text>
-    <text x="350" y="0" fill="#7a8597">SVELTE 5</text>
-    <text x="438" y="0" fill="#2a3142">/</text>
-    <text x="454" y="0" fill="#7a8597">WINDOWS</text>
+  <g transform="translate(322 153)">
+    <text font-family="Inter, Geist, -apple-system, Segoe UI, sans-serif" font-size="100" font-weight="800" letter-spacing="-5" fill="url(#muted)">DLSSync</text>
+    <text y="62" font-family="Inter, Geist, -apple-system, Segoe UI, sans-serif" font-size="22" font-weight="500" fill="#e5e5e7">One trusted sync layer for DLSS, FSR, XeSS and drivers.</text>
   </g>
-
-  <g transform="translate(1180 65)">
-    <circle class="dot1" cx="0" cy="0" r="3" fill="#22d3ee"/>
-    <circle class="dot2" cx="-14" cy="0" r="3" fill="#22d3ee"/>
-    <circle class="dot3" cx="-28" cy="0" r="3" fill="#22d3ee"/>
+  <g transform="translate(322 292)" font-family="JetBrains Mono, Menlo, Consolas, monospace" font-size="12" font-weight="700" letter-spacing="1.8" fill="#a9abb2">
+    <text fill="#f5f5f5">v1.6.6</text><text x="62">/ ZERO TELEMETRY / HASH VERIFIED / ONE-CLICK ROLLBACK</text>
   </g>
 </svg>

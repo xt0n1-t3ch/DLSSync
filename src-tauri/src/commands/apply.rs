@@ -39,6 +39,11 @@ pub struct ApplyRequest {
     pub target_version: String,
     #[serde(default)]
     pub game_label: Option<String>,
+    /// Absolute install root for the game owning this DLL. Used to detect whether
+    /// the game is currently running before we waste a download on a locked file.
+    /// When absent, the running-game check falls back to the DLL's parent folder.
+    #[serde(default)]
+    pub install_dir: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -272,6 +277,13 @@ pub(crate) async fn apply_single_item(
     };
 
     let dll_path = PathBuf::from(&request.dll_path);
+    if let Err(guard_err) = crate::paths::PathGuard::assert_dll_ext(&dll_path)
+        .and_then(|()| crate::paths::PathGuard::deny_system_dir(&dll_path))
+    {
+        let reason = guard_err.to_string();
+        ctx.fail("Unsafe target path", reason.clone(), Some("permission"));
+        return Ok(failure_outcome(request, &group_id, reason));
+    }
     if !dll_path.exists() {
         ctx.fail(
             "DLL file disappeared",
@@ -303,6 +315,22 @@ pub(crate) async fn apply_single_item(
         };
         ctx.fail("DLL is locked", reason.clone(), Some(class));
         return Ok(failure_outcome(request, &group_id, reason));
+    }
+
+    let game_root = request
+        .install_dir
+        .as_deref()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| dll_path.parent().map(PathBuf::from).unwrap_or_default());
+    if let Some(running_exe) = detect_running_game(&game_root) {
+        let label = request
+            .game_label
+            .as_deref()
+            .filter(|s| !s.trim().is_empty())
+            .unwrap_or(&request.game_id);
+        let err = format!("Close {label} before updating its DLLs (running: {running_exe})");
+        ctx.fail("Game is running", err.clone(), Some("game_running"));
+        return Ok(failure_outcome(request, &group_id, err));
     }
 
     let backup_root = match state.backups.read().as_ref().map(|s| s.root_dir.clone()) {
@@ -396,11 +424,32 @@ pub(crate) async fn apply_single_item(
     };
     match auth_info {
         Some(info) => match pe_version::enforce_subject(&info, &request.vendor) {
+            Ok(()) if !info.trusted && !allow_unsigned => {
+                // The subject CN matched the vendor allowlist, but WinVerifyTrust
+                // rejected the chain — the binary's digest was never cryptographically
+                // verified, so a self-signed DLL bearing "NVIDIA Corporation" would
+                // otherwise slip through. Fail closed unless the user opted into
+                // unsigned mode.
+                let err = format!(
+                    "Authenticode chain is untrusted for {} — refusing to apply. \
+                     Enable 'Allow unsigned DLLs' in Settings → Advanced to override.",
+                    info.subject_cn.as_deref().unwrap_or("?")
+                );
+                ctx.fail("Untrusted signature chain", err.clone(), Some("signature"));
+                return Ok(failure_outcome(request, &group_id, err));
+            }
             Ok(()) => {
-                let trust_tag = if info.trusted {
-                    "trusted"
+                let trust_tag = if !info.trusted {
+                    "untrusted-chain (allowed)"
+                } else if info.revocation_bypassed {
+                    tracing::warn!(
+                        subject = ?info.subject_cn,
+                        dll = %dll_path.display(),
+                        "applying with revocation status unverifiable — chain trusted without a revocation check"
+                    );
+                    "trusted (revocation unchecked)"
                 } else {
-                    "untrusted-chain"
+                    "trusted"
                 };
                 ctx.stage(
                     STAGE_VERIFY_SIGNATURE,
@@ -671,6 +720,7 @@ async fn stage_download(
         chunk_timeout: Duration::from_secs(net.chunk_timeout_secs.max(5)),
         progress_tx: Some(tx),
         cancel: Some(cancel.clone()),
+        ..Default::default()
     };
     let pump_handle = ctx.handle.clone();
     let pump_group = ctx.group_id.clone();
@@ -800,6 +850,70 @@ pub(crate) fn streamline_guard(
     streamline_block_reason(filename, allow_streamline, installed_major, target_major)
 }
 
+const WINDOWS_EXE_EXTENSION: &str = "exe";
+
+/// Best-effort pre-flight: returns the file name of a running executable whose
+/// image path lives under `game_root`, signalling the game is open and its DLLs
+/// are likely locked. Returns `None` when nothing matches OR when process
+/// enumeration is unavailable — detection failure must never block an apply, so
+/// the caller proceeds and falls back to the on-disk lock/replace error path.
+fn detect_running_game(game_root: &std::path::Path) -> Option<String> {
+    let root = normalize_for_match(game_root)?;
+    let mut sys = sysinfo::System::new();
+    sys.refresh_processes_specifics(
+        sysinfo::ProcessesToUpdate::All,
+        true,
+        sysinfo::ProcessRefreshKind::nothing(),
+    );
+    for process in sys.processes().values() {
+        let Some(exe) = process.exe() else { continue };
+        if !is_executable_image(exe) {
+            continue;
+        }
+        if exe_is_under_root(exe, &root) {
+            return exe
+                .file_name()
+                .and_then(|n| n.to_str())
+                .map(|s| s.to_string());
+        }
+    }
+    None
+}
+
+/// True when `exe` is a Windows executable image. Guards against matching, e.g.,
+/// a stray `.dll`-hosted process record and keeps the gate to actual game binaries.
+fn is_executable_image(exe: &std::path::Path) -> bool {
+    exe.extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| e.eq_ignore_ascii_case(WINDOWS_EXE_EXTENSION))
+}
+
+/// Lowercased, separator-normalized string form of a path for case-insensitive
+/// prefix comparison on Windows. Returns `None` for an empty path so an absent
+/// install dir never matches every running process.
+fn normalize_for_match(path: &std::path::Path) -> Option<String> {
+    let s = path.to_str()?;
+    if s.is_empty() {
+        return None;
+    }
+    Some(s.replace('\\', "/").trim_end_matches('/').to_lowercase())
+}
+
+/// True when `exe` resides inside the `root` directory subtree. Compares on
+/// normalized lowercase strings and requires a path-boundary match (`root` itself
+/// or `root/...`) so `C:/Games/Halo2` does not spuriously match `C:/Games/Halo`.
+fn exe_is_under_root(exe: &std::path::Path, root: &str) -> bool {
+    let Some(exe_norm) = normalize_for_match(exe) else {
+        return false;
+    };
+    if exe_norm == root {
+        return true;
+    }
+    exe_norm
+        .strip_prefix(root)
+        .is_some_and(|rest| rest.starts_with('/'))
+}
+
 fn ensure_writable(path: &std::path::Path) -> Result<(), String> {
     use std::fs::OpenOptions;
     match OpenOptions::new().read(true).write(true).open(path) {
@@ -857,5 +971,75 @@ impl AppState {
             http_downloads: self.http_downloads.clone(),
             download_cache: self.download_cache.clone(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    fn under(exe: &str, root: &str) -> bool {
+        let root_norm = normalize_for_match(Path::new(root)).expect("root normalizes");
+        exe_is_under_root(Path::new(exe), &root_norm)
+    }
+
+    #[test]
+    fn exe_directly_in_root_matches() {
+        assert!(under(r"C:\Games\Halo\halo.exe", r"C:\Games\Halo"));
+    }
+
+    #[test]
+    fn exe_in_nested_subdir_matches() {
+        assert!(under(r"C:\Games\Halo\bin\x64\halo.exe", r"C:\Games\Halo"));
+    }
+
+    #[test]
+    fn root_path_itself_matches() {
+        // A process whose image path equals the root (degenerate but possible).
+        assert!(under(r"C:\Games\Halo", r"C:\Games\Halo"));
+    }
+
+    #[test]
+    fn sibling_prefix_does_not_match_boundary() {
+        // C:\Games\Halo must not match a sibling that merely shares the prefix.
+        assert!(!under(r"C:\Games\Halo2\halo2.exe", r"C:\Games\Halo"));
+    }
+
+    #[test]
+    fn comparison_is_case_insensitive() {
+        assert!(under(r"c:\games\HALO\Halo.EXE", r"C:\Games\Halo"));
+    }
+
+    #[test]
+    fn forward_and_back_slashes_are_equivalent() {
+        assert!(under("C:/Games/Halo/bin/halo.exe", r"C:\Games\Halo"));
+        assert!(under(r"C:\Games\Halo\bin\halo.exe", "C:/Games/Halo"));
+    }
+
+    #[test]
+    fn trailing_separator_on_root_is_ignored() {
+        assert!(under(r"C:\Games\Halo\halo.exe", r"C:\Games\Halo\"));
+    }
+
+    #[test]
+    fn unrelated_path_does_not_match() {
+        assert!(!under(r"C:\Windows\explorer.exe", r"C:\Games\Halo"));
+    }
+
+    #[test]
+    fn empty_root_normalizes_to_none() {
+        // An empty/missing install dir must never produce a matchable root,
+        // otherwise every running process would falsely match.
+        assert!(normalize_for_match(Path::new("")).is_none());
+    }
+
+    #[test]
+    fn non_exe_image_is_rejected() {
+        assert!(!is_executable_image(Path::new(
+            r"C:\Games\Halo\sl.dlss.dll"
+        )));
+        assert!(is_executable_image(Path::new(r"C:\Games\Halo\halo.exe")));
+        assert!(is_executable_image(Path::new(r"C:\Games\Halo\Halo.EXE")));
     }
 }

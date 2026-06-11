@@ -1,10 +1,12 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { invoke } from "@tauri-apps/api/core";
   import { fade, fly } from "svelte/transition";
   import Sidebar from "./components/Sidebar.svelte";
   import TopBar from "./components/TopBar.svelte";
   import Toast from "./components/Toast.svelte";
   import UpdateBanner from "./components/UpdateBanner.svelte";
+  import EfficiencyModeController from "./components/EfficiencyModeController.svelte";
   import CommandPalette from "./components/CommandPalette.svelte";
   import NotificationsBell from "./components/NotificationsBell.svelte";
   import LanguageMenu from "./components/LanguageMenu.svelte";
@@ -32,6 +34,7 @@
     languageMenuOpen,
   } from "./lib/stores";
   import { activeArt, clearActiveArt } from "./lib/artContext";
+  import { coverAccent } from "./lib/coverAccent";
   import { installApplyEventListeners } from "./lib/applyEvents";
   import { installBackgroundScanListeners } from "./lib/backgroundScan";
   import {
@@ -39,6 +42,7 @@
     installSystemDriverListener,
   } from "./lib/driverInstallEvents";
   import { isLocale, localeFromNavigator, setLocale, t } from "./lib/i18n/index";
+  import { motionDuration } from "./lib/ux";
 
   let theme = $state(localStorage.getItem("dlssync-theme") || "dark");
 
@@ -56,6 +60,22 @@
 
   let collapsed = $derived($settings?.ui_prefs.sidebar_collapsed ?? false);
   let railGameId = $derived($currentView === "library" ? $drawerGameId : null);
+
+  let gameAccent = $state<string | null>(null);
+  $effect(() => {
+    const url = $activeArt;
+    if (!url) {
+      gameAccent = null;
+      return;
+    }
+    let stale = false;
+    void coverAccent(url).then((color) => {
+      if (!stale) gameAccent = color;
+    });
+    return () => {
+      stale = true;
+    };
+  });
 
   onMount(async () => {
     await loadSettings();
@@ -105,7 +125,6 @@
       if (e.key === "F12") {
         e.preventDefault();
         try {
-          const { invoke } = await import("@tauri-apps/api/core");
           await invoke("open_devtools");
         } catch {
           /* outside tauri context */
@@ -118,10 +137,13 @@
 </script>
 
 <div class="app-shell" class:rail-open={!!railGameId} class:sidebar-collapsed={collapsed}>
-  <div class="app-ambient" aria-hidden="true">
+  <div class="app-ambient" aria-hidden="true" style:--game-accent={gameAccent}>
     <div class="ambient-mesh"></div>
     {#if $activeArt}
-      <img class="ambient-art" src={$activeArt} alt="" transition:fade={{ duration: 600 }} />
+      <img class="ambient-art" src={$activeArt} alt="" transition:fade={{ duration: motionDuration(600) }} />
+    {/if}
+    {#if gameAccent}
+      <div class="ambient-accent"></div>
     {/if}
     <div class="ambient-grain"></div>
   </div>
@@ -132,19 +154,19 @@
       <div class="main-inner">
         <div class="main-primary">
           {#if $currentView === "library"}
-            <div in:fly={{ y: 8, duration: 200 }}><Library /></div>
+            <div in:fly={{ y: 8, duration: motionDuration(200) }} data-testid="view-library"><Library /></div>
           {:else if $currentView === "catalog"}
-            <div in:fly={{ y: 8, duration: 200 }}><Catalog /></div>
+            <div in:fly={{ y: 8, duration: motionDuration(200) }} data-testid="view-catalog"><Catalog /></div>
           {:else if $currentView === "backups"}
-            <div in:fly={{ y: 8, duration: 200 }}><Backups /></div>
+            <div in:fly={{ y: 8, duration: motionDuration(200) }} data-testid="view-backups"><Backups /></div>
           {:else if $currentView === "drivers"}
-            <div in:fly={{ y: 8, duration: 200 }}><Drivers /></div>
+            <div in:fly={{ y: 8, duration: motionDuration(200) }} data-testid="view-drivers"><Drivers /></div>
           {:else if $currentView === "settings"}
-            <div in:fly={{ y: 8, duration: 200 }}>
+            <div in:fly={{ y: 8, duration: motionDuration(200) }} data-testid="view-settings">
               <Settings onToggleTheme={toggleTheme} currentTheme={theme} />
             </div>
           {:else if $currentView === "about"}
-            <div in:fly={{ y: 8, duration: 200 }}><About /></div>
+            <div in:fly={{ y: 8, duration: motionDuration(200) }} data-testid="view-about"><About /></div>
           {/if}
         </div>
       </div>
@@ -152,7 +174,7 @@
   </div>
   {#if railGameId}
     <button class="rail-scrim" aria-label={$t("common.close")} onclick={() => drawerGameId.set(null)}></button>
-    <aside class="detail-rail" class:has-rail={!!railGameId} in:fly={{ x: 24, duration: 220 }}>
+    <aside class="detail-rail" class:has-rail={!!railGameId} in:fly={{ x: 24, duration: motionDuration(220) }}>
       <GameDetailDrawer
         gameId={railGameId}
         onClose={() => drawerGameId.set(null)}
@@ -163,6 +185,7 @@
 </div>
 <Toast />
 <ActivityDock />
+<EfficiencyModeController />
 <UpdateBanner />
 <CommandPalette />
 <NotificationsBell open={$notificationsOpen} onClose={() => notificationsOpen.set(false)} />
@@ -277,6 +300,8 @@
   .main-content {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-gutter: stable;
     background: transparent;
   }
   .main-inner {

@@ -3,7 +3,7 @@ resolver = "2"
 members = ["src-tauri", "crates/*"]
 
 [workspace.package]
-version = "1.6.6"
+version = "1.6.7"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/xt0n1-t3ch/DLSSync"
@@ -46,6 +46,7 @@ zip = { version = "2.2", default-features = false, features = ["deflate"] }
 roxmltree = "0.20"
 tempfile = "3.10"
 uuid = { version = "1", features = ["v4", "serde"] }
+url = "2"
 wmi = "0.14"
 sysinfo = "0.33"
 windows = { version = "0.58", features = [

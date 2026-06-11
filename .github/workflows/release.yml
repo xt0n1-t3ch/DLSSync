@@ -26,38 +26,55 @@ jobs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
           fetch-depth: 0
 
       - name: Extract version from tag
         id: version
         shell: pwsh
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
-          $tag = if ('${{ github.event_name }}' -eq 'workflow_dispatch') { '${{ inputs.tag }}' } else { '${{ github.ref_name }}' }
+          $tag = if ($env:EVENT_NAME -eq 'workflow_dispatch') { $env:INPUT_TAG } else { $env:REF_NAME }
           $version = $tag -replace '^v', ''
           "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "tag=$tag"         | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
+      # A mistyped workflow_dispatch tag must never publish a latest.json whose
+      # version disagrees with the binary inside — the updater would loop forever.
+      - name: Guard tag against tauri.conf.json version
+        shell: pwsh
+        env:
+          TAG_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $conf = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          if ($conf -ne $env:TAG_VERSION) {
+            throw "Tag version '$($env:TAG_VERSION)' != tauri.conf.json version '$conf' — refusing to release a mismatched pair"
+          }
+          Write-Host "Tag and tauri.conf.json agree on $conf"
+
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 9.0.0
           run_install: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: "22"
           cache: "pnpm"
 
       - name: Setup Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
         with:
           targets: x86_64-pc-windows-msvc
 
       - name: Rust cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: ". -> target"
 
@@ -151,7 +168,7 @@ jobs:
           (Get-Item $zipPath).Length
 
       - name: Upload bundle artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: dlssync-windows-unsigned
           path: |
@@ -172,13 +189,13 @@ jobs:
     steps:
       - name: Download unsigned artifact
         id: download
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
         with:
           name: dlssync-windows-unsigned
           path: unsigned
 
       - name: Submit to SignPath
-        uses: signpath/github-action-submit-signing-request@v2
+        uses: signpath/github-action-submit-signing-request@b9d91eadd323de506c0c81cf0c7fe7438f3360fd # v2
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
           organization-id: ${{ secrets.SIGNPATH_ORG_ID }}
@@ -189,7 +206,7 @@ jobs:
           output-artifact-directory: signed
 
       - name: Upload signed artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: dlssync-windows-signed
           path: signed/
@@ -197,11 +214,14 @@ jobs:
   publish:
     name: Publish GitHub Release
     needs: [build-windows, sign-windows]
-    if: always() && needs.build-windows.result == 'success'
+    # sign-windows 'skipped' (SignPath disabled) still publishes the unsigned
+    # build; a sign-windows FAILURE must block the release instead of silently
+    # shipping unsigned artifacts to the public.
+    if: always() && needs.build-windows.result == 'success' && needs.sign-windows.result != 'failure'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
           fetch-depth: 0
 
@@ -215,7 +235,7 @@ jobs:
           fi
 
       - name: Download release artifact
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
         with:
           name: ${{ steps.source.outputs.name }}
           path: release
@@ -233,8 +253,41 @@ jobs:
           echo "msi=$msi" >> $GITHUB_OUTPUT
           echo "exe_name=$(basename "$exe")" >> $GITHUB_OUTPUT
 
+      # SignPath re-signs the exe (Authenticode), changing its bytes — the
+      # minisign .sig from build-windows no longer matches, so the Tauri
+      # auto-updater would reject every download. Re-sign the FINAL bytes here.
+      - name: Setup pnpm (re-sign updater signature)
+        if: needs.sign-windows.result == 'success'
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 9.0.0
+          run_install: false
+
+      - name: Setup Node.js (re-sign updater signature)
+        if: needs.sign-windows.result == 'success'
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Re-sign updater signature over the Authenticode-signed exe
+        if: needs.sign-windows.result == 'success'
+        env:
+          PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          EXE_PATH: ${{ steps.locate.outputs.exe }}
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+          keyfile="$RUNNER_TEMP/dlssync.key"
+          printf '%s' "$PRIVATE_KEY" > "$keyfile"
+          export TAURI_SIGNING_PRIVATE_KEY_PATH="$keyfile"
+          pnpm tauri signer sign "$EXE_PATH"
+          test -s "${EXE_PATH}.sig" || { echo "re-sign produced no .sig"; exit 1; }
+          rm -f "$keyfile"
+
       - name: Install git-cliff
-        uses: orhun/git-cliff-action@v4
+        uses: orhun/git-cliff-action@f50e11560dce63f7c33227798f90b924471a88b5 # v4
         with:
           config: cliff.toml
           args: --version
@@ -298,10 +351,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: v${{ needs.build-windows.outputs.version }}
-        run: gh release delete "$TAG" --repo ${{ github.repository }} --yes 2>/dev/null || true
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --repo ${{ github.repository }} >/dev/null 2>&1; then
+            gh release delete "$TAG" --repo ${{ github.repository }} --yes
+          else
+            echo "No existing release for $TAG — nothing to delete"
+          fi
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: v${{ needs.build-windows.outputs.version }}
           name: DLSSync v${{ needs.build-windows.outputs.version }}

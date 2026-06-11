@@ -128,6 +128,26 @@ fn exe_basename(path: &str) -> String {
         .unwrap_or_else(|| path.to_string())
 }
 
+/// Ordered DRS application-name lookup candidates for an executable path.
+///
+/// A per-game DRS profile is keyed by the name passed to
+/// `NvAPI_DRS_FindApplicationByName`. We prefer the FULL executable path so two
+/// games sharing an exe basename (e.g. `launcher.exe`) get distinct profiles,
+/// matching the full-path semantics implied by [`OverrideScope::PerGame`]. The
+/// bare basename is kept only as a last-resort fallback so profiles created by
+/// NVIDIA tooling (which historically register apps by basename) still resolve.
+///
+/// The basename is omitted when it equals the full path (a path with no
+/// directory component) to avoid a redundant second lookup with the same key.
+fn app_lookup_candidates(exe_path: &str) -> Vec<String> {
+    let basename = exe_basename(exe_path);
+    let mut candidates = vec![exe_path.to_string()];
+    if basename != exe_path {
+        candidates.push(basename);
+    }
+    candidates
+}
+
 struct DrsFns {
     get_base_profile: GetBaseProfileFn,
     get_profile_info: GetProfileInfoFn,
@@ -273,9 +293,8 @@ impl Drs {
         }
     }
 
-    unsafe fn find_app(&self, exe_path: &str) -> Result<Option<NvHandle>, String> {
-        let name = exe_basename(exe_path);
-        let name_wide = wide(&name);
+    unsafe fn find_app_by_name(&self, name: &str) -> Option<NvHandle> {
+        let name_wide = wide(name);
         let mut profile: NvHandle = null_mut();
         let mut app: NvdrsApplicationV4 = zeroed();
         app.version = struct_version::<NvdrsApplicationV4>(NVDRS_APPLICATION_VER_NUMBER);
@@ -285,11 +304,16 @@ impl Drs {
             &mut profile,
             &mut app,
         );
-        if status == NVAPI_OK && !profile.is_null() {
-            Ok(Some(profile))
-        } else {
-            Ok(None)
-        }
+        (status == NVAPI_OK && !profile.is_null()).then_some(profile)
+    }
+
+    /// Resolves the per-game profile for an executable, preferring a full-path
+    /// match and falling back to the bare basename. See [`app_lookup_candidates`]
+    /// for why the full path wins (basename collisions between distinct games).
+    unsafe fn find_app(&self, exe_path: &str) -> Result<Option<NvHandle>, String> {
+        Ok(app_lookup_candidates(exe_path)
+            .iter()
+            .find_map(|name| self.find_app_by_name(name)))
     }
 
     unsafe fn find_or_create_app(&self, exe_path: &str) -> Result<NvHandle, String> {
@@ -297,10 +321,12 @@ impl Drs {
             return Ok(profile);
         }
 
-        let name = exe_basename(exe_path);
+        // The app is keyed by its FULL path so it never collides with another
+        // game's identically named exe; the basename stays as the human label.
+        let friendly = exe_basename(exe_path);
         let mut profile_info: NvdrsProfile = zeroed();
         profile_info.version = struct_version::<NvdrsProfile>(NVDRS_PROFILE_VER_NUMBER);
-        wide_into(&mut profile_info.profile_name, &name);
+        wide_into(&mut profile_info.profile_name, exe_path);
         let mut profile: NvHandle = null_mut();
         let status = (self.fns.create_profile)(self.session, &profile_info, &mut profile);
         if status != NVAPI_OK {
@@ -309,8 +335,8 @@ impl Drs {
 
         let mut app: NvdrsApplicationV4 = zeroed();
         app.version = struct_version::<NvdrsApplicationV4>(NVDRS_APPLICATION_VER_NUMBER);
-        wide_into(&mut app.app_name, &name);
-        wide_into(&mut app.user_friendly_name, &name);
+        wide_into(&mut app.app_name, exe_path);
+        wide_into(&mut app.user_friendly_name, &friendly);
         let status = (self.fns.create_application)(self.session, profile, &mut app);
         if status != NVAPI_OK {
             return Err(format!("NvAPI_DRS_CreateApplication -> {status}"));
@@ -446,5 +472,69 @@ pub fn reset_overrides(scope: &OverrideScope, ids: &[u32]) -> Result<(), String>
             let _ = (drs.fns.restore_default_setting)(drs.session, profile, id);
         }
         drs.save()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn full_path_is_the_first_lookup_candidate() {
+        let path = r"C:\Games\Witcher3\witcher3.exe";
+        let candidates = app_lookup_candidates(path);
+        assert_eq!(candidates.first().map(String::as_str), Some(path));
+    }
+
+    #[test]
+    fn basename_is_the_fallback_lookup_candidate() {
+        let candidates = app_lookup_candidates(r"C:\Games\Witcher3\witcher3.exe");
+        assert_eq!(
+            candidates,
+            vec![
+                r"C:\Games\Witcher3\witcher3.exe".to_string(),
+                "witcher3.exe".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn two_games_sharing_a_basename_get_distinct_full_path_keys() {
+        let a = app_lookup_candidates(r"C:\GameA\launcher.exe");
+        let b = app_lookup_candidates(r"C:\GameB\launcher.exe");
+        assert_ne!(
+            a[0], b[0],
+            "full-path keys must differ so profiles never collide"
+        );
+        assert_eq!(
+            a[1], b[1],
+            "the shared basename is the deliberate last-resort fallback for both"
+        );
+    }
+
+    #[test]
+    fn bare_basename_path_does_not_emit_a_duplicate_candidate() {
+        let candidates = app_lookup_candidates("witcher3.exe");
+        assert_eq!(candidates, vec!["witcher3.exe".to_string()]);
+    }
+
+    #[test]
+    fn empty_path_yields_a_single_empty_candidate() {
+        assert_eq!(app_lookup_candidates(""), vec![String::new()]);
+    }
+
+    #[test]
+    fn forward_slash_path_still_extracts_basename_fallback() {
+        let candidates = app_lookup_candidates("D:/Games/sub/game.exe");
+        assert_eq!(candidates.len(), 2);
+        assert_eq!(candidates[0], "D:/Games/sub/game.exe");
+        assert_eq!(candidates[1], "game.exe");
+    }
+
+    #[test]
+    fn fallback_is_suppressed_only_when_it_equals_the_full_path() {
+        // A root or drive-only path has no distinct file component, so the
+        // candidate list collapses to a single key with no redundant fallback.
+        assert_eq!(app_lookup_candidates(r"C:\"), vec![r"C:\".to_string()]);
     }
 }

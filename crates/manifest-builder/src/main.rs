@@ -302,6 +302,7 @@ async fn main() -> Result<()> {
         vendors,
         incompatible_games: vec![],
         anticheat,
+        anti_cheat_binaries: vec![],
     };
 
     if cli.dry_run {

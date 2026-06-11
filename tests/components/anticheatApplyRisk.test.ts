@@ -5,7 +5,11 @@ import { resolve, dirname } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "../../frontend/src");
+// The drawer was decomposed (v1.6.7): the apply-time anti-cheat MARKUP/CSS now
+// lives in DrawerFooter, while the danger-gate LOGIC stays in the orchestrator
+// (GameDetailDrawer). Each assertion reads whichever file owns that concern.
 const drawer = readFileSync(resolve(root, "components/GameDetailDrawer.svelte"), "utf8");
+const footer = readFileSync(resolve(root, "components/DrawerFooter.svelte"), "utf8");
 const enCatalog = JSON.parse(readFileSync(resolve(root, "lib/i18n/locales/en.json"), "utf8"));
 const esCatalog = JSON.parse(readFileSync(resolve(root, "lib/i18n/locales/es.json"), "utf8"));
 
@@ -17,22 +21,24 @@ function ruleBody(css: string, selector: string): string {
 
 describe("GameDetailDrawer — apply-time anti-cheat risk (the differentiator)", () => {
   it("surfaces a stable ac-apply-risk element gated on acActive at the apply footer", () => {
-    expect(drawer).toMatch(/class="ac-apply-risk"/);
-    expect(drawer).toMatch(/\{#if acActive && selectedCount > 0\}[\s\S]*?ac-apply-risk/);
+    expect(footer).toMatch(/class="ac-apply-risk"/);
+    expect(footer).toMatch(/\{#if acActive && selectedCount > 0\}[\s\S]*?ac-apply-risk/);
   });
 
   it("colors the apply-time risk chip by severity using --warning / --danger tokens", () => {
-    expect(drawer).toMatch(/class:is-warning=\{acSeverity !== "danger"\}/);
-    expect(drawer).toMatch(/class:is-danger=\{acSeverity === "danger"\}/);
-    const warn = ruleBody(drawer, ".ac-apply-risk.is-warning");
+    expect(footer).toMatch(/class:is-warning=\{acSeverity !== "danger"\}/);
+    expect(footer).toMatch(/class:is-danger=\{acSeverity === "danger"\}/);
+    const warn = ruleBody(footer, ".ac-apply-risk.is-warning");
     expect(warn).toMatch(/var\(--warning\)/);
-    const danger = ruleBody(drawer, ".ac-apply-risk.is-danger");
+    const danger = ruleBody(footer, ".ac-apply-risk.is-danger");
     expect(danger).toMatch(/var\(--danger\)/);
   });
 
-  it("the apply button dispatches through requestApply (the danger gate), not applySelected directly", () => {
-    expect(drawer).toMatch(/class="btn btn-primary halo is-update foot-apply"[\s\S]*?onclick=\{requestApply\}/);
-    expect(drawer).not.toMatch(/foot-apply"[\s\S]*?onclick=\{applySelected\}/);
+  it("the apply button dispatches through the danger gate (onRequestApply), not applySelected directly", () => {
+    expect(footer).toMatch(/class="[^"]*\bfoot-apply\b[^"]*"/);
+    expect(footer).toMatch(/class="[^"]*\bbtn-primary\b[^"]*"/);
+    expect(footer).toMatch(/\bfoot-apply\b[\s\S]{0,300}?onclick=\{onRequestApply\}/);
+    expect(footer).not.toMatch(/\bfoot-apply\b[\s\S]{0,300}?onclick=\{applySelected\}/);
   });
 
   it("danger severity requires an explicit confirm before the apply dispatches", () => {
@@ -43,13 +49,13 @@ describe("GameDetailDrawer — apply-time anti-cheat risk (the differentiator)",
   });
 
   it("renders a stable ac-apply-confirm affordance with an accessible alertdialog role", () => {
-    expect(drawer).toMatch(/\{#if acConfirming\}[\s\S]*?class="ac-apply-confirm"/);
-    expect(drawer).toMatch(/class="ac-apply-confirm" role="alertdialog"/);
+    expect(footer).toMatch(/\{#if acConfirming\}[\s\S]*?class="ac-apply-confirm"/);
+    expect(footer).toMatch(/class="ac-apply-confirm" role="alertdialog"/);
   });
 
   it("the confirm offers an explicit proceed (apply anyway) and a cancel — never hard-blocks", () => {
-    expect(drawer).toMatch(/class="btn btn-sm btn-danger ac-confirm-proceed"\s*onclick=\{requestApply\}/);
-    expect(drawer).toMatch(/class="btn btn-sm btn-ghost ac-confirm-cancel"\s*onclick=\{cancelApplyConfirm\}/);
+    expect(footer).toMatch(/class="[^"]*\bac-confirm-proceed\b[^"]*"[^>]{0,100}onclick=\{onRequestApply\}/);
+    expect(footer).toMatch(/class="[^"]*\bac-confirm-cancel\b[^"]*"[^>]{0,100}onclick=\{onCancelApplyConfirm\}/);
     expect(drawer).toMatch(/function cancelApplyConfirm\(\): void \{\s*acConfirming = false;\s*\}/);
   });
 
@@ -59,7 +65,7 @@ describe("GameDetailDrawer — apply-time anti-cheat risk (the differentiator)",
   });
 
   it("respects reduced-motion for the confirm reveal", () => {
-    expect(drawer).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.ac-apply-confirm \{ animation: none/);
+    expect(footer).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.ac-apply-confirm \{ animation: none/);
   });
 
   it("resets the confirm state when switching games", () => {

@@ -33,6 +33,8 @@
     type FeatureSlot,
   } from "../lib/labels";
   import FeatureIcon from "./FeatureIcon.svelte";
+  import { focusTrap } from "../actions/focusTrap";
+  import { motionDuration } from "../lib/ux";
   import {
     classifyApplyError,
     ERROR_CLASS_TONE,
@@ -554,11 +556,17 @@
     if (g.items.length === 0) return 0;
     return Math.round(((g.doneCount + g.failedCount + g.cancelledCount) / g.items.length) * 100);
   }
+
+  function handleEscape(e: KeyboardEvent): void {
+    if (e.key !== "Escape") return;
+    if (allDone) void dismiss();
+    else void pin();
+  }
 </script>
 
 <div
   class="backdrop"
-  transition:fade={{ duration: 150 }}
+  transition:fade={{ duration: motionDuration(150) }}
   role="presentation"
   onclick={() => (allDone ? void dismiss() : void pin())}
   onkeydown={(e) => {
@@ -569,7 +577,7 @@
   }}
   tabindex="-1"
 ></div>
-<div class="modal glass-dialog" transition:fly={{ y: 20, duration: 200 }} role="dialog" aria-labelledby="apply-modal-title">
+<div class="modal glass-dialog" transition:fly={{ y: 20, duration: motionDuration(200) }} role="dialog" aria-modal="true" aria-labelledby="apply-modal-title" tabindex="-1" onkeydown={handleEscape} use:focusTrap>
   <header class="modal-head">
     <div class="head-left">
       <div class="head-eyebrow-row">
@@ -1001,9 +1009,9 @@
   .stat-chip.stat-success { background: var(--badge-green-bg); }
   .stat-chip.stat-success .stat-num { color: var(--badge-green-fg); }
   .stat-chip.stat-success .stat-word { color: var(--badge-green-fg); opacity: 0.75; }
-  .stat-chip.stat-running { background: var(--badge-blue-bg); }
-  .stat-chip.stat-running .stat-num { color: var(--badge-blue-fg); }
-  .stat-chip.stat-running .stat-word { color: var(--badge-blue-fg); opacity: 0.75; }
+  .stat-chip.stat-running { background: var(--accent-dim); }
+  .stat-chip.stat-running .stat-num { color: var(--accent); }
+  .stat-chip.stat-running .stat-word { color: var(--accent); opacity: 0.75; }
   .stat-chip.stat-failed { background: var(--badge-red-bg); }
   .stat-chip.stat-failed .stat-num { color: var(--badge-red-fg); }
   .stat-chip.stat-failed .stat-word { color: var(--badge-red-fg); opacity: 0.75; }
@@ -1092,8 +1100,8 @@
     width: 36px;
     height: 36px;
     border-radius: 12px;
-    background: var(--badge-blue-bg);
-    color: var(--badge-blue-fg);
+    background: var(--accent-dim);
+    color: var(--accent);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1142,7 +1150,7 @@
   .status-pill.is-success { background: var(--badge-green-bg); color: var(--badge-green-fg); }
   .status-pill.is-danger  { background: var(--badge-red-bg);   color: var(--badge-red-fg);   }
   .status-pill.is-warning { background: var(--badge-orange-bg); color: var(--badge-orange-fg); }
-  .status-pill.is-running { background: var(--badge-blue-bg);  color: var(--badge-blue-fg);  }
+  .status-pill.is-running { background: var(--accent-dim);  color: var(--accent);  }
 
   .pane {
     overflow-y: auto;
@@ -1155,8 +1163,8 @@
   .pane-head { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 14px; align-items: start; }
   .pane-head-glyph {
     width: 40px; height: 40px;
-    background: var(--badge-blue-bg);
-    color: var(--badge-blue-fg);
+    background: var(--accent-dim);
+    color: var(--accent);
     border-radius: 12px;
     display: inline-flex; align-items: center; justify-content: center;
     flex-shrink: 0;
@@ -1224,7 +1232,7 @@
   }
   .phs-chip .phs-num { font-size: var(--fs-sm); font-weight: 700; font-variant-numeric: tabular-nums; }
   .phs-chip.phs-done { background: var(--badge-green-bg); color: var(--badge-green-fg); }
-  .phs-chip.phs-running { background: var(--badge-blue-bg); color: var(--badge-blue-fg); }
+  .phs-chip.phs-running { background: var(--accent-dim); color: var(--accent); }
   .phs-chip.phs-failed { background: var(--badge-red-bg); color: var(--badge-red-fg); }
   .phs-time {
     display: inline-flex;
@@ -1373,7 +1381,6 @@
     animation: spin 0.7s linear infinite;
     display: inline-block;
   }
-  @keyframes spin { to { transform: rotate(360deg); } }
 
   @media (max-width: 880px) {
     .modal-body { grid-template-columns: 1fr; }

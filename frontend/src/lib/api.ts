@@ -146,6 +146,7 @@ export interface GpuInfo {
   model: string;
   driver_version: string;
   vram_bytes: number;
+  fsr4_capable: boolean;
   recommended_runtimes: string[];
 }
 
@@ -802,6 +803,10 @@ export async function applyUpdateBatch(request: ApplyBatchRequest): Promise<Appl
 
 export async function applyStreamlineSet(items: ApplyRequest[]): Promise<StreamlineSetResult> {
   return invoke("apply_streamline_set", { items });
+}
+
+export async function applyDllSet(items: ApplyRequest[]): Promise<StreamlineSetResult> {
+  return invoke("apply_dll_set", { items });
 }
 
 export async function cancelApply(applyId: string): Promise<boolean> {

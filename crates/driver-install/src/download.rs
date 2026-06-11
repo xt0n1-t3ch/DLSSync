@@ -9,6 +9,8 @@ use tokio_util::sync::CancellationToken;
 
 pub const DEFAULT_MAX_RETRIES: u32 = 3;
 pub const DEFAULT_CHUNK_TIMEOUT: Duration = Duration::from_secs(60);
+pub const DEFAULT_MAX_TOTAL_BYTES: u64 = 8 * 1024 * 1024 * 1024;
+pub const DEFAULT_MAX_DURATION: Duration = Duration::from_secs(3 * 60 * 60);
 const PROGRESS_INTERVAL: Duration = Duration::from_millis(120);
 const RETRY_BACKOFF_MS: &[u64] = &[500, 2_000, 5_000];
 
@@ -16,8 +18,19 @@ const RETRY_BACKOFF_MS: &[u64] = &[500, 2_000, 5_000];
 pub struct DownloadOpts {
     pub max_retries: u32,
     pub chunk_timeout: Duration,
+    /// Hard ceiling on bytes written per attempt, independent of the server's
+    /// `Content-Length` claim — bounds a stream that never ends.
+    pub max_total_bytes: u64,
+    /// Wall-clock ceiling per attempt — bounds a server that dribbles one byte
+    /// just inside `chunk_timeout` forever.
+    pub max_duration: Duration,
     pub progress_tx: Option<mpsc::UnboundedSender<DownloadProgress>>,
     pub cancel: Option<CancellationToken>,
+    /// Optional `Referer` header. AMD's `drivers.amd.com` CDN 302-redirects any
+    /// request without an `amd.com` referer to a download-incomplete page, so the
+    /// AMD installer download must send one or it silently fetches HTML instead
+    /// of the `.exe`.
+    pub referer: Option<String>,
 }
 
 impl Default for DownloadOpts {
@@ -25,8 +38,11 @@ impl Default for DownloadOpts {
         Self {
             max_retries: DEFAULT_MAX_RETRIES,
             chunk_timeout: DEFAULT_CHUNK_TIMEOUT,
+            max_total_bytes: DEFAULT_MAX_TOTAL_BYTES,
+            max_duration: DEFAULT_MAX_DURATION,
             progress_tx: None,
             cancel: None,
+            referer: None,
         }
     }
 }
@@ -81,8 +97,17 @@ async fn download_once(
     attempt: u32,
     opts: &DownloadOpts,
 ) -> Result<DownloadOutcome, DriverInstallError> {
-    let response = client.get(url).send().await?.error_for_status()?;
+    let mut request = client.get(url);
+    if let Some(referer) = &opts.referer {
+        request = request.header(reqwest::header::REFERER, referer);
+    }
+    let response = request.send().await?.error_for_status()?;
     let expected = response.content_length();
+    if expected.is_some_and(|len| len > opts.max_total_bytes) {
+        return Err(DriverInstallError::Oversized {
+            cap: opts.max_total_bytes,
+        });
+    }
     if let Some(parent) = dest.parent() {
         tokio::fs::create_dir_all(parent).await?;
     }
@@ -107,6 +132,16 @@ async fn download_once(
         };
         file.write_all(&chunk).await?;
         written += chunk.len() as u64;
+        if written > opts.max_total_bytes {
+            return Err(DriverInstallError::Oversized {
+                cap: opts.max_total_bytes,
+            });
+        }
+        if started.elapsed() > opts.max_duration {
+            return Err(DriverInstallError::Deadline {
+                seconds: opts.max_duration.as_secs(),
+            });
+        }
         if last_emit.elapsed() >= PROGRESS_INTERVAL {
             emit(opts, url, written, expected, started, attempt);
             last_emit = Instant::now();
@@ -191,5 +226,14 @@ mod tests {
         assert!(opts.progress_tx.is_none());
         assert!(opts.cancel.is_none());
         assert_eq!(opts.max_retries, DEFAULT_MAX_RETRIES);
+    }
+
+    #[test]
+    fn default_opts_bound_bytes_and_wall_clock() {
+        let opts = DownloadOpts::default();
+        assert_eq!(opts.max_total_bytes, DEFAULT_MAX_TOTAL_BYTES);
+        assert_eq!(opts.max_duration, DEFAULT_MAX_DURATION);
+        assert!(opts.max_total_bytes >= 4 * 1024 * 1024 * 1024);
+        assert!(opts.max_duration >= Duration::from_secs(60 * 60));
     }
 }

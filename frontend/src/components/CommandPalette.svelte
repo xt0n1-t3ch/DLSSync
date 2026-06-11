@@ -15,8 +15,6 @@
   } from "../lib/stores";
   import {
     COMMANDS,
-    COMMAND_PALETTE_MAX_HEIGHT_PX,
-    COMMAND_PALETTE_MAX_WIDTH_PX,
     LIBRARY_VIEW_MODES,
     LIBRARY_DENSITIES,
     matchCommands,
@@ -28,6 +26,7 @@
     type CommandCategory,
   } from "../lib/ux";
   import { getAppPaths, revealPath } from "../lib/api";
+  import { focusTrap } from "../actions/focusTrap";
   import { t } from "../lib/i18n/index";
   import Search from "@lucide/svelte/icons/search";
   import Command from "@lucide/svelte/icons/command";
@@ -297,6 +296,7 @@
     }
     if (e.key === "Tab") {
       e.preventDefault();
+      e.stopPropagation();
       nextCategory();
       return;
     }
@@ -333,8 +333,9 @@
     onclick={onBackdropClick}
     onkeydown={(e) => { if (e.key === "Escape") close(); }}
     tabindex="-1"
+    use:focusTrap
   >
-    <div class="palette" style="max-width: {COMMAND_PALETTE_MAX_WIDTH_PX}px; max-height: {COMMAND_PALETTE_MAX_HEIGHT_PX}px;">
+    <div class="palette">
       <div class="palette-search">
         <Search class="palette-search-icon" size={18} strokeWidth={2.2} />
         <input
@@ -432,6 +433,8 @@
   }
   .palette {
     width: min(460px, calc(100vw - 24px));
+    max-width: 560px;
+    max-height: 480px;
     background: var(--glass-strong);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
@@ -553,7 +556,7 @@
     background: var(--bg-elevated);
     color: var(--text-muted);
   }
-  .result-icon[data-cat="navigate"] { color: var(--badge-blue-fg); background: color-mix(in oklab, var(--badge-blue-fg) 14%, transparent); }
+  .result-icon[data-cat="navigate"] { color: var(--accent); background: var(--accent-dim); }
   .result-icon[data-cat="action"] { color: var(--badge-green-fg); background: color-mix(in oklab, var(--badge-green-fg) 14%, transparent); }
   .result-icon[data-cat="settings"] { color: var(--badge-purple-fg); background: color-mix(in oklab, var(--badge-purple-fg) 14%, transparent); }
   .result-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }

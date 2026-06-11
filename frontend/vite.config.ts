@@ -15,7 +15,20 @@ export default defineConfig({
   },
   build: {
     target: process.env.TAURI_PLATFORM === "windows" ? "chrome105" : "safari13",
+    chunkSizeWarningLimit: 700,
     minify: !process.env.TAURI_DEBUG ? "esbuild" : false,
     sourcemap: !!process.env.TAURI_DEBUG,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return;
+          if (id.includes("@tauri-apps")) return "tauri";
+          if (id.includes("svelte")) return "svelte";
+          if (id.includes("@lucide") || id.includes("simple-icons")) return "icons";
+          if (id.includes("@fontsource")) return "fonts";
+          return "vendor";
+        },
+      },
+    },
   },
 });

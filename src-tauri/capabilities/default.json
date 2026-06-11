@@ -13,15 +13,11 @@
     "core:window:allow-start-dragging",
     "core:window:allow-is-maximized",
     "dialog:default",
-    "fs:default",
     "notification:default",
-    "shell:default",
     "shell:allow-open",
     "updater:default",
-    "os:default",
     "process:default",
     "clipboard-manager:default",
-    "store:default",
     "autostart:default"
   ]
 }

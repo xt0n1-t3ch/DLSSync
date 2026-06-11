@@ -1,18 +1,16 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { fly } from "svelte/transition";
+  import { confirm } from "@tauri-apps/plugin-dialog";
   import { backups, loadBackups, games, showToast, settings, persistSettings } from "../lib/stores";
   import { pushNotification, makeNotificationEntry } from "../lib/notifications";
-  import { restoreBackup, restoreSystemDriver, deleteBackup, openPath, type BackupEntry, type DetectedGame, type BackupsGroupBy } from "../lib/api";
+  import { restoreBackup, restoreSystemDriver, deleteBackup, openPath, revealPath, type BackupEntry, type DetectedGame, type BackupsGroupBy } from "../lib/api";
   import { BACKUPS_GROUP_BYS, BACKUPS_GROUP_BY_DEFAULT } from "../lib/ux";
-  import { confirm } from "@tauri-apps/plugin-dialog";
   import {
     featureTitle,
     featureFromFamily,
     featureIconId,
-    launcherAccent,
     launcherLabel,
-    DEFAULT_VENDOR_ACCENT,
   } from "../lib/labels";
   import FeatureIcon from "./../components/FeatureIcon.svelte";
   import { get } from "svelte/store";
@@ -396,7 +394,6 @@
     if (openingPath) return;
     openingPath = b.id;
     try {
-      const { revealPath } = await import("../lib/api");
       await revealPath(b.backup_path);
     } catch (err: unknown) {
       showToast("danger", translate(get(locale), "view.backups.toastRevealFailed", { error: String(err) }));
@@ -479,7 +476,7 @@
   <section class="backup-hero aura-card edge-accent" in:fly={{ y: 6, duration: 220 }}>
     <div class="hero-stats">
       <div class="bk-stat">
-        <span class="bk-stat-badge aura-badge" data-tint="blue" aria-hidden="true">
+        <span class="bk-stat-badge aura-badge" aria-hidden="true">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5" rx="0.5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
         </span>
         <div class="bk-stat-text">
@@ -488,7 +485,7 @@
         </div>
       </div>
       <div class="bk-stat">
-        <span class="bk-stat-badge aura-badge" data-tint="purple" aria-hidden="true">
+        <span class="bk-stat-badge aura-badge" aria-hidden="true">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="12" x2="2" y2="12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" y1="16" x2="6.01" y2="16"/><line x1="10" y1="16" x2="10.01" y2="16"/></svg>
         </span>
         <div class="bk-stat-text">
@@ -497,7 +494,7 @@
         </div>
       </div>
       <div class="bk-stat" class:is-zero={totalRestorable === 0}>
-        <span class="bk-stat-badge aura-badge" data-tint="orange" aria-hidden="true">
+        <span class="bk-stat-badge aura-badge bk-stat-badge-action" aria-hidden="true">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9c-2.52 0-4.85.93-6.63 2.46"/><polyline points="3 4 3 9 8 9"/></svg>
         </span>
         <div class="bk-stat-text">
@@ -535,6 +532,25 @@
         </span>
       {/if}
     </div>
+    <dl class="hero-legend" aria-label={$t("view.backups.legend.label")}>
+      <div class="legend-item" title={$t("view.backups.legend.restorableHint")}>
+        <span class="legend-swatch is-update" aria-hidden="true"></span>
+        <dt class="legend-term">{$t("view.backups.legend.restorable")}</dt>
+        <dd class="legend-desc">{$t("view.backups.legend.restorableHint")}</dd>
+      </div>
+      <div class="legend-item" title={$t("view.backups.legend.restoredHint")}>
+        <span class="legend-swatch is-success" aria-hidden="true"></span>
+        <dt class="legend-term">{$t("view.backups.legend.restored")}</dt>
+        <dd class="legend-desc">{$t("view.backups.legend.restoredHint")}</dd>
+      </div>
+      {#if totalMissing > 0}
+        <div class="legend-item" title={$t("view.backups.legend.missingHint")}>
+          <span class="legend-swatch is-missing" aria-hidden="true"></span>
+          <dt class="legend-term">{$t("view.backups.legend.missing")}</dt>
+          <dd class="legend-desc">{$t("view.backups.legend.missingHint")}</dd>
+        </div>
+      {/if}
+    </dl>
   </section>
 
   {#if selectedIds.size > 0}
@@ -600,7 +616,6 @@
   {:else}
     <div class="groups">
       {#each filtered as g, i (g.game_id)}
-        {@const accent = g.game ? launcherAccent(g.game.launcher) : DEFAULT_VENDOR_ACCENT}
         {@const groupSel = groupSelectionState(g)}
         {@const monthThis = groupBy === "date" ? g.latestAt.slice(0, 7) : ""}
         {@const monthPrev =
@@ -620,6 +635,7 @@
                 type="checkbox"
                 checked={groupSel === "all"}
                 indeterminate={groupSel === "some"}
+                aria-label={groupSel === "all" ? $t("view.backups.group.deselectAll") : $t("view.backups.group.selectAll")}
                 onchange={(e) => toggleGroupSelection(g, (e.target as HTMLInputElement).checked)}
               />
               <span class="check-box"></span>
@@ -629,7 +645,7 @@
             onclick={() => (expanded = { ...expanded, [g.game_id]: !expanded[g.game_id] })}
             aria-expanded={!!expanded[g.game_id]}
           >
-            <div class="group-thumb" style:--launcher-accent={accent}>
+            <div class="group-thumb" data-launcher={g.game?.launcher ?? "manual"}>
               {#if g.game?.image_url}
                 <img src={g.game.image_url} alt={g.name} loading="lazy" />
               {:else}
@@ -644,7 +660,7 @@
                 {/if}
               </div>
               <div class="group-stats">
-                <span class="stat-line">{@html $t("view.backups.group.snapshots", { count: g.entries.length })}</span>
+                <span class="stat-line">{$t("view.backups.group.snapshots", { count: g.entries.length })}</span>
                 {#if g.activeCount > 0}<span class="dot"></span><span class="stat-line is-update">{$t("view.backups.group.restorable", { count: g.activeCount })}</span>{/if}
                 {#if g.restoredCount > 0}<span class="dot"></span><span class="stat-line is-success">{$t("view.backups.group.restored", { count: g.restoredCount })}</span>{/if}
                 {#if g.missingCount > 0}<span class="dot"></span><span class="stat-line is-missing">{$t("view.backups.group.missing", { count: g.missingCount })}</span>{/if}
@@ -684,6 +700,7 @@
                     <input
                       type="checkbox"
                       checked={selectedIds.has(b.id)}
+                      aria-label={$t("view.backups.entry.selectAria", { file: b.dll_filename })}
                       onchange={() => toggleEntry(b.id)}
                     />
                     <span class="check-box"></span>
@@ -954,6 +971,8 @@
   .bk-stat:hover { border-color: var(--border-hover); background: var(--bg-elevated-2); }
   .bk-stat.is-zero { opacity: 0.62; }
   .bk-stat-badge { width: 44px; height: 44px; border-radius: var(--radius-md); }
+  .bk-stat-badge-action { background: var(--accent-dim); color: var(--accent); border-color: transparent; }
+  .bk-stat.is-zero .bk-stat-badge-action { background: var(--bg-elevated); color: var(--text-secondary); }
   .bk-stat-badge svg { display: block; width: 18px; height: 18px; }
   .bk-stat-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   .bk-stat-num {
@@ -1020,6 +1039,46 @@
   }
   .hero-meta-warn svg { display: block; flex-shrink: 0; }
   .hero-meta-warn .hero-meta-value { color: var(--danger); }
+
+  .hero-legend {
+    margin: var(--space-3) 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-4);
+  }
+  .legend-item {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    min-width: 0;
+    flex: 1 1 240px;
+    cursor: help;
+  }
+  .legend-swatch {
+    width: 9px;
+    height: 9px;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+    align-self: center;
+  }
+  .legend-swatch.is-update { background: var(--update); }
+  .legend-swatch.is-success { background: var(--success); }
+  .legend-swatch.is-missing { background: var(--danger); }
+  .legend-term {
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin: 0;
+  }
+  .legend-desc {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    line-height: var(--lh-snug);
+    margin: 0;
+    min-width: 0;
+  }
 
   .backup-toolbar {
     display: flex;

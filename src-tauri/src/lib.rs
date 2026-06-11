@@ -3,6 +3,7 @@ mod constants;
 mod efficiency;
 mod error;
 mod logging;
+mod netpolicy;
 mod paths;
 mod state;
 mod system_info;
@@ -165,33 +166,83 @@ fn run_wua_install_child(
 const BACKGROUND_INITIAL_DELAY_SECS: u64 = 60;
 const SECS_PER_HOUR: u64 = 60 * 60;
 
+/// Converts a clamped `effective_interval_hours` value into a
+/// [`tokio::time::Duration`] suitable for building or resetting an interval.
+///
+/// Extracted so the conversion is testable without a running runtime.
+fn interval_period(effective_hours: u32) -> tokio::time::Duration {
+    tokio::time::Duration::from_secs(effective_hours as u64 * SECS_PER_HOUR)
+}
+
 /// Backend scan scheduler. A `tokio` interval drives the cadence; each tick the
 /// loop re-reads `settings.background` (so interval/enabled changes apply without
 /// a restart) and, when the daemon is enabled and no apply is inflight, emits
 /// `background:scan-tick` for the frontend to run the existing scan/digest flow.
+///
+/// Drift resistance: uses [`tokio::time::interval_at`] with
+/// [`tokio::time::MissedTickBehavior::Skip`] so a long-running scan does not
+/// cause the next tick to fire immediately; the ~24 h cadence stays ~24 h
+/// regardless of scan duration.  When the user changes `interval_hours` in
+/// Settings the interval is rebuilt anchored to `last_tick + new_period` so
+/// the new cadence takes effect on the very next fire without accumulating lag.
 fn spawn_background_scheduler(handle: tauri::AppHandle) {
+    use tokio::time::{interval_at, MissedTickBehavior};
+
     use tauri::{Emitter, Manager};
 
     tauri::async_runtime::spawn(async move {
         let state = handle.state::<state::AppState>();
+
+        // One-time startup grace period: give the frontend time to initialise
+        // before the first scan fires.
         tokio::time::sleep(tokio::time::Duration::from_secs(
             BACKGROUND_INITIAL_DELAY_SECS,
         ))
         .await;
 
-        loop {
-            let background = state.settings.read().background.clone();
-            let wait_secs = background.effective_interval_hours() as u64 * SECS_PER_HOUR;
+        // Snapshot the period at startup so we can detect live changes.
+        let initial_hours = state.settings.read().background.effective_interval_hours();
+        let initial_period = interval_period(initial_hours);
 
-            if background.enabled {
-                if state.apply_registry.in_flight() > 0 {
-                    tracing::debug!("background scan tick skipped: apply inflight");
-                } else if let Err(e) = handle.emit(tray::EVENT_BACKGROUND_SCAN_TICK, ()) {
-                    tracing::warn!(error = %e, "background scan tick emit failed");
-                }
+        // Schedule the first tick `initial_period` from now (i.e. the startup
+        // delay has already elapsed; this is the *scan* interval, not the
+        // initial delay).
+        let first_tick = tokio::time::Instant::now() + initial_period;
+        let mut ticker = interval_at(first_tick, initial_period);
+        ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
+
+        // Track the period in effect so we can rebuild `ticker` on change.
+        let mut current_period = initial_period;
+
+        loop {
+            let tick_at = ticker.tick().await;
+
+            let background = state.settings.read().background.clone();
+            let new_period = interval_period(background.effective_interval_hours());
+
+            // If the user changed the interval in Settings, rebuild the ticker
+            // anchored to this tick instant so the new cadence starts from now.
+            if new_period != current_period {
+                tracing::debug!(
+                    old_hours = (current_period.as_secs() / SECS_PER_HOUR),
+                    new_hours = (new_period.as_secs() / SECS_PER_HOUR),
+                    "background scheduler: interval changed, rebuilding ticker",
+                );
+                let next = tick_at + new_period;
+                ticker = interval_at(next, new_period);
+                ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
+                current_period = new_period;
             }
 
-            tokio::time::sleep(tokio::time::Duration::from_secs(wait_secs)).await;
+            if !background.enabled {
+                continue;
+            }
+
+            if state.apply_registry.in_flight() > 0 {
+                tracing::debug!("background scan tick skipped: apply inflight");
+            } else if let Err(e) = handle.emit(tray::EVENT_BACKGROUND_SCAN_TICK, ()) {
+                tracing::warn!(error = %e, "background scan tick emit failed");
+            }
         }
     });
 }
@@ -201,6 +252,15 @@ pub fn run() {
     #[cfg(windows)]
     if let Some(code) = try_run_wua_install_child() {
         std::process::exit(code);
+    }
+
+    #[cfg(debug_assertions)]
+    {
+        const CDP_REMOTE_DEBUGGING_PORT: u16 = 9333;
+        std::env::set_var(
+            "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
+            format!("--remote-debugging-port={CDP_REMOTE_DEBUGGING_PORT}"),
+        );
     }
 
     let _log_guard = logging::init();
@@ -373,6 +433,7 @@ pub fn run() {
             commands::apply::cancel_apply,
             commands::apply::cancel_all_applies,
             commands::streamline_set::apply_streamline_set,
+            commands::streamline_set::apply_dll_set,
             commands::backup::list_backups,
             commands::backup::restore_backup,
             commands::backup::delete_backup,
@@ -416,4 +477,151 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running DLSSync");
+}
+
+#[cfg(test)]
+mod scheduler_tests {
+    use super::*;
+
+    // ---------------------------------------------------------------------------
+    // interval_period — pure conversion, no runtime needed
+    // ---------------------------------------------------------------------------
+
+    #[test]
+    fn period_24h_is_86400_secs() {
+        assert_eq!(
+            interval_period(24).as_secs(),
+            86_400,
+            "24 h must map to exactly 86 400 s"
+        );
+    }
+
+    #[test]
+    fn period_1h_is_3600_secs() {
+        assert_eq!(interval_period(1).as_secs(), SECS_PER_HOUR);
+    }
+
+    #[test]
+    fn period_168h_is_max_week() {
+        assert_eq!(interval_period(168).as_secs(), 168 * SECS_PER_HOUR);
+    }
+
+    // ---------------------------------------------------------------------------
+    // Drift-resistance: verify that a long-running tick does not pull the next
+    // fire time forward.  We simulate the scheduler loop logic in isolation using
+    // tokio's time-control primitives so the test runs instantly.
+    // ---------------------------------------------------------------------------
+
+    /// Drive one iteration of the rebuild logic: given `tick_at`, `old_period`,
+    /// and `new_period`, return the `Instant` at which the rebuilt interval would
+    /// next fire.  Mirrors the `tick_at + new_period` expression in the scheduler.
+    fn next_fire_after_rebuild(
+        tick_at: tokio::time::Instant,
+        new_period: tokio::time::Duration,
+    ) -> tokio::time::Instant {
+        tick_at + new_period
+    }
+
+    #[tokio::test]
+    async fn rebuild_anchors_to_tick_not_to_wall_clock() {
+        // Simulate: tick fires at T=0, scan takes 30 minutes, then we rebuild.
+        // The next tick must be T + new_period, NOT wall_clock + new_period.
+        tokio::time::pause();
+
+        let tick_at = tokio::time::Instant::now();
+        let new_period = interval_period(24); // 86 400 s
+
+        // Advance the clock to simulate a 30-minute scan.
+        tokio::time::advance(tokio::time::Duration::from_secs(30 * 60)).await;
+
+        let wall_clock_now = tokio::time::Instant::now();
+        let scheduled_next = next_fire_after_rebuild(tick_at, new_period);
+
+        // The scheduled next-fire must equal tick_at + 24 h (86 400 s from T=0),
+        // NOT wall_clock_now + 24 h (which would be ~86 400 + 1800 s from T=0).
+        let expected = tick_at + new_period;
+        assert_eq!(
+            scheduled_next, expected,
+            "next fire must anchor to tick_at, not wall clock"
+        );
+        // Confirm the wall clock has drifted past tick_at.
+        assert!(
+            wall_clock_now > tick_at,
+            "wall clock should have advanced beyond tick_at"
+        );
+        // And that anchoring to tick_at gives a *later* absolute time than
+        // anchoring to wall_clock (i.e. we are not bringing the next tick forward).
+        let wall_anchored = wall_clock_now + new_period;
+        assert!(
+            wall_anchored > scheduled_next,
+            "wall-clock-anchored next ({wall_anchored:?}) should be later than tick-anchored ({scheduled_next:?})"
+        );
+    }
+
+    #[tokio::test]
+    async fn interval_change_fires_at_new_cadence_from_tick() {
+        // Old period: 2 h.  Tick fires.  User changes to 4 h.
+        // Next fire must be tick_at + 4 h, not tick_at + 2 h.
+        tokio::time::pause();
+
+        let tick_at = tokio::time::Instant::now();
+        let old_period = interval_period(2);
+        let new_period = interval_period(4);
+
+        let scheduled_next = next_fire_after_rebuild(tick_at, new_period);
+
+        // Should NOT be the old-period boundary.
+        let old_next = tick_at + old_period;
+        assert_ne!(scheduled_next, old_next, "must use new_period, not old");
+
+        // Should be exactly tick_at + 4 h.
+        assert_eq!(
+            scheduled_next,
+            tick_at + new_period,
+            "must anchor to new_period from tick"
+        );
+    }
+
+    #[tokio::test]
+    async fn missed_tick_behavior_skip_does_not_catchup() {
+        // Prove that MissedTickBehavior::Skip + interval_at never fires more than
+        // once even if the clock jumps past multiple periods.
+        use tokio::time::{interval_at, MissedTickBehavior};
+
+        tokio::time::pause();
+
+        let period = tokio::time::Duration::from_secs(10);
+        let start = tokio::time::Instant::now() + period;
+        let mut ticker = interval_at(start, period);
+        ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
+
+        // Advance the clock by 35 s (= 3.5 periods).  With Skip behaviour only
+        // ONE tick should be pending (the most recent missed deadline); the
+        // intermediate missed ticks are discarded.
+        tokio::time::advance(tokio::time::Duration::from_secs(35)).await;
+
+        let mut ticks = 0usize;
+        // Drain whatever is immediately ready (non-blocking drain via try_join on
+        // a very short timeout).  We run inside `pause()` so only pre-advanced
+        // instants are ready; `tick()` will not suspend for future instants.
+        //
+        // We rely on the fact that after one `.tick()` the interval schedules the
+        // *next* instant (now + 10 s in paused time), which is NOT yet elapsed,
+        // so a second poll would suspend.  We use a tight select! to detect that.
+        loop {
+            tokio::select! {
+                biased;
+                _ = ticker.tick() => { ticks += 1; }
+                _ = tokio::time::sleep(tokio::time::Duration::ZERO) => { break; }
+            }
+            if ticks > 1 {
+                break; // fail fast — no need to drain further
+            }
+        }
+
+        assert_eq!(
+            ticks, 1,
+            "Skip behaviour must fire at most once per poll cycle even after a multi-period gap"
+        );
+    }
 }

@@ -236,11 +236,18 @@ impl BackupStore {
         if tables.is_empty() {
             return Ok(0);
         }
-        let like_pattern = format!("{old_prefix}%");
+        // Escape LIKE metacharacters in the prefix so a path containing `%`/`_`
+        // (or a backslash, ubiquitous in Windows paths) cannot widen the match to
+        // rewrite unrelated rows. `?2` stays raw — it is only a substr length.
+        let escaped_prefix = old_prefix
+            .replace('\\', "\\\\")
+            .replace('%', "\\%")
+            .replace('_', "\\_");
+        let like_pattern = format!("{escaped_prefix}%");
         let updated = conn.execute(
             "UPDATE backups
              SET backup_path = ?1 || substr(backup_path, length(?2) + 1)
-             WHERE backup_path LIKE ?3",
+             WHERE backup_path LIKE ?3 ESCAPE '\\'",
             rusqlite::params![new_prefix, old_prefix, like_pattern],
         )?;
         Ok(updated)

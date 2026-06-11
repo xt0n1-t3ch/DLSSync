@@ -1,6 +1,7 @@
 <script lang="ts">
   import { shortcutOverlayOpen } from "../lib/stores";
   import { SHORTCUTS, type Shortcut, type ShortcutScope } from "../lib/ux";
+  import { focusTrap } from "../actions/focusTrap";
   import { t } from "../lib/i18n/index";
 
   const SCOPE_KEYS: Record<ShortcutScope, string> = {
@@ -100,6 +101,7 @@
     tabindex="-1"
     onclick={onBackdropClick}
     onkeydown={onKeydown}
+    use:focusTrap
   >
     <div class="overlay">
       <header>

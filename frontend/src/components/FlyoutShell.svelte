@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import { fly } from "svelte/transition";
+  import { focusTrap } from "../actions/focusTrap";
 
   let {
     onClose,
@@ -52,9 +53,11 @@
   style:--flyout-width={width}
   style:z-index={zIndex + 1}
   role="dialog"
+  aria-modal="true"
   aria-label={ariaLabel}
   tabindex="-1"
   onkeydown={handleKey}
+  use:focusTrap
 >
   {@render children()}
 </div>

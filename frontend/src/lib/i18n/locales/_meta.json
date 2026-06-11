@@ -964,10 +964,50 @@
     "desc": "Explainer for why a driver install asks for Administrator. Keep Windows/Administrator/UAC/DLSSync/System Restore; translate the rest. Source: ux.ts ADMIN_ELEVATION_NOTE.",
     "where": "Drivers view (System & Components, GPU drivers) elevation note."
   },
+  "view.drivers.systemSummary": {
+    "en": "Keeps the rest of your PC current — audio, network, chipset, input, and storage drivers straight from Windows Update.",
+    "desc": "One-line collapsed summary for the System & Components disclosure. Keep Windows Update; translate the rest.",
+    "where": "Drivers view System & Components disclosure summary."
+  },
+  "view.drivers.learnMore": {
+    "en": "Learn more",
+    "desc": "Disclosure toggle label when collapsed. Translate fully.",
+    "where": "Drivers view System & Components disclosure toggle."
+  },
+  "view.drivers.showLess": {
+    "en": "Show less",
+    "desc": "Disclosure toggle label when expanded. Translate fully.",
+    "where": "Drivers view System & Components disclosure toggle."
+  },
+  "toast.applyInProgress": {
+    "en": "An apply is already running — wait for it to finish first",
+    "desc": "Warning toast when a new apply is dispatched while another batch is still in flight. Translate fully.",
+    "where": "applyController dispatch guard (Library Apply buttons, drawer, tray)."
+  },
+  "notif.revert.title": {
+    "en": "A game update rolled back your DLLs in {game}",
+    "desc": "Notification headline when a game update silently reverted swapped DLLs. {game} is the game name — do not translate it.",
+    "where": "NotificationsBell entry, daemon revert detection."
+  },
+  "notif.revert.body": {
+    "en": "{count} swapped DLL(s) were reverted — open the Library to re-apply",
+    "desc": "Plural. Body for the revert notification. Provide _one and _other. Keep DLL.",
+    "where": "NotificationsBell entry body."
+  },
+  "toast.cancelFailed": {
+    "en": "Cancel failed: {msg}",
+    "desc": "Danger toast when cancelling an apply fails in the backend. {msg} is the raw error.",
+    "where": "applyController cancelOne/cancelAll (ApplyProgressModal cancel buttons)."
+  },
   "note.enablerManaged": {
     "en": "DLSS Enabler requires NVIDIA Streamline 2.11 or newer but does not update it, so DLSSync updates the Streamline set within the same major version to keep the Enabler working. It never swaps the set across a major version.",
     "desc": "Banner shown when a DLSS Enabler is detected. Keep DLSS Enabler/NVIDIA Streamline/DLSSync and the version 2.11; translate the rest. Source: ux.ts ENABLER_MANAGED_NOTE.",
     "where": "GameDetailDrawer Streamline-set row note."
+  },
+  "note.nvidiaAppManaged": {
+    "en": "NVIDIA App manages DLSS overrides for this game. DLSSync stays hands-off by default — applying a DLL swap here may be overwritten the next time NVIDIA App re-applies its override.",
+    "desc": "Info banner in the game drawer when a per-game NVIDIA App DRS override is active and DLSSync has no preferences for the game. Keep NVIDIA App/DLSS/DLSSync/DLL as-is.",
+    "where": "DrawerHero.svelte"
   },
   "note.streamlineOverride": {
     "en": "Updating Streamline replaces the shared sl.* plug-in set. Per-game DLSS overrides keep working; NVIDIA App global preset and ratio overrides may need to be set again. If a game misbehaves, restore the previous set from Backups.",
@@ -1520,8 +1560,8 @@
     "where": "frontend/src/views/Backups.svelte"
   },
   "view.backups.group.snapshots": {
-    "en": "<strong>{count}</strong> snapshots",
-    "desc": "Group stat: snapshots (plural, count wrapped in strong)",
+    "en": "{count} snapshots",
+    "desc": "Group stat: snapshots (plural)",
     "where": "frontend/src/views/Backups.svelte"
   },
   "view.backups.group.restorable": {
@@ -1980,8 +2020,8 @@
     "where": "frontend/src/views/Catalog.svelte"
   },
   "view.catalog.browseModulesAria": {
-    "en": "Browse {name} modules",
-    "desc": "aria-label for an advanced feature row; name is the feature title",
+    "en": "Browse {name}",
+    "desc": "aria-label for the advanced (Other technologies) feature row; name is the row title",
     "where": "frontend/src/views/Catalog.svelte"
   },
   "view.catalog.viewVersionsAria": {
@@ -1990,8 +2030,13 @@
     "where": "frontend/src/views/Catalog.svelte"
   },
   "view.catalog.modulesSummary": {
-    "en": "{count} modules · {detail} total",
-    "desc": "Advanced feature-row subtitle, plural; detail is the total-releases number",
+    "en": "{count} extra technologies · {detail} versions in total",
+    "desc": "Advanced (Other technologies) feature-row subtitle, plural; count is the number of extra technology families, detail is the total versions across them",
+    "where": "frontend/src/views/Catalog.svelte"
+  },
+  "view.catalog.moreTechCount": {
+    "en": "{count} more",
+    "desc": "Advanced (Other technologies) row trailing chip; count is the number of extra technology families grouped under it",
     "where": "frontend/src/views/Catalog.svelte"
   },
   "view.catalog.versionsSummary": {
@@ -2047,6 +2092,36 @@
   "view.drivers.subtitle": {
     "en": "Latest GPU driver for each detected adapter, checked live against the vendor — plus DLSS preset and frame-generation controls.",
     "desc": "Drivers view subtitle under the page title.",
+    "where": "frontend/src/views/Drivers.svelte"
+  },
+  "view.drivers.health.aria": {
+    "en": "Driver health summary",
+    "desc": "ARIA label on the health-strip chip row at the top of Drivers",
+    "where": "frontend/src/views/Drivers.svelte"
+  },
+  "view.drivers.health.gpuUpdates": {
+    "en": "{count} GPU driver updates",
+    "desc": "Health-strip chip when GPU driver updates are pending (warning tone)",
+    "where": "frontend/src/views/Drivers.svelte"
+  },
+  "view.drivers.health.gpusCurrent": {
+    "en": "GPU drivers up to date",
+    "desc": "Health-strip chip when every detected GPU driver is current (success tone)",
+    "where": "frontend/src/views/Drivers.svelte"
+  },
+  "view.drivers.health.systemUpdates": {
+    "en": "{count} system component updates",
+    "desc": "Health-strip chip when Windows Update offers system component driver updates",
+    "where": "frontend/src/views/Drivers.svelte"
+  },
+  "view.drivers.presetHint.k": {
+    "en": "Recommended for {model}: Preset K — the latest transformer model this GPU generation runs best across all quality modes.",
+    "desc": "Per-GPU-generation DLSS preset recommendation for RTX 20/30 cards; keep Preset K/RTX as-is, {model} is the raw GPU name",
+    "where": "frontend/src/views/Drivers.svelte"
+  },
+  "view.drivers.presetHint.lm": {
+    "en": "Recommended for {model}: Preset K, plus L (Ultra Performance) and M (Performance) — RTX 40/50 run the newest transformer presets at full speed.",
+    "desc": "Per-GPU-generation DLSS preset recommendation for RTX 40/50 cards; keep Preset K/L/M/RTX as-is",
     "where": "frontend/src/views/Drivers.svelte"
   },
   "view.drivers.checking": {
@@ -2300,18 +2375,53 @@
     "where": "frontend/src/views/Library.svelte"
   },
   "view.library.hero.aria": {
-    "en": "Pending updates",
-    "desc": "ARIA label for the pending-updates hero banner",
+    "en": "Library status",
+    "desc": "ARIA label for the library-status hero band (updates + KPIs)",
     "where": "frontend/src/views/Library.svelte"
   },
   "view.library.hero.updatesReadyLabel": {
     "en": "updates ready",
-    "desc": "Noun part of '<count> updates ready' in the hero headline (count rendered separately in <strong>)",
+    "desc": "Noun part of '<count> updates ready' in the hero headline (count rendered separately as the display numeral)",
     "where": "frontend/src/views/Library.svelte"
   },
   "view.library.hero.acrossGames": {
     "en": "across {count} games",
     "desc": "Hero headline scope: how many games the pending updates span",
+    "where": "frontend/src/views/Library.svelte"
+  },
+  "view.library.hero.allClear": {
+    "en": "Library up to date",
+    "desc": "Hero headline when zero updates are pending (display numeral shows 0 in success tone)",
+    "where": "frontend/src/views/Library.svelte"
+  },
+  "view.library.hero.allClearDetail": {
+    "en": "Every scanned DLL matches the catalog",
+    "desc": "Hero sub-line under the all-clear headline",
+    "where": "frontend/src/views/Library.svelte"
+  },
+  "view.library.hero.segAria": {
+    "en": "Pending updates by vendor",
+    "desc": "ARIA label for the vendor-segmented bar visualizing pending updates",
+    "where": "frontend/src/views/Library.svelte"
+  },
+  "view.library.hero.kpiGames": {
+    "en": "Games",
+    "desc": "Hero KPI label: total detected games",
+    "where": "frontend/src/views/Library.svelte"
+  },
+  "view.library.hero.kpiUpToDate": {
+    "en": "Up to date",
+    "desc": "Hero KPI label: games whose DLLs all match the catalog (success tone)",
+    "where": "frontend/src/views/Library.svelte"
+  },
+  "view.library.hero.kpiProtected": {
+    "en": "Protected",
+    "desc": "Hero KPI label: games that have at least one active restore point (info tone)",
+    "where": "frontend/src/views/Library.svelte"
+  },
+  "view.library.hero.kpiProtectedTitle": {
+    "en": "Games with restore points in Backups",
+    "desc": "Tooltip for the Protected hero KPI",
     "where": "frontend/src/views/Library.svelte"
   },
   "view.library.hero.review": {
@@ -2705,7 +2815,7 @@
     "where": "frontend/src/views/Settings.svelte"
   },
   "view.settings.general.performance.help": {
-    "en": "CPU and battery footprint. EcoQoS schedules DLSSync onto efficient cores while minimized, dropping its impact near zero.",
+    "en": "CPU and battery footprint. EcoQoS keeps DLSSync scheduled on efficient cores while this toggle is enabled, so Task Manager shows Efficiency Mode during the whole session.",
     "desc": "Section help — performance. Describes only the Efficiency Mode toggle that remains here.",
     "where": "frontend/src/views/Settings.svelte"
   },
@@ -2837,6 +2947,26 @@
   "view.settings.feature.auto_apply_all_on_rescan.sub": {
     "en": "Off by default. Enable for unattended updates.",
     "desc": "Update-behavior toggle sub — auto-apply",
+    "where": "frontend/src/views/Settings.svelte"
+  },
+  "view.settings.featureGroup.nvidia": {
+    "en": "NVIDIA",
+    "desc": "Update-preferences group header — NVIDIA technologies. A brand; keep identical in every language.",
+    "where": "frontend/src/views/Settings.svelte"
+  },
+  "view.settings.featureGroup.intel": {
+    "en": "Intel",
+    "desc": "Update-preferences group header — Intel technologies. A brand; keep identical in every language.",
+    "where": "frontend/src/views/Settings.svelte"
+  },
+  "view.settings.featureGroup.amd": {
+    "en": "AMD",
+    "desc": "Update-preferences group header — AMD technologies. A brand; keep identical in every language.",
+    "where": "frontend/src/views/Settings.svelte"
+  },
+  "view.settings.featureGroup.microsoft": {
+    "en": "Microsoft",
+    "desc": "Update-preferences group header — Microsoft technologies. A brand; keep identical in every language.",
     "where": "frontend/src/views/Settings.svelte"
   },
   "view.settings.filesDisclosure.hide": {
@@ -2977,6 +3107,36 @@
   "view.settings.detection.openFolderTitle": {
     "en": "Open folder",
     "desc": "Icon button tooltip — open custom folder",
+    "where": "frontend/src/views/Settings.svelte"
+  },
+  "view.settings.detection.confirmRemove.ok": {
+    "en": "Remove",
+    "desc": "Confirm dialog primary button — confirm removing a folder/path",
+    "where": "frontend/src/views/Settings.svelte"
+  },
+  "view.settings.detection.confirmRemove.cancel": {
+    "en": "Cancel",
+    "desc": "Confirm dialog cancel button",
+    "where": "frontend/src/views/Settings.svelte"
+  },
+  "view.settings.detection.confirmRemove.folderTitle": {
+    "en": "Remove custom folder?",
+    "desc": "Confirm dialog title — removing a custom scan folder",
+    "where": "frontend/src/views/Settings.svelte"
+  },
+  "view.settings.detection.confirmRemove.folderBody": {
+    "en": "Remove {path} from custom scan folders? Games found there will no longer be detected on the next scan. This won't touch any files on disk.",
+    "desc": "Confirm dialog body — removing a custom scan folder. {path} is the folder path.",
+    "where": "frontend/src/views/Settings.svelte"
+  },
+  "view.settings.detection.confirmRemove.pathTitle": {
+    "en": "Remove launcher path?",
+    "desc": "Confirm dialog title — removing a launcher override path",
+    "where": "frontend/src/views/Settings.svelte"
+  },
+  "view.settings.detection.confirmRemove.pathBody": {
+    "en": "Remove the launcher override path {path}? Detection falls back to the registry default. This won't touch any files on disk.",
+    "desc": "Confirm dialog body — removing a launcher override path. {path} is the override path.",
     "where": "frontend/src/views/Settings.svelte"
   },
   "view.settings.detection.removeTitle": {
@@ -3780,12 +3940,12 @@
     "where": "PerformanceToggles.svelte"
   },
   "component.perf.efficiency.label": {
-    "en": "Efficiency Mode when minimized",
-    "desc": "Performance toggle label — apply Windows EcoQoS while minimized",
+    "en": "Efficiency Mode always on",
+    "desc": "Performance toggle label — keep Windows EcoQoS active while enabled",
     "where": "PerformanceToggles.svelte"
   },
   "component.perf.efficiency.sub": {
-    "en": "Schedules DLSSync onto efficient cores and lowers priority while you're not looking at it. Drops CPU/battery footprint near zero. Shows the green leaf badge in Task Manager.",
+    "en": "Keeps DLSSync in Windows EcoQoS while the toggle is enabled, reasserting it in the background so Task Manager keeps showing the green leaf badge.",
     "desc": "Sub-text for the Efficiency Mode toggle",
     "where": "PerformanceToggles.svelte"
   },
@@ -4294,6 +4454,21 @@
     "desc": "Accessible label for the feature enable/disable eye button.",
     "where": "GameDetailDrawer.svelte"
   },
+  "component.gameDrawer.files.checkboxAria": {
+    "en": "Select {file} for update",
+    "desc": "Accessible name for the per-file selection checkbox in the drawer; {file} is the DLL filename",
+    "where": "DrawerFeatureList.svelte"
+  },
+  "view.backups.entry.selectAria": {
+    "en": "Select {file} for bulk restore or delete",
+    "desc": "Accessible name for the per-snapshot selection checkbox; {file} is the backed-up DLL filename",
+    "where": "frontend/src/views/Backups.svelte"
+  },
+  "component.gameDrawer.feature.moreActions": {
+    "en": "More actions",
+    "desc": "Accessible label + tooltip for the keyboard-reachable per-row menu button (pairs with the right-click context menu).",
+    "where": "DrawerFeatureList.svelte"
+  },
   "component.gameDrawer.version.pickDifferent": {
     "en": "Pick a different version",
     "desc": "Tooltip on the catalog-aside version button (shown when installed is current/ahead).",
@@ -4418,6 +4593,31 @@
     "en": "Update Streamline set → v{version} ({count})",
     "desc": "Footer button label for updating the Streamline set to a known version, multiple members; {version} is a raw version string (not translated).",
     "where": "GameDetailDrawer.svelte"
+  },
+  "component.gameDrawer.dllSet.title": {
+    "en": "Update the matched {label} multi-DLL set together as one atomic transaction (all files, or none).",
+    "desc": "Tooltip on the vendor DLL-set footer button; {label} is AMD FSR / Intel XeSS (not translated)",
+    "where": "DrawerFooter.svelte"
+  },
+  "component.gameDrawer.dllSet.label": {
+    "en": "Update {label} set ({count})",
+    "desc": "Footer button label for updating a vendor multi-DLL set without a known target version",
+    "where": "DrawerFooter.svelte"
+  },
+  "component.gameDrawer.dllSet.labelVersion": {
+    "en": "Update {label} set → v{version} ({count})",
+    "desc": "Footer button label for updating a vendor multi-DLL set to a known version; {version} raw",
+    "where": "DrawerFooter.svelte"
+  },
+  "component.gameDrawer.dllSet.blockedFsr4": {
+    "en": "FSR 4 upscaling requires an AMD RDNA4 GPU (Radeon RX 9000 series). This set stays locked on the current hardware.",
+    "desc": "Tooltip on the disabled FSR set button when the target is FSR 4.x and no RDNA4 GPU is present; keep FSR/AMD/RDNA4/Radeon RX 9000 as-is",
+    "where": "DrawerFooter.svelte"
+  },
+  "component.gameDrawer.dllSet.requiresRdna4": {
+    "en": "Requires RDNA4",
+    "desc": "Warning chip inside the blocked FSR set button; keep RDNA4 as-is",
+    "where": "DrawerFooter.svelte"
   },
   "component.gameDrawer.applySelected": {
     "en": "Apply selected ({count})",
@@ -5244,6 +5444,36 @@
     "desc": "Danger toast when the Streamline set apply request throws",
     "where": "applyController.ts dispatchStreamlineSet"
   },
+  "toast.setNoUpdates": {
+    "en": "No {label} set updates available",
+    "desc": "Warning toast when a vendor DLL-set apply is requested with zero members; {label} is a vendor set name (AMD FSR / Intel XeSS), not translated",
+    "where": "applyController.ts dispatchDllSet"
+  },
+  "toast.setUpdating": {
+    "en": "Updating {label} set ({count} files)…",
+    "desc": "Info toast while a vendor multi-DLL set applies atomically",
+    "where": "applyController.ts dispatchDllSet"
+  },
+  "toast.setUpdated": {
+    "en": "{label} set updated ({count} files)",
+    "desc": "Success toast after a vendor multi-DLL set applied",
+    "where": "applyController.ts dispatchDllSet"
+  },
+  "toast.setFailed": {
+    "en": "{label} set failed",
+    "desc": "Fallback failure reason when the backend returns no error string for a vendor set apply",
+    "where": "applyController.ts dispatchDllSet"
+  },
+  "toast.setUpdateFailed": {
+    "en": "{label} set update failed: {error}{rolledBack}",
+    "desc": "Danger toast when a vendor set apply fails; {rolledBack} reuses toast.streamlineRolledBack",
+    "where": "applyController.ts dispatchDllSet"
+  },
+  "toast.setApplyFailed": {
+    "en": "{label} set apply failed: {msg}",
+    "desc": "Danger toast when the vendor set apply request throws",
+    "where": "applyController.ts dispatchDllSet"
+  },
   "toast.trackerUpdatedTo": {
     "en": "Updated to v{version}",
     "desc": "Per-file tracker message shown in the apply progress modal on success with a known new version",
@@ -5423,6 +5653,16 @@
     "en": "Across {games} - open DLSSync to apply",
     "desc": "Native toast body. {games} = an already-pluralised games phrase. Keep DLSSync.",
     "where": "OS notification fired by the background scan tick."
+  },
+  "view.library.hiddenChip": {
+    "en": "{count} hidden",
+    "desc": "Subtitle chip-button label. {count} = number of games the user has hidden. Clicking it reveals them.",
+    "where": "frontend/src/views/Library.svelte"
+  },
+  "view.library.hiddenChipTitle": {
+    "en": "Show the games you have hidden",
+    "desc": "Tooltip for the hidden-games reveal chip in the Library subtitle.",
+    "where": "frontend/src/views/Library.svelte"
   },
   "view.library.applyAllCount": {
     "en": "Apply all updates ({count})",

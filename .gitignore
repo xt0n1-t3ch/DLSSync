@@ -4,6 +4,8 @@ Cargo.lock.bak
 
 node_modules/
 dist/
+tests/e2e/.report/
+tests/e2e/.results/
 .svelte-kit/
 .pnpm-store/
 .pnpm-debug.log

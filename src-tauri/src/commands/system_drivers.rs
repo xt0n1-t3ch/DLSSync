@@ -10,6 +10,25 @@ use system_drivers::{DeviceGroup, InstallProgress, InstallReport, InstallStage};
 use tauri::{AppHandle, Emitter, State};
 
 const SYSTEM_DRIVER_INSTALL_EVENT: &str = "system_driver_install_progress";
+const MAX_UPDATE_ID_LEN: usize = 128;
+
+/// A WUA `UpdateID:RevisionNumber` is a GUID (hex + dashes, optionally braced)
+/// followed by `:` and an integer. Restricting to that character set blocks the
+/// argument-injection vector: with no space or quote permitted, a crafted value
+/// cannot break out of its quoted token to inject extra flags into the elevated
+/// child. Defence-in-depth on top of [`driver_install::launch::build_command_line`].
+fn is_valid_update_id(id: &str) -> bool {
+    !id.is_empty()
+        && id.len() <= MAX_UPDATE_ID_LEN
+        && id.contains(':')
+        && id
+            .chars()
+            .all(|c| c.is_ascii_hexdigit() || matches!(c, '-' | ':' | '{' | '}'))
+        && id
+            .rsplit(':')
+            .next()
+            .is_some_and(|rev| !rev.is_empty() && rev.chars().all(|c| c.is_ascii_digit()))
+}
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SystemDriverOutcome {
@@ -114,19 +133,21 @@ fn install_blocking(
 
     let snapshot = plan_driver_snapshot(app, context);
 
-    let mut args = format!(
-        "--wua-install \"{}\" --result \"{}\" --progress-file \"{}\"",
-        update_id,
-        result_path.display(),
-        progress_path.display()
-    );
+    let mut parts: Vec<String> = vec![
+        "--wua-install".into(),
+        update_id.to_string(),
+        "--result".into(),
+        result_path.display().to_string(),
+        "--progress-file".into(),
+        progress_path.display().to_string(),
+    ];
     if let Some((inf, dest, _)) = snapshot.as_ref() {
-        args.push_str(&format!(
-            " --snapshot-inf \"{}\" --snapshot-dest \"{}\"",
-            inf,
-            dest.display()
-        ));
+        parts.push("--snapshot-inf".into());
+        parts.push(inf.clone());
+        parts.push("--snapshot-dest".into());
+        parts.push(dest.display().to_string());
     }
+    let args = driver_install::launch::build_command_line(&parts);
 
     let mut last_emitted = String::new();
     let on_tick = || {
@@ -332,6 +353,11 @@ pub async fn install_system_driver(
     update_id: String,
     context: Option<DriverInstallContext>,
 ) -> AppResult<SystemDriverOutcome> {
+    if !is_valid_update_id(&update_id) {
+        return Err(AppError::Validation(format!(
+            "rejected malformed WUA update id: {update_id:?}"
+        )));
+    }
     let context = context.unwrap_or_default();
     tokio::task::spawn_blocking(move || install_blocking(&app, &update_id, &context))
         .await
@@ -347,18 +373,22 @@ pub async fn restore_system_driver(
     state: State<'_, AppState>,
     backup_id: String,
 ) -> AppResult<SystemDriverOutcome> {
-    let entry = {
+    let (entry, root_dir) = {
         let guard = state.backups.read();
         let store = guard
             .as_ref()
             .ok_or_else(|| AppError::Other("backup store not initialized".into()))?;
-        store.get(&backup_id)?
+        (store.get(&backup_id)?, store.root_dir.clone())
     };
     if entry.backup_type != "driver_package" {
         return Err(AppError::Other(
             "this backup is a game DLL, not a system driver".into(),
         ));
     }
+    crate::paths::PathGuard::assert_under_root(&entry.backup_path, &root_dir)
+        .map_err(|e| AppError::Validation(e.to_string()))?;
+    crate::paths::PathGuard::assert_not_symlink(&entry.backup_path)
+        .map_err(|e| AppError::Validation(e.to_string()))?;
     let outcome = restore_blocking(entry.backup_path.clone()).await?;
     if outcome.success {
         let guard = state.backups.read();
@@ -380,11 +410,12 @@ async fn restore_blocking(dir: std::path::PathBuf) -> AppResult<SystemDriverOutc
         let tmp = std::env::temp_dir();
         let result_path = tmp.join(format!("dlssync-restore-{}.json", std::process::id()));
         let _ = std::fs::remove_file(&result_path);
-        let args = format!(
-            "--restore-driver \"{}\" --result \"{}\"",
-            dir.display(),
-            result_path.display()
-        );
+        let args = driver_install::launch::build_command_line([
+            "--restore-driver",
+            &dir.display().to_string(),
+            "--result",
+            &result_path.display().to_string(),
+        ]);
         let code = driver_install::launch::launch_elevated(
             &exe,
             &args,
@@ -448,6 +479,9 @@ async fn restore_blocking(_dir: std::path::PathBuf) -> AppResult<SystemDriverOut
 /// or when the package isn't found.
 #[tauri::command]
 pub async fn system_driver_versions(inf_name: String) -> AppResult<Vec<DriverStoreVersion>> {
+    if !system_drivers::is_published_oem_inf(&inf_name) {
+        return Ok(Vec::new());
+    }
     #[cfg(windows)]
     {
         tokio::task::spawn_blocking(move || enum_driver_versions(&inf_name))
@@ -493,4 +527,54 @@ fn enum_driver_versions(inf_name: &str) -> Result<Vec<DriverStoreVersion>, Strin
             provider: p.provider,
         })
         .collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_valid_update_id;
+
+    #[test]
+    fn accepts_real_wua_update_ids() {
+        assert!(is_valid_update_id(
+            "12345678-1234-1234-1234-123456789abc:200"
+        ));
+        assert!(is_valid_update_id(
+            "{12345678-1234-1234-1234-123456789abc}:7"
+        ));
+    }
+
+    #[test]
+    fn rejects_injection_payloads() {
+        // Space + quote are the levers for breaking out of the quoted token.
+        assert!(!is_valid_update_id("abc\" --restore-driver \"C:\\evil:1"));
+        assert!(!is_valid_update_id("id:1 --snapshot-inf x"));
+        assert!(!is_valid_update_id("../../etc/passwd:1"));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn restore_args_neutralize_quoted_backup_path() {
+        let hostile_dir = r#"C:\backups\evil" --snapshot-inf "C:\x"#;
+        let cmd = driver_install::launch::build_command_line([
+            "--restore-driver",
+            hostile_dir,
+            "--result",
+            r"C:\t\r.json",
+        ]);
+        assert!(!cmd.contains(r#"evil" --snapshot-inf"#));
+        assert!(cmd.contains(r#"evil\""#));
+    }
+
+    #[test]
+    fn rejects_missing_or_nonnumeric_revision() {
+        assert!(!is_valid_update_id("12345678-1234:abc"));
+        assert!(!is_valid_update_id("12345678-1234"));
+        assert!(!is_valid_update_id(""));
+    }
+
+    #[test]
+    fn rejects_overlong_input() {
+        let long = format!("{}:1", "a".repeat(200));
+        assert!(!is_valid_update_id(&long));
+    }
 }

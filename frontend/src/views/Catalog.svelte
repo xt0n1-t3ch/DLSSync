@@ -190,19 +190,31 @@
     return "sm";
   }
 
-  let freshnessAgo = $derived.by(() => {
+  const FRESHNESS_SUCCESS_MAX_MINUTES = 180;
+  const FRESHNESS_STALE_MINUTES = 26 * 60;
+
+  let freshness = $derived.by<{ label: string; tone: "success" | "neutral" | "warning" } | null>(() => {
     const loc = $locale;
     if (!$manifestUpdatedAt) return null;
     const parsed = new Date(`${$manifestUpdatedAt.replace(" ", "T")}:00Z`).getTime();
     if (Number.isNaN(parsed)) return null;
     const diffMs = Date.now() - parsed;
     const minutes = Math.floor(diffMs / 60000);
-    if (minutes < 1) return translate(loc, "view.catalog.freshness.justNow");
-    if (minutes < 60) return translate(loc, "view.catalog.freshness.minutes", { count: minutes });
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return translate(loc, "view.catalog.freshness.hours", { count: hours });
-    const days = Math.floor(hours / 24);
-    return translate(loc, "view.catalog.freshness.days", { count: days });
+    const tone =
+      minutes < FRESHNESS_SUCCESS_MAX_MINUTES
+        ? "success"
+        : minutes < FRESHNESS_STALE_MINUTES
+          ? "neutral"
+          : "warning";
+    let label: string;
+    if (minutes < 1) label = translate(loc, "view.catalog.freshness.justNow");
+    else if (minutes < 60) label = translate(loc, "view.catalog.freshness.minutes", { count: minutes });
+    else {
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) label = translate(loc, "view.catalog.freshness.hours", { count: hours });
+      else label = translate(loc, "view.catalog.freshness.days", { count: Math.floor(hours / 24) });
+    }
+    return { label, tone };
   });
 </script>
 
@@ -238,7 +250,10 @@
   </div>
   <div class="info-item">
     <span class="info-item-label">{$t("view.catalog.stat.updated")}</span>
-    <span class="info-item-value is-mono">{$manifestUpdatedAt || "—"}</span>
+    <span class="info-item-value is-mono info-fresh" data-tone={freshness?.tone ?? "neutral"}>
+      {#if freshness}<span class="state-dot" data-state={freshness.tone === "success" ? "current" : freshness.tone === "warning" ? "outdated" : "beta"} aria-hidden="true"></span>{/if}
+      {$manifestUpdatedAt || "—"}
+    </span>
   </div>
 </section>
 
@@ -339,7 +354,7 @@
                 {#if !f.isAdvanced}
                   <span class="feature-version mono" style:color={v.accent}>v{f.latest}</span>
                 {:else}
-                  <span class="feature-version mono" style:color={v.accent}>{f.releaseCount}×</span>
+                  <span class="feature-version" style:color={v.accent}>{$t("view.catalog.moreTechCount", { count: f.releaseCount })}</span>
                 {/if}
                 <svg class="feature-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
               </button>
@@ -354,9 +369,9 @@
     <div class="foot-status">
       <span class="status-dot is-{$catalogStatus.kind}" aria-hidden="true"></span>
       <span class="foot-status-text">{$t("view.catalog.foot.status", { status: $catalogStatus.label })}</span>
-      {#if freshnessAgo}
+      {#if freshness}
         <span class="foot-sep" aria-hidden="true"></span>
-        <span class="foot-meta">{$t("view.catalog.foot.updated", { ago: freshnessAgo })}</span>
+        <span class="foot-meta foot-fresh" data-tone={freshness.tone}>{$t("view.catalog.foot.updated", { ago: freshness.label })}</span>
       {/if}
     </div>
     <div class="foot-actions">
@@ -572,6 +587,11 @@
     text-transform: capitalize;
   }
   .foot-meta { font-variant-numeric: tabular-nums; color: var(--text-muted); }
+  .foot-fresh[data-tone="success"] { color: var(--success); }
+  .foot-fresh[data-tone="warning"] { color: var(--warning); font-weight: 600; }
+  .info-fresh { display: inline-flex; align-items: center; gap: 7px; }
+  .info-fresh[data-tone="success"] { color: var(--success); }
+  .info-fresh[data-tone="warning"] { color: var(--warning); }
   .foot-sep { width: 3px; height: 3px; border-radius: 50%; background: var(--text-muted); opacity: 0.4; flex-shrink: 0; }
   .foot-actions { display: inline-flex; align-items: center; gap: 14px; }
   .foot-refresh {
@@ -612,7 +632,4 @@
     70% { transform: scale(2.6); opacity: 0; }
     100% { transform: scale(2.6); opacity: 0; }
   }
-
-  .spin { width: 12px; height: 12px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
 </style>

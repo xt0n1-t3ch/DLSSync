@@ -52,11 +52,28 @@
   let updateMessage = $state<{ kind: "info" | "success" | "warning" | "danger"; text: string } | null>(null);
   let starCount = $state<number | null>(null);
 
-  type ReleaseHighlights = { version: string; bullets: string[] };
+  type ReleaseHighlights = { version: string; summary: string; bullets: string[] };
+  const MAX_HIGHLIGHTS = 5;
+  const DEV_VOICE_RE =
+    /\b(component|primitive|module|refactor|orchestrator|hot path|read-lock|spawn_blocking|tokio|runtime lock|axe-core|gzip|chunk|contract test|cargo|unit test|test suite|aria-expanded|JSON file|interface|coordinator|serializ|stale read|WMI\/DXGI)\b/i;
+
   const releaseHighlights = parseLatestRelease(changelogRaw);
 
+  function stripMarkdown(s: string): string {
+    return s
+      .trim()
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/\*\*([^*]+)\*\*/g, "$1");
+  }
+
+  function firstSentence(text: string): string {
+    const m = text.match(/^.*?[.!?](?=\s|$)/);
+    return (m ? m[0] : text).trim();
+  }
+
   function parseLatestRelease(raw: string): ReleaseHighlights | null {
-    const headRe = /^##\s*\[([^\]]+)\]/m;
+    const headRe = /^##\s*\[([^\]]+)\][^\n]*/m;
     const head = raw.match(headRe);
     if (!head) return null;
     const start = (head.index ?? 0) + head[0].length;
@@ -65,18 +82,22 @@
     const next = restRe.exec(raw);
     const end = next ? next.index : raw.length;
     const body = raw.slice(start, end);
+
+    const lead = body.slice(0, (body.match(/\n\s*(?:###|[-*]\s)/)?.index ?? body.length));
+    const summary = firstSentence(stripMarkdown(lead));
+
     const bulletRe = /^\s*[-*]\s+(.+)$/gm;
-    const bullets: string[] = [];
+    const userFacing: string[] = [];
+    const devVoice: string[] = [];
     for (const m of body.matchAll(bulletRe)) {
-      const text = m[1]
-        .trim()
-        .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-        .replace(/`([^`]+)`/g, "$1")
-        .replace(/\*\*([^*]+)\*\*/g, "$1");
-      if (text.length > 0 && !/^\d{4}-\d{2}-\d{2}$/.test(text)) bullets.push(text);
-      if (bullets.length >= 6) break;
+      const rawBullet = m[1].trim();
+      const text = stripMarkdown(rawBullet);
+      if (text.length === 0 || /^\d{4}-\d{2}-\d{2}$/.test(text)) continue;
+      (DEV_VOICE_RE.test(rawBullet) ? devVoice : userFacing).push(firstSentence(text));
     }
-    return { version: head[1], bullets };
+
+    const bullets = (userFacing.length > 0 ? userFacing : devVoice).slice(0, MAX_HIGHLIGHTS);
+    return { version: head[1], summary, bullets };
   }
 
   async function openReleases(): Promise<void> {
@@ -317,7 +338,7 @@
   </div>
 </section>
 
-{#if releaseHighlights && releaseHighlights.bullets.length > 0}
+{#if releaseHighlights && (releaseHighlights.summary || releaseHighlights.bullets.length > 0)}
   <section class="whats-new" in:fly={{ y: 6, duration: 240, delay: 40 }}>
     <header class="wn-head">
       <span class="wn-tag">
@@ -329,11 +350,16 @@
         <ExternalLink size={12} />
       </button>
     </header>
-    <ul class="wn-list">
-      {#each releaseHighlights.bullets as bullet (bullet)}
-        <li>{bullet}</li>
-      {/each}
-    </ul>
+    {#if releaseHighlights.summary}
+      <p class="wn-summary">{releaseHighlights.summary}</p>
+    {/if}
+    {#if releaseHighlights.bullets.length > 0}
+      <ul class="wn-list">
+        {#each releaseHighlights.bullets as bullet (bullet)}
+          <li>{bullet}</li>
+        {/each}
+      </ul>
+    {/if}
   </section>
 {/if}
 
@@ -714,6 +740,16 @@
   .wn-link:hover { background: var(--accent-dim); }
   .wn-link:focus-visible { outline: none; box-shadow: var(--shadow-ring); }
   .wn-link :global(svg) { flex-shrink: 0; }
+  .wn-summary {
+    font-size: var(--fs-md);
+    color: var(--text-primary);
+    line-height: var(--lh-normal);
+    font-weight: 500;
+    max-width: 78ch;
+    margin: 0 0 14px;
+    overflow-wrap: anywhere;
+  }
+  .wn-summary:last-child { margin-bottom: 0; }
   .wn-list {
     list-style: none;
     padding: 0;

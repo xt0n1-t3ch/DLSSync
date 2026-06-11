@@ -1,80 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080" role="img" aria-label="DLSSync">
   <title>DLSSync</title>
-  <desc>Open-source DLSS updater for Windows.</desc>
-
+  <desc>DLSSync silver sync-ring application logo.</desc>
   <defs>
-    <linearGradient id="bg" x1="50%" y1="0%" x2="50%" y2="100%">
-      <stop offset="0%" stop-color="#0a0d13"/>
-      <stop offset="100%" stop-color="#06080c"/>
-    </linearGradient>
-    <radialGradient id="vignette" cx="50%" cy="50%" r="60%">
-      <stop offset="0%" stop-color="#22d3ee" stop-opacity="0.16"/>
-      <stop offset="55%" stop-color="#22d3ee" stop-opacity="0.04"/>
-      <stop offset="100%" stop-color="#22d3ee" stop-opacity="0"/>
-    </radialGradient>
-    <radialGradient id="halo" cx="50%" cy="50%" r="55%">
-      <stop offset="0%" stop-color="#22d3ee" stop-opacity="0.55"/>
-      <stop offset="55%" stop-color="#22d3ee" stop-opacity="0.12"/>
-      <stop offset="100%" stop-color="#22d3ee" stop-opacity="0"/>
-    </radialGradient>
-    <linearGradient id="ring" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#22d3ee"/>
-      <stop offset="100%" stop-color="#06b6d4"/>
-    </linearGradient>
-    <linearGradient id="wordBase" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#ffffff"/>
-      <stop offset="65%" stop-color="#e6ebf2"/>
-      <stop offset="100%" stop-color="#8a93a3"/>
-    </linearGradient>
-    <linearGradient id="edge" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#22d3ee" stop-opacity="0"/>
-      <stop offset="50%" stop-color="#22d3ee" stop-opacity="0.6"/>
-      <stop offset="100%" stop-color="#22d3ee" stop-opacity="0"/>
-    </linearGradient>
-    <pattern id="grid" x="0" y="0" width="60" height="60" patternUnits="userSpaceOnUse">
-      <path d="M 60 0 L 0 0 0 60" fill="none" stroke="#1c2230" stroke-width="0.6"/>
-    </pattern>
-    <pattern id="dots" x="0" y="0" width="32" height="32" patternUnits="userSpaceOnUse">
-      <circle cx="2" cy="2" r="1.1" fill="#22d3ee" fill-opacity="0.08"/>
-    </pattern>
-    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="14" result="blur"/>
-      <feMerge>
-        <feMergeNode in="blur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-    <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="4" result="blur"/>
-      <feMerge>
-        <feMergeNode in="blur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
+    <radialGradient id="bg" cx="50%" cy="34%" r="70%"><stop offset="0" stop-color="#24252a"/><stop offset="0.58" stop-color="#080809"/><stop offset="1" stop-color="#000"/></radialGradient>
+    <linearGradient id="metal" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="0.44" stop-color="#d8d9dd"/><stop offset="0.74" stop-color="#8d8f96"/><stop offset="1" stop-color="#fff"/></linearGradient>
+    <filter id="soft" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
   </defs>
-
   <rect width="1920" height="1080" fill="url(#bg)"/>
-  <rect width="1920" height="1080" fill="url(#grid)" opacity="0.45"/>
-  <rect width="1920" height="1080" fill="url(#dots)" opacity="0.35"/>
-  <ellipse cx="960" cy="540" rx="960" ry="540" fill="url(#vignette)"/>
-
-  <line x1="0" y1="0" x2="1920" y2="0" stroke="url(#edge)" stroke-width="1.2"/>
-  <line x1="0" y1="1079" x2="1920" y2="1079" stroke="url(#edge)" stroke-width="1.2" opacity="0.55"/>
-
-  <g transform="translate(960 340)">
-    <circle cx="0" cy="0" r="240" fill="url(#halo)"/>
-    <circle cx="0" cy="0" r="170" fill="#0a0d13" stroke="#1c2230" stroke-width="1.5"/>
-    <g filter="url(#glow)">
-      <g transform="scale(10) translate(-12 -12)" fill="none" stroke="url(#ring)" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M3 12a9 9 0 1 0 3-6.7"/>
-        <polyline points="3 4 3 9 8 9"/>
-      </g>
-    </g>
+  <g transform="translate(960 372) scale(2.1)" filter="url(#soft)">
+    <rect x="-126" y="-126" width="252" height="252" rx="60" fill="#050505" stroke="#f5f5f5" stroke-opacity="0.24" stroke-width="1.5"/>
+    <path d="M-72 0a72 72 0 1 1 25 53" fill="none" stroke="url(#metal)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M-70-68v54h54" fill="none" stroke="url(#metal)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
-
-  <g filter="url(#softGlow)">
-    <text x="960" y="830" text-anchor="middle" font-family="-apple-system, 'Segoe UI', Inter, Roboto, sans-serif" font-size="220" font-weight="800" letter-spacing="-9" fill="url(#wordBase)">DLSSync</text>
-  </g>
-
-  <text x="960" y="930" text-anchor="middle" font-family="-apple-system, 'Segoe UI', Inter, Roboto, sans-serif" font-size="38" font-weight="500" letter-spacing="-0.4" fill="#9ca5b4">Keep DLSS, FSR and XeSS in sync with vendor releases.</text>
+  <text x="960" y="790" text-anchor="middle" font-family="Inter, Geist, -apple-system, Segoe UI, sans-serif" font-size="210" font-weight="800" letter-spacing="-10" fill="url(#metal)">DLSSync</text>
+  <text x="960" y="904" text-anchor="middle" font-family="Inter, Geist, -apple-system, Segoe UI, sans-serif" font-size="40" font-weight="500" fill="#d8d9dd">One trusted sync layer for DLSS, FSR, XeSS and drivers.</text>
 </svg>

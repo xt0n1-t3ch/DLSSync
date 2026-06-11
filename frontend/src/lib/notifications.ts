@@ -22,7 +22,9 @@ export function makeNotificationEntry(
   kind: NotificationKind,
   title: string,
   body: string | null = null,
-  extras?: Partial<Pick<NotificationEntry, "apply_id" | "game_id" | "error_class" | "link" | "vendor">>,
+  extras?: Partial<
+    Pick<NotificationEntry, "apply_id" | "game_id" | "error_class" | "link" | "vendor" | "dedup_key">
+  >,
 ): NotificationEntry {
   return {
     id: crypto.randomUUID(),
@@ -37,6 +39,7 @@ export function makeNotificationEntry(
     error_class: extras?.error_class ?? null,
     link: extras?.link ?? null,
     vendor: extras?.vendor ?? null,
+    dedup_key: extras?.dedup_key ?? null,
   };
 }
 
@@ -53,6 +56,7 @@ export interface NotificationEntry {
   error_class: string | null;
   link: string | null;
   vendor: string | null;
+  dedup_key: string | null;
 }
 
 const FEATURE_VENDOR_TOKENS: ReadonlyArray<readonly [RegExp, string]> = [

@@ -7,13 +7,28 @@ backend runs on `cargo test`. Run both before shipping.
 
 | Layer | Command | What it covers |
 |:---|:---|:---|
-| Frontend | `pnpm --filter dlssync-frontend test` | Vitest unit + integration (`tests/unit`, `tests/integration`) |
+| All (pre-ship) | `task test` | Frontend vitest + full Rust workspace |
+| Frontend | `pnpm --filter dlssync-frontend test` | Vitest unit + integration + component + contract (happy-dom) |
 | Frontend (watch) | `pnpm --filter dlssync-frontend test:watch` | Same, watch mode |
-| Backend | `cargo test --workspace` (from `src-tauri/`) | Every Rust crate + Tauri command surface |
+| Backend | `cargo test --workspace` | Every Rust crate + Tauri command surface |
 | Types | `pnpm --filter dlssync-frontend check` | svelte-check, 0 errors / 0 warnings |
+| End-to-end | `pnpm test:e2e` | Playwright over CDP drives the real WebView2 app (`tests/e2e`) |
 
 Vitest config: [frontend/vitest.config.ts](../frontend/vitest.config.ts). Tauri APIs are mocked in
 [tests/setup.ts](setup.ts) so store/logic modules import cleanly outside a WebView.
+
+## End-to-end (`tests/e2e/`)
+
+`@playwright/test` drives the real app's WebView2 over the Chrome DevTools Protocol. The CDP port
+(`9333`) is opened only in debug builds — [src-tauri/src/lib.rs](../src-tauri/src/lib.rs) sets
+`WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` under `#[cfg(debug_assertions)]`, so release binaries never
+expose it. [global-setup.ts](e2e/global-setup.ts) builds a hermetic debug binary
+(`tauri build --debug --no-bundle`, bundled `frontend/dist`, no Vite dev server);
+[fixtures.ts](e2e/fixtures.ts) clears stale instances, launches the app, waits for CDP, connects via
+`connectOverCDP`, and attaches a console/exception collector so every spec inherits a zero-error
+guard. Data-dependent checks (`test.skip`) gate gracefully when the live machine lacks the data.
+App version is read from `package.json` at runtime — never hardcoded. Config:
+[playwright.config.ts](e2e/playwright.config.ts) (HTML report + traces on first retry).
 
 ## Frontend — unit (`tests/unit/`)
 
@@ -79,6 +94,7 @@ Validates the Tauri command boundary (Rust serde struct ↔ TS DTO) against the 
 | [driverRelease.test.ts](contracts/driverRelease.test.ts) | `contracts/driver-release.schema.json` | required-field set guard + NVIDIA/AMD/Intel(Arc)/Intel(integrated 31.x) fixtures conform; AMD empty `download_url` permitted (open-page model) with a notes page present |
 | [anticheatReport.test.ts](contracts/anticheatReport.test.ts) | `contracts/anticheat-report.schema.json` | required-field set guard + detected/clean fixtures conform; rejects an unknown detection source |
 | [bundleConfig.test.ts](contracts/bundleConfig.test.ts) | `src-tauri/tauri.conf.json` bundle block | publisher/homepage/Apache-2.0 copyright present (PE metadata for antivirus-friction reduction in the no-cert release) |
+| [i18nKeyParity.test.ts](contracts/i18nKeyParity.test.ts) | `frontend/src/lib/i18n/locales/{en,es}.json` | every statically referenced `$t()`/`translate()` key resolves in BOTH locales (plural-suffix aware), EN↔ES flat key sets identical, reference scan covers >200 keys — kills the raw-key-leak class |
 
 ## Backend — Rust (`cargo test --workspace`)
 

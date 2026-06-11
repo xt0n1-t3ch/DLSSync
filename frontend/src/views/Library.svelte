@@ -23,9 +23,11 @@
     manifestUpdatedAt,
     requestApplyAllOutdated,
     outdatedDllItems,
+    backups,
+    loadBackups,
     type StatusFilter,
   } from "../lib/stores";
-  import { addBlacklistEntry, removeBlacklistEntry } from "../lib/api";
+  import { addBlacklistEntry, removeBlacklistEntry, openPath } from "../lib/api";
   import type { DetectedGame, LibraryViewMode, LibraryDensity, LibrarySort } from "../lib/api";
   import {
     LIBRARY_VIEW_MODES,
@@ -35,7 +37,7 @@
     LIBRARY_DENSITY_DEFAULT,
     LIBRARY_SORT_DEFAULT,
   } from "../lib/ux";
-  import { launcherLabel, familyGroup, type FamilyGroup } from "../lib/labels";
+  import { launcherLabel, familyGroup, GROUP_VENDOR, type FamilyGroup } from "../lib/labels";
   import GameCard from "../components/GameCard.svelte";
   import GameListRow from "../components/GameListRow.svelte";
   import FilterMenu from "../components/FilterMenu.svelte";
@@ -63,7 +65,19 @@
     const counts: Record<FamilyGroup, number> = { dlss: 0, fsr: 0, xess: 0, advanced: 0 };
     for (const it of outdatedItems) counts[familyGroup(it.record.family)]++;
     const order: FamilyGroup[] = ["dlss", "fsr", "xess", "advanced"];
-    return order.filter((g) => counts[g] > 0).map((g) => ({ group: g, count: counts[g] }));
+    return order
+      .filter((g) => counts[g] > 0)
+      .map((g) => ({ group: g, vendor: GROUP_VENDOR[g], count: counts[g] }));
+  });
+  let upToDateCount = $derived(
+    $games.filter((g) => !$hiddenIds.has(g.id) && $gameStatuses[g.id] === "up_to_date").length,
+  );
+  let protectedGameCount = $derived.by(() => {
+    const ids = new Set<string>();
+    for (const b of $backups) {
+      if (!b.restored_at && b.game_id && b.backup_type !== "driver_package") ids.add(b.game_id);
+    }
+    return ids.size;
   });
 
   async function updateAllOutdated(): Promise<void> {
@@ -100,6 +114,7 @@
     if ($games.length === 0) {
       void scanGames();
     }
+    void loadBackups();
     void listen<void>(TRAY_SHOW_PROGRESS_EVENT, () => {
       if (Object.keys($activeApplies).length > 0) {
         applyModalOpen.set(true);
@@ -162,7 +177,6 @@
   }
   async function onOpenFolder(game: DetectedGame): Promise<void> {
     try {
-      const { openPath } = await import("../lib/api");
       await openPath(game.install_dir);
     } catch (err: unknown) {
       showToast(
@@ -336,6 +350,12 @@
     searchQuery.set("");
   }
 
+  function revealHidden(): void {
+    launcherFilter.set("all");
+    statusFilter.set("hidden");
+    searchQuery.set("");
+  }
+
   let lastApplyAllSignal = $state(0);
   $effect(() => {
     const n = $requestApplyAllOutdated;
@@ -351,19 +371,20 @@
     <h1 class="view-title">{$t("view.library.title")}</h1>
     <p class="view-subtitle">
       {$t("view.library.subtitle", { detected: $games.length, shown: $filteredGames.length })}
+      {#if hiddenCount > 0 && $statusFilter !== "hidden"}
+        <button
+          type="button"
+          class="hidden-chip"
+          onclick={revealHidden}
+          title={$t("view.library.hiddenChipTitle")}
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+          {$t("view.library.hiddenChip", { count: hiddenCount })}
+        </button>
+      {/if}
     </p>
   </div>
   <div class="header-actions">
-    {#if outdatedTotal > 0}
-      <button
-        class="btn btn-apply-all"
-        onclick={updateAllOutdated}
-        title={$t("view.library.applyAllTitle")}
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-        {$t("view.library.applyAllCount", { count: outdatedTotal })}
-      </button>
-    {/if}
     <button class="btn btn-ghost" onclick={addCustomFolder}>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
       {$t("view.library.addFolder")}
@@ -380,48 +401,83 @@
   </div>
 </header>
 
-{#if outdatedTotal > 0}
+{#if $games.length > 0}
   <div class="updates-hero-shell">
-    <aside class="updates-hero edge-accent" role="status" aria-label={$t("view.library.hero.aria")}>
+    <aside
+      class="updates-hero"
+      data-state={outdatedTotal > 0 ? "pending" : "allclear"}
+      role="status"
+      aria-label={$t("view.library.hero.aria")}
+    >
       <div class="updates-hero-body">
-        <p class="updates-hero-headline">
-          <strong>{outdatedTotal}</strong>
-          {$t("view.library.hero.updatesReadyLabel", { count: outdatedTotal })}
-          <span class="updates-hero-scope"
-            >{$t("view.library.hero.acrossGames", { count: outdatedGameCount })}</span
+        <div class="updates-hero-lead">
+          <span class="display-num" data-tone={outdatedTotal > 0 ? "warning" : "success"}
+            >{outdatedTotal}</span
           >
-        </p>
-        <ul class="updates-hero-tags" role="list">
-          {#each outdatedBreakdown as bucket (bucket.group)}
-            <li class="updates-hero-tag" data-group={bucket.group}>
-              {$t("group." + bucket.group + ".label")}<span class="updates-hero-tag-n"
-                >{bucket.count}</span
-              >
-            </li>
-          {/each}
-        </ul>
+          <div class="updates-hero-meta">
+            <p class="updates-hero-headline">
+              {outdatedTotal > 0
+                ? $t("view.library.hero.updatesReadyLabel", { count: outdatedTotal })
+                : $t("view.library.hero.allClear")}
+            </p>
+            <p class="updates-hero-scope">
+              {outdatedTotal > 0
+                ? $t("view.library.hero.acrossGames", { count: outdatedGameCount })
+                : $t("view.library.hero.allClearDetail")}{#if $manifestUpdatedAt}<span
+                  class="updates-hero-stamp"
+                  title={$t("view.library.hero.manifestTitle")}
+                  >&ensp;·&ensp;{$t("view.library.hero.manifestStamp", { stamp: $manifestUpdatedAt })}</span
+                >{/if}
+            </p>
+          </div>
+        </div>
+        {#if outdatedTotal > 0}
+          <ul class="updates-hero-tags" role="list">
+            {#each outdatedBreakdown as bucket (bucket.group)}
+              <li class="updates-hero-tag" data-group={bucket.group}>
+                {bucket.group === "advanced"
+                  ? $t("feature.advanced.short")
+                  : $t("group." + bucket.group + ".label")}<span class="updates-hero-tag-n"
+                  >{bucket.count}</span
+                >
+              </li>
+            {/each}
+          </ul>
+        {/if}
       </div>
-      <div class="updates-hero-actions">
-        <button
-          class="updates-hero-review"
-          onclick={reviewChanges}
-          title={$t("view.library.hero.reviewTitle")}>{$t("view.library.hero.review")}</button
-        >
-        <button
-          class="updates-hero-apply"
-          onclick={updateAllOutdated}
-          title={$t("view.library.hero.applyAllTitle")}>{$t("view.library.hero.applyAll")}</button
-        >
+      <div class="updates-hero-kpis">
+        <div class="hero-kpi">
+          <span class="hero-kpi-num">{$games.length}</span>
+          <span class="hero-kpi-label">{$t("view.library.hero.kpiGames")}</span>
+        </div>
+        <div class="hero-kpi" data-tone="success">
+          <span class="hero-kpi-num">{upToDateCount}</span>
+          <span class="hero-kpi-label">{$t("view.library.hero.kpiUpToDate")}</span>
+        </div>
+        <div class="hero-kpi" data-tone="info" title={$t("view.library.hero.kpiProtectedTitle")}>
+          <span class="hero-kpi-num">{protectedGameCount}</span>
+          <span class="hero-kpi-label">{$t("view.library.hero.kpiProtected")}</span>
+        </div>
       </div>
-      {#if $manifestUpdatedAt}
-        <span class="updates-hero-stamp" title={$t("view.library.hero.manifestTitle")}
-          >{$t("view.library.hero.manifestStamp", { stamp: $manifestUpdatedAt })}</span
-        >
+      {#if outdatedTotal > 0}
+        <div class="updates-hero-actions">
+          <button
+            class="updates-hero-review"
+            onclick={reviewChanges}
+            title={$t("view.library.hero.reviewTitle")}>{$t("view.library.hero.review")}</button
+          >
+          <button
+            class="updates-hero-apply"
+            onclick={updateAllOutdated}
+            title={$t("view.library.hero.applyAllTitle")}>{$t("view.library.hero.applyAll")}</button
+          >
+        </div>
       {/if}
     </aside>
   </div>
 {/if}
 
+<div class="filter-shell">
 <div class="filter-toolbar glass-panel" role="toolbar" aria-label={$t("view.library.filter.launcher")}>
   <FilterMenu
     label={$t("view.library.filter.launcher")}
@@ -459,15 +515,16 @@
     </div>
   </div>
 </div>
+</div>
 
 {#if $scanInProgress && $games.length === 0}
   <div class="grid">
-    {#each Array(8) as _}
+    {#each Array(8) as _, i (i)}
       <div class="card-skel">
         <div class="skel-art skeleton"></div>
         <div class="skel-body">
-          <div class="skel-line skeleton" style="width: 70%"></div>
-          <div class="skel-line skeleton" style="width: 50%; height: 10px;"></div>
+          <div class="skel-line skel-line-lg skeleton"></div>
+          <div class="skel-line skel-line-sm skeleton"></div>
         </div>
       </div>
     {/each}
@@ -598,97 +655,158 @@
   }
   .view-header > div:first-child { flex: 1 1 240px; min-width: 0; }
   .header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; flex-shrink: 0; }
-  .btn-apply-all {
-    background: var(--accent);
-    color: var(--accent-fg);
-    border-color: transparent;
+  .view-subtitle { display: inline-flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
+  .hidden-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 9px 2px 8px;
+    border-radius: var(--radius-full);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-size: var(--fs-xs);
     font-weight: 600;
     font-variant-numeric: tabular-nums;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
-    transition: background var(--dur-fast) var(--ease);
+    cursor: pointer;
+    transition:
+      color var(--dur-fast) var(--ease),
+      background var(--dur-fast) var(--ease),
+      border-color var(--dur-fast) var(--ease);
   }
-  .btn-apply-all:hover { background: var(--accent-hover); }
-  .btn-apply-all:focus-visible { outline: none; box-shadow: var(--shadow-ring); }
-  .filter-toolbar {
+  .hidden-chip:hover { color: var(--text-primary); background: var(--bg-card-hover); border-color: var(--border-strong); }
+  .hidden-chip:focus-visible { outline: none; box-shadow: var(--shadow-ring); }
+  .hidden-chip svg { color: var(--text-muted); flex-shrink: 0; }
+  .filter-shell {
+    container-type: inline-size;
     position: sticky;
     top: var(--space-2);
     z-index: 4;
+    margin-bottom: var(--space-4);
+  }
+  .filter-toolbar {
     display: flex;
     flex-wrap: nowrap;
     align-items: center;
     gap: var(--space-2);
     padding: var(--space-2) var(--space-3);
     border-radius: var(--radius-lg);
-    margin-bottom: var(--space-4);
+    min-width: 0;
   }
   .filter-controls {
     display: flex;
     align-items: center;
     gap: var(--space-2);
     margin-inline-start: auto;
-    flex-shrink: 0;
+    flex-shrink: 1;
+    min-width: 0;
   }
+  .filter-controls .seg { flex-shrink: 0; }
   .seg-text { display: none; }
-  @media (max-width: 560px) {
-    .filter-toolbar { position: static; }
+  @container (max-width: 640px) {
+    .filter-toolbar { flex-wrap: wrap; row-gap: var(--space-2); }
+    .filter-controls { margin-inline-start: 0; width: 100%; justify-content: flex-start; }
+  }
+  @container (max-width: 460px) {
+    .sort-select { min-width: 0; flex: 1 1 auto; }
   }
 
   .updates-hero-shell { container-type: inline-size; margin-bottom: var(--space-3); }
   .updates-hero {
     position: relative;
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
     align-items: center;
-    justify-content: space-between;
-    gap: 24px;
+    column-gap: 16px;
     padding: 16px 20px 16px 22px;
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     background:
-      linear-gradient(120deg, color-mix(in oklab, var(--accent) 7%, transparent), transparent 48%),
+      linear-gradient(120deg, color-mix(in oklab, var(--hero-tint, var(--accent)) 10%, transparent), transparent 52%),
       var(--bg-card);
     overflow: hidden;
   }
-  .updates-hero-body { display: flex; flex-direction: column; gap: 9px; min-width: 0; }
+  .updates-hero[data-state="pending"] { --hero-tint: var(--warning); }
+  .updates-hero[data-state="allclear"] { --hero-tint: var(--success); }
+  .updates-hero-body { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .updates-hero-lead { display: flex; align-items: center; gap: 14px; min-width: 0; }
+  .updates-hero-meta { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
   .updates-hero-headline {
     margin: 0;
-    font-size: 14.5px;
-    font-weight: 500;
-    color: var(--text-secondary);
-    letter-spacing: -0.005em;
-  }
-  .updates-hero-headline strong {
-    font-size: 17px;
-    font-weight: 700;
+    font-size: 13px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: var(--letter-wider);
     color: var(--text-primary);
-    font-variant-numeric: tabular-nums;
-    margin-right: 3px;
+    line-height: 1.2;
   }
-  .updates-hero-scope { color: var(--text-muted); margin-left: 3px; }
+  .updates-hero-scope {
+    margin: 0;
+    font-size: 11.5px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+  .updates-hero-stamp {
+    font-variant-numeric: tabular-nums;
+    opacity: 0.8;
+    white-space: nowrap;
+  }
+  .updates-hero-kpis {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+    padding-inline: 16px;
+    border-inline-start: 1px solid var(--border);
+  }
+  .hero-kpi { display: flex; flex-direction: column; gap: 3px; min-width: 48px; }
+  .hero-kpi-num {
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: var(--letter-tight);
+    color: var(--text-primary);
+  }
+  .hero-kpi[data-tone="success"] .hero-kpi-num { color: var(--success); }
+  .hero-kpi[data-tone="info"] .hero-kpi-num { color: var(--info); }
+  .hero-kpi-label {
+    font-size: 9.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: var(--letter-wider);
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
   .updates-hero-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
   .updates-hero-tag {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 3px 8px 3px 10px;
+    padding: 3.5px 7px 3.5px 10px;
     border-radius: var(--radius-full);
-    font-size: 11.5px;
-    font-weight: 600;
-    background: var(--bg-elevated);
-    color: var(--text-secondary);
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    color: var(--vendor-chip-fg);
+    white-space: nowrap;
   }
   .updates-hero-tag-n {
     font-variant-numeric: tabular-nums;
-    font-weight: 700;
-    min-width: 17px;
-    padding: 0 5px;
+    font-weight: 800;
+    min-width: 16px;
+    padding: 0 4px;
     text-align: center;
     border-radius: var(--radius-full);
-    background: color-mix(in oklab, currentColor 16%, transparent);
+    background: color-mix(in oklab, var(--vendor-chip-fg) 18%, transparent);
   }
-  .updates-hero-tag[data-group="dlss"]     { color: var(--badge-green-fg); }
-  .updates-hero-tag[data-group="fsr"]      { color: var(--badge-red-fg); }
-  .updates-hero-tag[data-group="xess"]     { color: var(--badge-blue-fg); }
-  .updates-hero-tag[data-group="advanced"] { color: var(--badge-purple-fg); }
+  .updates-hero-tag[data-group="dlss"]     { background: var(--vendor-nvidia-ink); }
+  .updates-hero-tag[data-group="fsr"]      { background: var(--vendor-amd-ink); }
+  .updates-hero-tag[data-group="xess"]     { background: var(--vendor-intel-ink); }
+  .updates-hero-tag[data-group="advanced"] { background: var(--vendor-microsoft-ink); }
   .updates-hero-actions { display: inline-flex; align-items: center; gap: 10px; flex-shrink: 0; }
   .updates-hero-review {
     height: 34px;
@@ -721,21 +839,15 @@
     transition: background var(--dur-fast) var(--ease);
   }
   .updates-hero-apply:hover { background: var(--accent-hover); }
-  .updates-hero-stamp {
-    position: absolute;
-    right: 18px;
-    bottom: 7px;
-    font-size: 10px;
-    color: var(--text-muted);
-    font-variant-numeric: tabular-nums;
-    letter-spacing: 0.01em;
-    opacity: 0.65;
+  .updates-hero :global(.display-num) { font-size: clamp(28px, 3vw, 36px); }
+  @container (max-width: 760px) {
+    .updates-hero { grid-template-columns: minmax(0, 1fr) auto; row-gap: 14px; }
+    .updates-hero-actions { grid-column: 1 / -1; width: 100%; }
+    .updates-hero-actions button { flex: 1; }
   }
   @container (max-width: 620px) {
-    .updates-hero { flex-direction: column; align-items: stretch; gap: 14px; padding-bottom: 20px; }
-    .updates-hero-actions { width: 100%; }
-    .updates-hero-actions button { flex: 1; }
-    .updates-hero-stamp { display: none; }
+    .updates-hero { grid-template-columns: 1fr; padding-bottom: 20px; }
+    .updates-hero-kpis { border-inline-start: none; padding-inline: 0; justify-content: flex-start; }
   }
 
   .sort-select {
@@ -801,6 +913,8 @@
   .skel-art { aspect-ratio: var(--card-art-aspect); width: 100%; }
   .skel-body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 8px; }
   .skel-line { height: 14px; border-radius: var(--radius-sm); }
+  .skel-line-lg { width: 70%; }
+  .skel-line-sm { width: 50%; height: 10px; }
 
   .zone-no-dlls {
     margin-top: 28px;
@@ -844,7 +958,4 @@
   .empty-title { font-size: var(--fs-lg); font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
   .empty .section-sub { max-width: 480px; }
   .empty-actions { display: inline-flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; justify-content: center; }
-
-  .spin { width: 12px; height: 12px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
 </style>

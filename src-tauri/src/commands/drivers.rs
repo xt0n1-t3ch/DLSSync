@@ -23,14 +23,24 @@ fn map_vendor(vendor: GpuVendor) -> DriverVendor {
     }
 }
 
-fn os_target(info: &SystemInfo) -> OsTarget {
+fn os_family(info: &SystemInfo) -> OsFamily {
     let build = info.os.build.parse::<u32>().unwrap_or(0);
-    let family = if build >= WINDOWS_11_MIN_BUILD {
+    if build >= WINDOWS_11_MIN_BUILD {
         OsFamily::Windows11X64
     } else {
         OsFamily::Windows10X64
-    };
-    OsTarget { family, dch: true }
+    }
+}
+
+/// Build the per-GPU `OsTarget`. The OS family is host-wide, but the DCH-vs-
+/// Standard driver model is per-GPU (only NVIDIA distinguishes them) so the
+/// flag comes from `gpu.is_dch` — Standard-driver (legacy) NVIDIA users get the
+/// Standard download URL instead of always being sent the DCH build.
+fn os_target_for(info: &SystemInfo, gpu: &GpuInfo) -> OsTarget {
+    OsTarget {
+        family: os_family(info),
+        dch: gpu.is_dch,
+    }
 }
 
 fn device_for(gpu: &GpuInfo) -> (DeviceId, DriverVersion) {
@@ -64,11 +74,11 @@ pub async fn check_driver_updates(
     state: State<'_, AppState>,
 ) -> AppResult<Vec<DriverStatusReport>> {
     let info = ensure_system_info(&state).await?;
-    let os = os_target(&info);
     let registry = DriverRegistry::with_default_gpu_sources();
     let client = state.http_catalog.clone();
     let mut reports = Vec::with_capacity(info.gpus.len());
     for gpu in &info.gpus {
+        let os = os_target_for(&info, gpu);
         let (device, installed) = device_for(gpu);
         let report = match registry
             .resolve(&client, &device, &os, installed.clone())
@@ -107,13 +117,13 @@ pub async fn list_driver_history(
         }
     };
     let info = ensure_system_info(&state).await?;
-    let os = os_target(&info);
     let gpu = info
         .gpus
         .iter()
         .find(|g| g.model == model && map_vendor(g.vendor) == target_vendor)
         .cloned()
         .ok_or_else(|| AppError::Other(format!("no detected GPU matches model '{model}'")))?;
+    let os = os_target_for(&info, &gpu);
     let (device, _) = device_for(&gpu);
     let registry = DriverRegistry::with_default_gpu_sources();
     let client = state.http_catalog.clone();
@@ -140,13 +150,18 @@ pub struct InstallOutcome {
 
 const DRIVER_INSTALL_EVENT: &str = "driver_install_progress";
 
+/// Launch the downloaded vendor installer, preferring an unattended (silent)
+/// run where the vendor supports it (NVIDIA `/s /n`, Intel `/s`) so a routine
+/// driver update no longer pops the full vendor GUI. AMD's self-extractor cannot
+/// be driven silently, so it falls through to its normal GUI (empty args).
 #[cfg(windows)]
-fn launch_installer(path: &Path) -> Result<i32, String> {
-    driver_install::launch::launch_and_wait(path, None).map_err(|e| e.to_string())
+fn launch_installer(path: &Path, vendor: &str) -> Result<i32, String> {
+    let args = driver_install::launch::silent_install_args(vendor);
+    driver_install::launch::launch_and_wait_with_args(path, &args, None).map_err(|e| e.to_string())
 }
 
 #[cfg(not(windows))]
-fn launch_installer(_path: &Path) -> Result<i32, String> {
+fn launch_installer(_path: &Path, _vendor: &str) -> Result<i32, String> {
     Err("driver install requires Windows".to_string())
 }
 
@@ -196,6 +211,13 @@ pub async fn install_driver(
     vendor: String,
     download_url: String,
 ) -> AppResult<InstallOutcome> {
+    if download_url.trim().is_empty() {
+        return Err(AppError::Validation(
+            "No one-click installer is available for this driver branch — open the release notes to download it manually.".into(),
+        ));
+    }
+    let vendor_kind = crate::netpolicy::validate_driver_url(&vendor, &download_url)
+        .map_err(|e| AppError::Validation(e.to_string()))?;
     let cache_dir = {
         let guard = state.paths.read();
         guard
@@ -203,9 +225,16 @@ pub async fn install_driver(
             .map(|p| p.cache_dir.clone())
             .ok_or_else(|| AppError::Other("app paths not initialized".into()))?
     };
-    let dest = cache_dir
-        .join("drivers")
-        .join(installer_filename(&download_url));
+    let staging = {
+        let drivers_dir = cache_dir.join("drivers");
+        std::fs::create_dir_all(&drivers_dir)
+            .map_err(|e| AppError::Other(format!("create drivers cache dir: {e}")))?;
+        tempfile::Builder::new()
+            .prefix("install-")
+            .tempdir_in(&drivers_dir)
+            .map_err(|e| AppError::Other(format!("create install staging dir: {e}")))?
+    };
+    let dest = staging.path().join(installer_filename(&download_url));
     let client = state.http_downloads.clone();
 
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<DownloadProgress>();
@@ -227,6 +256,8 @@ pub async fn install_driver(
 
     let opts = DownloadOpts {
         progress_tx: Some(tx),
+        referer: matches!(vendor_kind, crate::netpolicy::DriverVendor::Amd)
+            .then(|| "https://www.amd.com/".to_string()),
         ..Default::default()
     };
     let downloaded = match download_to_file(&client, &download_url, &dest, opts).await {
@@ -281,8 +312,10 @@ pub async fn install_driver(
         None,
     );
     let launch_path = downloaded.path.clone();
-    let exit_code = match tokio::task::spawn_blocking(move || launch_installer(&launch_path)).await
-    {
+    let launch_vendor = vendor.clone();
+    let launch =
+        tokio::task::spawn_blocking(move || launch_installer(&launch_path, &launch_vendor)).await;
+    let exit_code = match launch {
         Ok(Ok(code)) => code,
         Ok(Err(e)) => {
             emit_stage(
@@ -334,20 +367,43 @@ mod tests {
         }
     }
 
+    fn nvidia_gpu(is_dch: bool) -> GpuInfo {
+        GpuInfo {
+            vendor: GpuVendor::Nvidia,
+            pci_vendor_id: 0x10DE,
+            pci_device_id: 0x2705,
+            model: "NVIDIA GeForce RTX 4070 Ti SUPER".into(),
+            driver_version: "32.0.15.9174".into(),
+            vram_bytes: 0,
+            recommended_runtimes: vec![],
+            is_dch,
+            identifiable: true,
+            fsr4_capable: false,
+        }
+    }
+
     #[test]
     fn os_target_picks_windows_11_at_build_threshold() {
+        let gpu = nvidia_gpu(true);
         assert_eq!(
-            os_target(&sysinfo_with_build("22631")).family,
+            os_target_for(&sysinfo_with_build("22631"), &gpu).family,
             OsFamily::Windows11X64
         );
         assert_eq!(
-            os_target(&sysinfo_with_build("19045")).family,
+            os_target_for(&sysinfo_with_build("19045"), &gpu).family,
             OsFamily::Windows10X64
         );
         assert_eq!(
-            os_target(&sysinfo_with_build("")).family,
+            os_target_for(&sysinfo_with_build(""), &gpu).family,
             OsFamily::Windows10X64
         );
+    }
+
+    #[test]
+    fn os_target_propagates_per_gpu_dch_flag() {
+        let info = sysinfo_with_build("22631");
+        assert!(os_target_for(&info, &nvidia_gpu(true)).dch);
+        assert!(!os_target_for(&info, &nvidia_gpu(false)).dch);
     }
 
     #[test]
@@ -368,6 +424,9 @@ mod tests {
             driver_version: "32.0.15.9174".into(),
             vram_bytes: 0,
             recommended_runtimes: vec![],
+            is_dch: true,
+            identifiable: true,
+            fsr4_capable: false,
         };
         let (device, installed) = device_for(&gpu);
         assert_eq!(device.vendor, DriverVendor::Nvidia);

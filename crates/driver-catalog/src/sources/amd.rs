@@ -91,6 +91,27 @@ fn public_version(version_attr: &str) -> &str {
     version_attr.split_whitespace().next().unwrap_or_default()
 }
 
+const AMD_INSTALLER_BASE: &str = "https://drivers.amd.com/drivers/";
+
+/// Construct the Adrenalin installer `.exe` URL from the public version + branch.
+/// Verified pattern (stable since 25.10.2): `whql-amd-software-adrenalin-edition-
+/// {ver}-{variant}.exe`, variant = `win11-c` (combined, RDNA3+) / `win11-a`
+/// (RDNA1/2). Beta/Optional drops the `whql-` prefix. Polaris/Vega has no
+/// deterministic URL → empty string, so the UI falls back to a manual download
+/// from the release-notes page. The download MUST send `Referer: amd.com` (set in
+/// the install command) or the CDN 302s to a download-incomplete page.
+fn build_installer_url(public_version: &str, arch: AmdArch, is_beta: bool) -> String {
+    let variant = match arch {
+        AmdArch::Mainstream => "win11-c",
+        AmdArch::Rdna12 => "win11-a",
+        AmdArch::PolarisVega => return String::new(),
+    };
+    let prefix = if is_beta { "" } else { "whql-" };
+    format!(
+        "{AMD_INSTALLER_BASE}{prefix}amd-software-adrenalin-edition-{public_version}-{variant}.exe"
+    )
+}
+
 fn child_text<'a>(node: roxmltree::Node<'a, 'a>, tag: &str) -> Option<&'a str> {
     node.children()
         .find(|c| c.has_tag_name(tag))
@@ -151,7 +172,7 @@ pub fn parse_version_table_history(
             },
             display_version: Some(public.to_string()),
             is_beta,
-            download_url: String::new(),
+            download_url: build_installer_url(public, arch, is_beta),
             size_bytes: 0,
             signature_subject: c::PUBLISHER_SUBJECT.to_string(),
             released_at: child_text(node, "release-date").and_then(parse_amd_date),
@@ -234,6 +255,31 @@ mod tests {
     }
 
     #[test]
+    fn installer_url_matches_verified_pattern() {
+        assert_eq!(
+            build_installer_url("26.6.1", AmdArch::Mainstream, false),
+            "https://drivers.amd.com/drivers/whql-amd-software-adrenalin-edition-26.6.1-win11-c.exe"
+        );
+        assert_eq!(
+            build_installer_url("26.6.1", AmdArch::Rdna12, false),
+            "https://drivers.amd.com/drivers/whql-amd-software-adrenalin-edition-26.6.1-win11-a.exe"
+        );
+    }
+
+    #[test]
+    fn installer_url_beta_drops_whql_prefix() {
+        assert_eq!(
+            build_installer_url("26.2.1", AmdArch::Mainstream, true),
+            "https://drivers.amd.com/drivers/amd-software-adrenalin-edition-26.2.1-win11-c.exe"
+        );
+    }
+
+    #[test]
+    fn installer_url_empty_for_polaris_vega() {
+        assert!(build_installer_url("25.8.1", AmdArch::PolarisVega, false).is_empty());
+    }
+
+    #[test]
     fn amd_arch_from_device_id_classifies_legacy_branches() {
         assert_eq!(amd_arch_from_device_id(0x73BF), Some(AmdArch::Rdna12));
         assert_eq!(amd_arch_from_device_id(0x731F), Some(AmdArch::Rdna12));
@@ -303,7 +349,10 @@ mod tests {
         assert_eq!(release.vendor, DriverVendor::Amd);
         assert_eq!(release.version.display, "26.5.2");
         assert_eq!(release.version.raw, "32.0.31007.5012");
-        assert!(release.download_url.is_empty());
+        assert_eq!(
+            release.download_url,
+            "https://drivers.amd.com/drivers/whql-amd-software-adrenalin-edition-26.5.2-win11-c.exe"
+        );
         assert_eq!(
             release.release_notes_url.as_deref(),
             Some("https://amd/RN-RAD-WIN-26-5-2.html")

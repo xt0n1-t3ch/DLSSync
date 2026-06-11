@@ -23,6 +23,10 @@ pub mod intel {
     pub const SOFTWARE_CONFIGURATIONS_FILE: &str = "software-configurations.json";
     pub const SELECTABLE_GRAPHICS_FILE: &str = "selectable-graphics.json";
     pub const PCI_VENDOR_ID: u16 = super::pci::INTEL;
+    /// Substring present in DSA catalog `Name` fields that target Windows 10 only.
+    pub const OS_NAME_WIN10: &str = "Windows 10";
+    /// Substring present in DSA catalog `Name` fields that target Windows 11 only.
+    pub const OS_NAME_WIN11: &str = "Windows 11";
 }
 
 pub mod amd {

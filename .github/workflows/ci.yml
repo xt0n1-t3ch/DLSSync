@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -15,16 +18,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 9.0.0
           run_install: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: "22"
           cache: "pnpm"
@@ -35,26 +38,32 @@ jobs:
       - name: Typecheck (svelte-check)
         run: pnpm --filter dlssync-frontend check
 
+      # Build BEFORE vitest so the bundle-budget contract measures the real dist
+      # instead of silently skipping on a clean runner.
       - name: Build (Vite)
         run: pnpm --filter dlssync-frontend build
+
+      - name: Unit tests (vitest)
+        run: pnpm --filter dlssync-frontend test
 
   rust:
     name: Rust (fmt + clippy + check)
     runs-on: windows-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
       - name: Setup Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
         with:
           components: rustfmt, clippy
           targets: x86_64-pc-windows-msvc
 
       - name: Rust cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           workspaces: ". -> target"
+          shared-key: "windows-rust"
 
       - name: Stub frontend dist for tauri::generate_context!
         shell: pwsh
@@ -73,3 +82,52 @@ jobs:
 
       - name: Test
         run: cargo test --workspace --no-fail-fast
+
+  e2e:
+    name: E2E (Playwright over WebView2)
+    runs-on: windows-latest
+    needs: [frontend, rust]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 9.0.0
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          workspaces: ". -> target"
+          shared-key: "windows-rust"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # global-setup builds the debug binary (pnpm tauri build --debug --no-bundle),
+      # seeds hermetic app data, and launches WebView2 with the CDP port.
+      # Playwright drives every app tab over CDP with zero expected skips.
+      - name: E2E (Playwright)
+        run: pnpm test:e2e
+        timeout-minutes: 45
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: playwright-report
+          path: tests/e2e/.report
+          retention-days: 7

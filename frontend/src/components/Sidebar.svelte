@@ -100,7 +100,7 @@
 
   {#snippet navItem(item: NavItem, staggerIndex: number)}
     {@const count = counterValue(item)}
-    <button class="nav-pill" class:active={$currentView === item.id} title={$t("view." + item.id + ".title")} onclick={() => switchView(item.id)}>
+    <button class="nav-pill" class:active={$currentView === item.id} data-testid="nav-{item.id}" title={$t("view." + item.id + ".title")} onclick={() => switchView(item.id)}>
       {#if item.icon === "library"}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
       {:else if item.icon === "catalog"}
@@ -117,7 +117,7 @@
       {#if !collapsed}<span class="nav-label-text" in:fly={labelStagger(staggerIndex)}>{$t("view." + item.id + ".title")}</span>{/if}
       <CounterPill
         count={count}
-        tone={item.counterKey === "library" ? "update" : "default"}
+        tone={item.counterKey === "library" ? "warning" : item.counterKey === "backups" ? "success" : "default"}
         collapsed={collapsed}
         ariaLabel={counterAria(item, count)}
       />
@@ -203,13 +203,13 @@
     width: 40px;
     height: 40px;
     border-radius: var(--radius-lg);
-    background: var(--accent-dim);
-    color: var(--accent);
+    background: linear-gradient(145deg, var(--bg-input), var(--bg-elevated));
+    color: var(--text-primary);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    box-shadow: inset 0 0 0 1px var(--accent-ring);
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--text-primary) 28%, transparent), var(--shadow-sm);
   }
   .brand-wrap { display: flex; flex-direction: column; gap: 0; line-height: var(--lh-tight); min-width: 0; }
   .brand-name {

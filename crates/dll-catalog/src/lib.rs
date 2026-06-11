@@ -61,6 +61,23 @@ pub struct Catalog {
     pub incompatible_games: Vec<String>,
     #[serde(default)]
     pub anticheat: Option<AntiCheatIndex>,
+    /// Manifest-driven anti-cheat binary signatures, merged on top of the
+    /// compile-time `ANTI_CHEAT_BINARIES` baseline at scan time so a newly named
+    /// or renamed engine is detected from a manifest refresh without shipping an
+    /// app release. Absent in older manifests (`#[serde(default)]` → empty) →
+    /// the static baseline alone applies, no regression.
+    #[serde(default)]
+    pub anti_cheat_binaries: Vec<AntiCheatBinary>,
+}
+
+/// One manifest-supplied anti-cheat binary signature: a lowercase filename
+/// `needle` matched as a substring against files on disk, and the canonical
+/// engine `name` reported on a hit. Mirrors a `(needle, name)` row of the
+/// compile-time `ANTI_CHEAT_BINARIES` table so the two layers merge cleanly.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AntiCheatBinary {
+    pub needle: String,
+    pub name: String,
 }
 
 /// Slim per-game anti-cheat index distilled from PCGamingWiki at manifest-build
@@ -202,8 +219,19 @@ fn default_hash_algorithm() -> String {
     "sha256".to_string()
 }
 
+/// Live manifest URL (tracks `@main`) so the catalog auto-refreshes with new DLL
+/// versions within hours of upstream. Under armed enforcement this stays safe:
+/// a tampered manifest fails the Ed25519 check (attacker has no private key), and
+/// a brief CDN propagation-skew window after an hourly regen (new manifest served
+/// with the not-yet-propagated old signature, or vice versa) self-heals — the
+/// fetch falls back to the last re-verified on-disk cache, then to the embedded
+/// signed fallback, and recovers on the next refresh. Never bricks.
 pub const DEFAULT_MANIFEST_URL: &str =
     "https://cdn.jsdelivr.net/gh/xt0n1-t3ch/dlssync-manifest@main/manifest.json";
+
+/// Commit the embedded `fallback/manifest.json` (+ `.sig`) was snapshotted from.
+/// Refreshed alongside the bundled fallback when a release re-bundles it.
+pub const FALLBACK_MANIFEST_COMMIT_SHA: &str = "afc77c0da20834b616375a66338e70e113d64686";
 
 pub const MANIFEST_ENV_VAR: &str = "DLSSYNC_MANIFEST_URL";
 
@@ -218,19 +246,19 @@ const MANIFEST_SIGNATURE_SUFFIX: &str = ".sig";
 /// Production Ed25519 public verification key (32 bytes, hex) for the DLSSync
 /// manifest. The matching private key is provisioned out-of-band and never lives
 /// in the repo; the manifest pipeline signs `manifest.json` into
-/// `manifest.json.sig` with it. Verification runs and logs in every build;
-/// fail-closed enforcement is staged off (see `ENFORCE_MANIFEST_SIGNATURE`)
-/// until the signed manifest is confirmed propagated across the CDN.
+/// `manifest.json.sig` with it. Release builds fail closed on a bad/missing
+/// signature (see `ENFORCE_MANIFEST_SIGNATURE`); debug builds verify-and-log only.
 pub const MANIFEST_PUBKEY_HEX: &str =
     "e9dd0828f9ee5ecb72e0a811723a79c6e5373ca1c20bd5b255d68a2b3928fcd3";
 
-/// Master enforcement flag for manifest signature verification. Staged rollout:
-/// the verification path always runs and logs, but fail-closed enforcement stays
-/// OFF until the signed `manifest.json.sig` is published and confirmed propagated
-/// across the CDN — flipping this to `true` before then would reject every
-/// manifest on a CDN-propagation lag. Flip to `true` in a later release once the
-/// signed manifest is live everywhere.
-pub const ENFORCE_MANIFEST_SIGNATURE: bool = false;
+/// Master enforcement flag for manifest signature verification. ARMED: release
+/// builds fail closed on a missing or invalid `manifest.json.sig`. This is safe
+/// because the manifest URL is pinned to an immutable commit SHA (jsdelivr serves
+/// a byte-identical manifest + signature with no propagation skew) and a signed
+/// fallback manifest is embedded for the offline / CDN-outage first run. Debug
+/// builds still skip enforcement (see `signature_enforced`) so local dev against
+/// an unsigned manifest is unaffected.
+pub const ENFORCE_MANIFEST_SIGNATURE: bool = true;
 
 /// Whether signature enforcement is active for this build. Enforcement is on in
 /// release builds when `ENFORCE_MANIFEST_SIGNATURE` is set; debug builds skip it
@@ -327,25 +355,22 @@ impl Catalog {
         client: &reqwest::Client,
         cache_path: &Path,
     ) -> Result<Self, CatalogError> {
-        match Self::fetch(client).await {
-            Ok(c) => {
-                if let Some(parent) = cache_path.parent() {
-                    let _ = std::fs::create_dir_all(parent);
-                }
-                let body = serde_json::to_vec_pretty(&c)?;
-                std::fs::write(cache_path, body)?;
-                Ok(c)
+        let url = manifest_url();
+        match fetch_raw_verified(client, &url).await {
+            Ok((catalog, raw, sig)) => {
+                write_catalog_cache(cache_path, &raw, sig.as_deref());
+                Ok(catalog)
             }
-            Err(e) => {
-                if cache_path.exists() {
-                    tracing::warn!(error = %e, "falling back to cached catalog");
-                    let body = std::fs::read(cache_path)?;
-                    let c: Catalog = serde_json::from_slice(&body)?;
+            Err(e) => match load_cached_catalog(cache_path) {
+                Some(c) => {
+                    tracing::warn!(error = %e, "manifest fetch failed; using re-verified on-disk cache");
                     Ok(c)
-                } else {
-                    Err(e)
                 }
-            }
+                None => {
+                    tracing::warn!(error = %e, "manifest fetch failed with no usable cache; using embedded fallback manifest");
+                    embedded_fallback_catalog()
+                }
+            },
         }
     }
 
@@ -426,8 +451,20 @@ async fn enforce_manifest_signature(
     url: &str,
     manifest_bytes: &[u8],
 ) -> Result<(), CatalogError> {
+    let fetched = fetch_signature(client, url).await;
+    enforce_signature_outcome(url, manifest_bytes, fetched)
+}
+
+/// Decide a manifest fetch given an already-fetched signature result. Split out
+/// of `enforce_manifest_signature` so the raw-caching path can keep the signature
+/// text (for the sidecar cache) without fetching it twice.
+fn enforce_signature_outcome(
+    url: &str,
+    manifest_bytes: &[u8],
+    fetched: Result<Option<String>, reqwest::Error>,
+) -> Result<(), CatalogError> {
     let enforced = signature_enforced();
-    let sig_text = match fetch_signature(client, url).await {
+    let sig_text = match fetched {
         Ok(Some(text)) => text,
         Ok(None) => {
             if enforced {
@@ -465,8 +502,134 @@ async fn enforce_manifest_signature(
     }
 }
 
-/// Fetch the detached signature text. `Ok(None)` means the signature resource is
-/// absent (HTTP 404/410); any other transport/HTTP failure is an error.
+/// Fetch the manifest + detached signature, enforce the signature, parse, and
+/// return the parsed catalog alongside the EXACT bytes the signature covers and
+/// the signature text — so the caller can persist a re-verifiable cache instead
+/// of a re-serialized copy (which the signature would no longer match). Retries
+/// with backoff like `fetch_from`.
+async fn fetch_raw_verified(
+    client: &reqwest::Client,
+    url: &str,
+) -> Result<(Catalog, Vec<u8>, Option<String>), CatalogError> {
+    let mut last_err = String::new();
+    for (idx, backoff) in MANIFEST_RETRY_BACKOFF_MS.iter().enumerate() {
+        match fetch_raw_once(client, url).await {
+            Ok(triple) => return Ok(triple),
+            Err(e) => {
+                last_err = e.to_string();
+                tracing::warn!(attempt = idx + 1, error = %last_err, "catalog raw fetch attempt failed");
+                if idx + 1 < MANIFEST_RETRY_BACKOFF_MS.len() {
+                    tokio::time::sleep(Duration::from_millis(*backoff)).await;
+                }
+            }
+        }
+    }
+    Err(CatalogError::Retries {
+        attempts: MANIFEST_RETRY_BACKOFF_MS.len() as u32,
+        last: last_err,
+    })
+}
+
+async fn fetch_raw_once(
+    client: &reqwest::Client,
+    url: &str,
+) -> Result<(Catalog, Vec<u8>, Option<String>), CatalogError> {
+    let bytes = client
+        .get(url)
+        .send()
+        .await?
+        .error_for_status()?
+        .bytes()
+        .await?;
+    let fetched = fetch_signature(client, url).await;
+    let sig_opt = match &fetched {
+        Ok(Some(s)) => Some(s.clone()),
+        _ => None,
+    };
+    enforce_signature_outcome(url, &bytes, fetched)?;
+    let c: Catalog = serde_json::from_slice(&bytes)?;
+    Ok((c, bytes.to_vec(), sig_opt))
+}
+
+/// The bundled, signed manifest used only when there is neither network NOR a
+/// usable on-disk cache (first run offline / CDN outage). Always verified against
+/// the baked-in pubkey, so a tampered bundled file can never poison the catalog.
+const FALLBACK_MANIFEST: &[u8] = include_bytes!("../fallback/manifest.json");
+const FALLBACK_SIGNATURE: &str = include_str!("../fallback/manifest.json.sig");
+
+pub fn embedded_fallback_catalog() -> Result<Catalog, CatalogError> {
+    verify_manifest_signature(FALLBACK_MANIFEST, FALLBACK_SIGNATURE)
+        .map_err(CatalogError::Signature)?;
+    Ok(serde_json::from_slice(FALLBACK_MANIFEST)?)
+}
+
+/// Sidecar path holding the detached signature next to the cached manifest, so
+/// the cache can be re-verified on load.
+fn cache_sig_path(cache_path: &Path) -> PathBuf {
+    let mut p = cache_path.as_os_str().to_owned();
+    p.push(".sig");
+    PathBuf::from(p)
+}
+
+/// Persist the RAW manifest bytes (atomic) plus the detached signature sidecar.
+/// Best-effort: cache write failures are logged, never fatal to a live fetch.
+fn write_catalog_cache(cache_path: &Path, raw: &[u8], sig: Option<&str>) {
+    let Some(parent) = cache_path.parent() else {
+        return;
+    };
+    let _ = std::fs::create_dir_all(parent);
+    match tempfile::NamedTempFile::new_in(parent) {
+        Ok(mut staged) => {
+            use std::io::Write as _;
+            if staged.write_all(raw).is_ok() && staged.as_file().sync_all().is_ok() {
+                if let Err(e) = staged.persist(cache_path) {
+                    tracing::warn!(error = %e.error, "failed to persist catalog cache");
+                }
+            }
+        }
+        Err(e) => tracing::warn!(error = %e, "failed to stage catalog cache"),
+    }
+    let sig_path = cache_sig_path(cache_path);
+    match sig {
+        Some(sig) => {
+            let _ = std::fs::write(sig_path, sig);
+        }
+        None => {
+            let _ = std::fs::remove_file(sig_path);
+        }
+    }
+}
+
+/// Load + parse the on-disk cache. When enforcement is on, the cached raw bytes
+/// are re-verified against the sidecar `.sig`; a missing or invalid signature
+/// rejects the cache (the caller then falls back to the embedded manifest). A
+/// legacy re-serialized cache from before sidecar caching has no `.sig`, so it is
+/// correctly rejected under enforcement and accepted only when enforcement is off.
+fn load_cached_catalog(cache_path: &Path) -> Option<Catalog> {
+    let raw = std::fs::read(cache_path).ok()?;
+    if signature_enforced() {
+        let sig = std::fs::read_to_string(cache_sig_path(cache_path)).ok()?;
+        verify_manifest_signature(&raw, &sig).ok()?;
+    }
+    serde_json::from_slice(&raw).ok()
+}
+
+/// A raw Ed25519 signature is 64 bytes = 128 hex chars.
+const MANIFEST_SIGNATURE_HEX_LEN: usize = 128;
+
+/// True when `text` (trimmed) is exactly a 128-char lowercase/uppercase hex
+/// string — the shape of a real detached Ed25519 signature.
+fn is_signature_hex(text: &str) -> bool {
+    let t = text.trim();
+    t.len() == MANIFEST_SIGNATURE_HEX_LEN && t.bytes().all(|b| b.is_ascii_hexdigit())
+}
+
+/// Fetch the detached signature text. `Ok(None)` means the signature is ABSENT —
+/// either HTTP 404/410, or a 200 whose body is not a 128-char hex string (a CDN
+/// error page, redirect-to-login HTML, or JSON error). Treating a non-hex 200 as
+/// absent (rather than as a corrupt signature) lets the caller fall through to
+/// `MissingSignature` and the fallback path instead of erroring on CDN noise. Any
+/// other transport/HTTP failure is a real error.
 async fn fetch_signature(
     client: &reqwest::Client,
     manifest_url: &str,
@@ -477,7 +640,11 @@ async fn fetch_signature(
         return Ok(None);
     }
     let text = resp.error_for_status()?.text().await?;
-    Ok(Some(text))
+    if is_signature_hex(&text) {
+        Ok(Some(text))
+    } else {
+        Ok(None)
+    }
 }
 
 pub async fn download_and_extract_dll(
@@ -510,6 +677,41 @@ pub async fn download_and_extract_dll_cached(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn embedded_fallback_verifies_against_production_pubkey_and_parses() {
+        // This is the brick-guard: it runs the real Ed25519 verification of the
+        // bundled manifest.json.sig against MANIFEST_PUBKEY_HEX over the bundled
+        // manifest.json bytes. If the embedded pair is ever stale/corrupt, this
+        // fails — so enforcement can never ship with an unverifiable fallback.
+        let catalog = embedded_fallback_catalog().expect("embedded fallback must verify + parse");
+        assert!(
+            !catalog.vendors.is_empty(),
+            "embedded fallback catalog has no vendors"
+        );
+    }
+
+    #[test]
+    fn embedded_signature_is_128_hex() {
+        assert!(is_signature_hex(FALLBACK_SIGNATURE));
+    }
+
+    #[test]
+    fn signature_hex_shape_guard() {
+        assert!(is_signature_hex(&"a".repeat(128)));
+        assert!(is_signature_hex(&format!("  {}\n", "0".repeat(128))));
+        assert!(!is_signature_hex(&"a".repeat(127)));
+        assert!(!is_signature_hex(&"g".repeat(128))); // non-hex
+        assert!(!is_signature_hex("<html>error</html>"));
+        assert!(!is_signature_hex(""));
+    }
+
+    #[test]
+    fn manifest_url_targets_the_signed_manifest_repo() {
+        assert!(DEFAULT_MANIFEST_URL.contains("dlssync-manifest"));
+        assert!(DEFAULT_MANIFEST_URL.starts_with("https://"));
+        assert_eq!(FALLBACK_MANIFEST_COMMIT_SHA.len(), 40);
+    }
 
     fn release_with(filename: &str, version: &str, packed: u64, sha: &str) -> Release {
         Release {
@@ -548,6 +750,7 @@ mod tests {
             vendors,
             incompatible_games: vec![],
             anticheat: None,
+            anti_cheat_binaries: vec![],
         }
     }
 
@@ -676,6 +879,40 @@ mod tests {
         );
         assert_eq!(normalize_name("Team Fortress 2"), "teamfortress2");
         assert_eq!(normalize_name("  ELDEN RING  "), "eldenring");
+    }
+
+    #[test]
+    fn catalog_without_anti_cheat_binaries_defaults_to_empty() {
+        let json = r#"{
+            "schema_version": 2,
+            "generated_at": "2026-01-01T00:00:00Z",
+            "vendors": {}
+        }"#;
+        let catalog: Catalog = serde_json::from_str(json).unwrap();
+        assert!(
+            catalog.anti_cheat_binaries.is_empty(),
+            "absent field must default to empty so the static baseline alone applies"
+        );
+    }
+
+    #[test]
+    fn catalog_parses_manifest_anti_cheat_binaries() {
+        let json = r#"{
+            "schema_version": 2,
+            "generated_at": "2026-01-01T00:00:00Z",
+            "vendors": {},
+            "anti_cheat_binaries": [
+                { "needle": "newguard", "name": "New Guard AC" }
+            ]
+        }"#;
+        let catalog: Catalog = serde_json::from_str(json).unwrap();
+        assert_eq!(
+            catalog.anti_cheat_binaries,
+            vec![AntiCheatBinary {
+                needle: "newguard".into(),
+                name: "New Guard AC".into(),
+            }]
+        );
     }
 
     #[test]

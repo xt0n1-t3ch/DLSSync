@@ -11,6 +11,7 @@
     isOpenPageOnly,
     driverPageUrl,
     vendorHelpUrl,
+    dlssPresetHint,
   } from "../lib/drivers";
   import {
     driverReports,
@@ -38,6 +39,7 @@
   import { BRANDS } from "../lib/brands";
 
   let expandedModel = $state<string | null>(null);
+  let systemDetailsOpen = $state(false);
   let historyTarget = $state<{ vendor: GpuVendor; model: string; accent: string } | null>(null);
 
   const VENDOR_ACCENT: Record<GpuVendor, string> = {
@@ -53,6 +55,17 @@
     $driverReports.find((r) => r.device.vendor === "nvidia")?.installed.packed ?? 0,
   );
   let hasNvidia = $derived($driverReports.some((r) => r.device.vendor === "nvidia"));
+  let nvidiaModel = $derived(
+    $driverReports.find((r) => r.device.vendor === "nvidia")?.device.model ?? null,
+  );
+  let presetHint = $derived(nvidiaModel ? dlssPresetHint(nvidiaModel) : null);
+  let driverUpdateTotal = $derived(reports.filter((r) => r.status === "update_available").length);
+
+  function healthDotState(status: DriverStatusReport["status"]): string {
+    if (status === "up_to_date") return "current";
+    if (status === "update_available") return "outdated";
+    return "beta";
+  }
   let nonNvidia = $derived(
     $driverReports
       .map((r) => r.device.vendor)
@@ -182,6 +195,30 @@
       </button>
     </div>
   </header>
+
+  {#if reports.length > 0}
+    <div class="health-strip" role="status" aria-label={$t("view.drivers.health.aria")}>
+      <span class="health-chip" data-tone={driverUpdateTotal > 0 ? "warning" : "success"}>
+        <span class="state-dot" data-state={driverUpdateTotal > 0 ? "outdated" : "current"} aria-hidden="true"></span>
+        {driverUpdateTotal > 0
+          ? $t("view.drivers.health.gpuUpdates", { count: driverUpdateTotal })
+          : $t("view.drivers.health.gpusCurrent")}
+      </span>
+      {#each reports as report (report.device.model)}
+        <span class="health-chip is-device" data-vendor={report.device.vendor} title={report.device.model}>
+          <span class="state-dot" data-state={healthDotState(report.status)} aria-hidden="true"></span>
+          {#if report.device.vendor !== "other"}<BrandMark key={report.device.vendor} tone="mono" size={11} />{/if}
+          <span class="health-model">{report.device.model}</span>
+        </span>
+      {/each}
+      {#if systemUpdateCount > 0}
+        <span class="health-chip" data-tone="warning">
+          <span class="state-dot" data-state="outdated" aria-hidden="true"></span>
+          {$t("view.drivers.health.systemUpdates", { count: systemUpdateCount })}
+        </span>
+      {/if}
+    </div>
+  {/if}
 
   {#if $driverCheckError}
     <p class="error-banner">{$driverCheckError}</p>
@@ -323,23 +360,52 @@
         {$systemScanInProgress ? $t("view.drivers.scanning") : $t("view.drivers.rescan")}
       </button>
     </div>
-    <p class="feature-sub">
-      {$t("view.drivers.systemSub")}
-    </p>
-    <p class="beta-note">
-      {$t("view.drivers.betaNote")}
-    </p>
-    <p class="admin-note">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-      <span>{$t("note.adminElevation")}</span>
-    </p>
+    <div class="disclosure">
+      <p class="feature-sub disclosure-summary">{$t("view.drivers.systemSummary")}</p>
+      <button
+        class="disclosure-toggle"
+        onclick={() => (systemDetailsOpen = !systemDetailsOpen)}
+        aria-expanded={systemDetailsOpen}
+        aria-controls="system-details"
+      >
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="chev" class:open={systemDetailsOpen} aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+        {systemDetailsOpen ? $t("view.drivers.showLess") : $t("view.drivers.learnMore")}
+      </button>
+      {#if systemDetailsOpen}
+        <div id="system-details" class="disclosure-detail" transition:slide={{ duration: 160 }}>
+          <p class="feature-sub">{$t("view.drivers.systemSub")}</p>
+          <p class="beta-note">{$t("view.drivers.betaNote")}</p>
+          <p class="admin-note">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <span>{$t("note.adminElevation")}</span>
+          </p>
+        </div>
+      {/if}
+    </div>
 
     {#if $systemScanError}
       <p class="error-banner edge-accent is-danger">{$systemScanError}</p>
     {/if}
 
     {#if $systemScanInProgress && systemUpdateCount === 0}
-      <p class="empty">{$t("view.drivers.scanningWindowsUpdate")}</p>
+      <div class="sys-scanning" role="status" aria-live="polite">
+        <p class="sys-scanning-label">
+          <span class="spin" aria-hidden="true"></span>
+          {$t("view.drivers.scanningWindowsUpdate")}
+        </p>
+        <ul class="sys-skeletons" aria-hidden="true">
+          {#each [0, 1, 2] as i (i)}
+            <li class="sys-skeleton-card">
+              <span class="skeleton skel-icon"></span>
+              <span class="skel-lines">
+                <span class="skeleton skel-line skel-line-wide"></span>
+                <span class="skeleton skel-line skel-line-narrow"></span>
+              </span>
+              <span class="skeleton skel-btn"></span>
+            </li>
+          {/each}
+        </ul>
+      </div>
     {:else if $systemScanRan && systemUpdateCount === 0 && !$systemScanError}
       <p class="empty">{$t("view.drivers.allComponentsUpToDate")}</p>
     {/if}
@@ -459,6 +525,12 @@
       <p class="feature-sub">
         {$t("view.drivers.dlssOverridesSub")}
       </p>
+      {#if presetHint && nvidiaModel}
+        <p class="preset-hint" data-testid="preset-hint">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <span>{$t("view.drivers.presetHint." + presetHint, { model: nvidiaModel })}</span>
+        </p>
+      {/if}
       <DlssOverridePanel scope={{ scope: "global" }} driverPacked={nvidiaPacked} />
     </section>
   {/if}
@@ -511,6 +583,41 @@
     font-variant-numeric: tabular-nums;
   }
   .empty { color: var(--text-muted); font-size: 14px; padding: 24px 0; }
+  .health-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .health-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 12px;
+    border-radius: var(--radius-full);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+  }
+  .health-chip[data-tone="success"] { color: var(--success); background: var(--success-dim); border-color: transparent; }
+  .health-chip[data-tone="warning"] { color: var(--warning); background: var(--warning-dim); border-color: transparent; }
+  .health-chip.is-device[data-vendor="nvidia"] { color: var(--vendor-nvidia-ink); }
+  .health-chip.is-device[data-vendor="amd"] { color: var(--vendor-amd-ink); }
+  .health-chip.is-device[data-vendor="intel"] { color: var(--vendor-intel-ink); }
+  .health-model { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .preset-hint {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 0;
+    padding: 9px 12px;
+    border-radius: var(--radius-md);
+    background: var(--vendor-nvidia-dim);
+    border: 1px solid color-mix(in oklab, var(--vendor-nvidia) 30%, transparent);
+    color: var(--vendor-nvidia-ink);
+    font-size: 12px;
+    line-height: 1.5;
+    max-width: 70ch;
+  }
+  .preset-hint svg { flex-shrink: 0; margin-top: 2px; }
   .driver-list { display: flex; flex-direction: column; gap: 10px; list-style: none; padding: 0; margin: 0; }
   .driver-card {
     padding: 14px 16px;
@@ -662,7 +769,7 @@
     color: var(--warning);
     line-height: 1.5;
     max-width: 70ch;
-    margin: 6px 0 0;
+    margin: 0;
   }
   .install-live { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; min-width: 180px; }
   .install-stage { font-size: 11px; font-weight: 600; text-transform: capitalize; color: var(--accent-progress); }
@@ -789,11 +896,58 @@
   .sys-side { flex-shrink: 0; display: inline-flex; align-items: center; gap: 8px; }
   .driver-icon.is-on { background: var(--accent-dim); color: var(--accent); border-color: var(--accent-ring); }
 
+  .disclosure { display: flex; flex-direction: column; gap: 6px; }
+  .disclosure-summary { margin: 0; }
+  .disclosure-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    align-self: flex-start;
+    padding: 4px 2px;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .disclosure-toggle:hover { color: var(--text-primary); }
+  .disclosure-toggle .chev { transition: transform var(--dur-fast) var(--ease); }
+  .disclosure-toggle .chev.open { transform: rotate(180deg); }
+  .disclosure-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .disclosure-detail { display: flex; flex-direction: column; gap: 10px; }
+
+  .sys-scanning { display: flex; flex-direction: column; gap: 12px; padding: 8px 0 4px; }
+  .sys-scanning-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+  .sys-skeletons { display: flex; flex-direction: column; gap: 8px; list-style: none; padding: 0; margin: 0; }
+  .sys-skeleton-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--bg-elevated);
+  }
+  .skel-icon { width: 28px; height: 28px; border-radius: var(--radius-md); flex-shrink: 0; }
+  .skel-lines { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
+  .skel-line { height: 11px; border-radius: var(--radius-full); }
+  .skel-line-wide { width: 60%; }
+  .skel-line-narrow { width: 34%; }
+  .skel-btn { width: 84px; height: 28px; border-radius: var(--radius-md); flex-shrink: 0; }
+
   .admin-note {
     display: flex;
     align-items: flex-start;
     gap: 8px;
-    margin: 4px 0 12px;
+    margin: 0;
     padding: 9px 12px;
     border-radius: var(--radius-md);
     background: var(--bg-card);

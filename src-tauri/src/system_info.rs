@@ -55,6 +55,33 @@ pub struct GpuInfo {
     pub driver_version: String,
     pub vram_bytes: u64,
     pub recommended_runtimes: Vec<String>,
+    /// NVIDIA driver model: DCH (Universal, the only model NVIDIA ships for RTX
+    /// 20/30/40/50) vs the legacy Standard package. Drives the correct download
+    /// URL flavour. Defaults to `true` (DCH) and only flips to `false` when
+    /// `pnputil` resolves a known Standard INF, so a detection miss never sends a
+    /// modern card to the wrong (Standard) installer.
+    pub is_dch: bool,
+    /// `false` when DXGI reported a zero `DeviceId`, so the adapter cannot be
+    /// keyed to a `Win32_VideoController` row by PCI hardware-id. Driver-version
+    /// enrichment is then skipped rather than guessed by a fuzzy name match that
+    /// can land on the wrong row on a hybrid (iGPU + dGPU) laptop.
+    pub identifiable: bool,
+    /// RDNA4 (Radeon RX 9000) — the only generation AMD ships the FSR 4
+    /// upscaler model for today. Gates 4.x FSR set offers and applies.
+    pub fsr4_capable: bool,
+}
+
+/// Navi 4x parts allocate PCI device ids in 0x7550-0x75FF (Navi 48 = 0x7550
+/// RX 9070/9070 XT, Navi 44 = 0x7590 RX 9060 line); the model-name check
+/// covers adapters whose DXGI device id is missing or zero.
+pub fn supports_fsr4(vendor: GpuVendor, device_id: u16, model: &str) -> bool {
+    if !matches!(vendor, GpuVendor::Amd) {
+        return false;
+    }
+    if matches!(device_id, 0x7550..=0x75FF) {
+        return true;
+    }
+    model.to_ascii_lowercase().contains("radeon rx 9")
 }
 
 /// Windows PCI hardware-id fragment as it appears in a `PNPDeviceID` or an Intel
@@ -240,14 +267,19 @@ fn collect_gpus_dxgi() -> Vec<GpuInfo> {
                 .trim()
                 .to_string();
             let vendor = vendor_from_id(desc.VendorId);
+            let device_id = desc.DeviceId as u16;
+            let fsr4_capable = supports_fsr4(vendor, device_id, &model);
             out.push(GpuInfo {
                 vendor,
                 pci_vendor_id: desc.VendorId as u16,
-                pci_device_id: desc.DeviceId as u16,
+                pci_device_id: device_id,
                 model,
                 driver_version: "Unknown".into(),
                 vram_bytes: desc.DedicatedVideoMemory as u64,
                 recommended_runtimes: recommended_for(vendor),
+                is_dch: true,
+                identifiable: device_id != 0,
+                fsr4_capable,
             });
             index += 1;
         }
@@ -269,17 +301,37 @@ fn vendor_from_id(vendor_id: u32) -> GpuVendor {
     }
 }
 
+const RUNTIME_DLSS_SR: &str = "DLSS Super Resolution";
+const RUNTIME_DLSS_FG: &str = "DLSS Frame Generation";
+const RUNTIME_DLSS_RR: &str = "DLSS Ray Reconstruction";
+const RUNTIME_NVIDIA_REFLEX: &str = "NVIDIA Reflex";
+const RUNTIME_NVIDIA_STREAMLINE: &str = "NVIDIA Streamline";
+const RUNTIME_FSR_UPSCALING: &str = "FSR Upscaling";
+const RUNTIME_FSR_FG: &str = "FSR Frame Generation";
+const RUNTIME_INTEL_XESS: &str = "Intel XeSS";
+const RUNTIME_XESS_FG: &str = "XeSS Frame Generation";
+const RUNTIME_DIRECTSTORAGE: &str = "DirectStorage";
+
 pub fn recommended_for(vendor: GpuVendor) -> Vec<String> {
     match vendor {
         GpuVendor::Nvidia => vec![
-            "DLSS Super Resolution".into(),
-            "DLSS Frame Generation".into(),
-            "DLSS Ray Reconstruction".into(),
-            "NVIDIA Reflex".into(),
+            RUNTIME_DLSS_SR.into(),
+            RUNTIME_DLSS_FG.into(),
+            RUNTIME_DLSS_RR.into(),
+            RUNTIME_NVIDIA_REFLEX.into(),
         ],
-        GpuVendor::Amd => vec!["FSR Upscaling".into(), "FSR Frame Generation".into()],
-        GpuVendor::Intel => vec!["Intel XeSS".into(), "XeSS Frame Generation".into()],
-        GpuVendor::Other => vec!["Intel XeSS".into()],
+        GpuVendor::Amd => vec![RUNTIME_FSR_UPSCALING.into(), RUNTIME_FSR_FG.into()],
+        GpuVendor::Intel => vec![RUNTIME_INTEL_XESS.into(), RUNTIME_XESS_FG.into()],
+        // An unrecognised GPU still runs the vendor-neutral families: XeSS (works
+        // on any DX12 GPU), DirectStorage, and the cross-vendor NVIDIA Reflex /
+        // Streamline runtimes — so unsupported-GPU users get usable suggestions
+        // instead of XeSS alone.
+        GpuVendor::Other => vec![
+            RUNTIME_INTEL_XESS.into(),
+            RUNTIME_DIRECTSTORAGE.into(),
+            RUNTIME_NVIDIA_REFLEX.into(),
+            RUNTIME_NVIDIA_STREAMLINE.into(),
+        ],
     }
 }
 
@@ -288,37 +340,131 @@ type WmiRow = std::collections::HashMap<String, wmi::Variant>;
 
 #[cfg(windows)]
 fn enrich_drivers(gpus: &mut [GpuInfo]) {
-    let rows = match wmi_query("SELECT Name, DriverVersion, PNPDeviceID FROM Win32_VideoController")
-    {
+    let rows = match wmi_query(
+        "SELECT Name, DriverVersion, PNPDeviceID, InfFilename FROM Win32_VideoController",
+    ) {
         Ok(r) => r,
         Err(_) => return,
     };
+    let store = enum_driver_packages();
     for gpu in gpus.iter_mut() {
-        if let Some(version) = row_for_gpu(gpu, &rows)
-            .and_then(|row| row.get("DriverVersion").and_then(variant_as_string))
-        {
+        // B10: an unidentifiable adapter (DXGI gave DeviceId 0) cannot be keyed by
+        // PCI hardware-id; never enrich it from a fuzzy name guess that can match
+        // the wrong row on a hybrid iGPU + dGPU laptop.
+        if !gpu.identifiable {
+            continue;
+        }
+        let Some(row) = row_for_gpu(gpu, &rows) else {
+            continue;
+        };
+        if let Some(version) = row.get("DriverVersion").and_then(variant_as_string) {
             gpu.driver_version = version;
         }
+        if gpu.vendor == GpuVendor::Nvidia {
+            let inf = row.get("InfFilename").and_then(variant_as_string);
+            gpu.is_dch = nvidia_is_dch(inf.as_deref(), &store);
+        }
     }
+}
+
+/// Enumerate the local DriverStore via `pnputil /enum-drivers` (works
+/// unelevated, reusing `system_drivers::parse_enum_drivers`). Used to resolve a
+/// `Win32_VideoController.InfFilename` `oemNN.inf` back to its original vendor
+/// INF name. Returns an empty list when `pnputil` is unavailable, in which case
+/// DCH classification falls back to its default.
+#[cfg(windows)]
+fn enum_driver_packages() -> Vec<system_drivers::DriverStorePackage> {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    match std::process::Command::new("pnputil.exe")
+        .args(["/enum-drivers"])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+    {
+        Ok(out) => system_drivers::parse_enum_drivers(&String::from_utf8_lossy(&out.stdout)),
+        Err(_) => Vec::new(),
+    }
+}
+
+/// Resolve the original (vendor) INF name for a `Win32_VideoController`
+/// `InfFilename`. When the value is already an original name it is returned as-is;
+/// when it is a store `oemNN.inf` the matching DriverStore package's
+/// `original_name` is returned. `None` when it cannot be resolved.
+#[cfg(windows)]
+fn resolve_original_inf(inf: &str, store: &[system_drivers::DriverStorePackage]) -> Option<String> {
+    if !system_drivers::is_published_oem_inf(inf) {
+        return Some(inf.to_ascii_lowercase());
+    }
+    store
+        .iter()
+        .find(|p| p.published_name.eq_ignore_ascii_case(inf))
+        .map(|p| p.original_name.to_ascii_lowercase())
+        .filter(|s| !s.is_empty())
+}
+
+/// Classify an NVIDIA GPU's driver model from its (resolved) original INF name.
+/// DCH (Universal) packages publish `nv_dispi.inf` / `nvmd*.inf`; the legacy
+/// Standard packages publish `nv_disp.inf` / `nvlt*.inf` / `nvaci.inf`. Defaults
+/// to DCH (`true`) — the only model NVIDIA ships for RTX 20/30/40/50 — and only
+/// returns `false` when a known Standard INF resolves, so a detection miss never
+/// downgrades a modern card to the Standard installer.
+fn nvidia_is_dch(inf: Option<&str>, store: &[StorePackage]) -> bool {
+    let Some(raw) = inf.map(str::trim).filter(|s| !s.is_empty()) else {
+        return true;
+    };
+    let original = resolve_inf_for_classify(raw, store).unwrap_or_else(|| raw.to_ascii_lowercase());
+    classify_nvidia_inf(&original)
+}
+
+/// Pure name → DCH classifier. Standard INFs win the comparison so an ambiguous
+/// name defaults to DCH.
+fn classify_nvidia_inf(original: &str) -> bool {
+    const STANDARD_PREFIXES: [&str; 3] = ["nvlt", "nv_disp", "nvaci"];
+    const DCH_PREFIXES: [&str; 2] = ["nv_dispi", "nvmd"];
+    let name = original.trim().to_ascii_lowercase();
+    // `nv_dispi` (DCH) starts with `nv_disp` (Standard), so test the longer/more
+    // specific DCH prefixes first and only then the Standard ones.
+    if DCH_PREFIXES.iter().any(|p| name.starts_with(p)) {
+        return true;
+    }
+    if STANDARD_PREFIXES.iter().any(|p| name.starts_with(p)) {
+        return false;
+    }
+    true
+}
+
+#[cfg(windows)]
+type StorePackage = system_drivers::DriverStorePackage;
+
+#[cfg(windows)]
+fn resolve_inf_for_classify(inf: &str, store: &[StorePackage]) -> Option<String> {
+    resolve_original_inf(inf, store)
+}
+
+#[cfg(not(windows))]
+type StorePackage = ();
+
+#[cfg(not(windows))]
+fn resolve_inf_for_classify(_inf: &str, _store: &[StorePackage]) -> Option<String> {
+    None
 }
 
 /// Pick the `Win32_VideoController` row for this adapter. Prefers an exact PCI
 /// hardware-id match against `PNPDeviceID` — the only correct key when two GPUs
 /// of the same vendor (or an iGPU + dGPU) are present — and falls back to fuzzy
-/// model-name containment only when no row carries a matching id.
+/// model-name containment only when no row carries a matching id. The caller has
+/// already guaranteed `pci_device_id != 0` (see [`enrich_drivers`]).
 #[cfg(windows)]
 fn row_for_gpu<'a>(gpu: &GpuInfo, rows: &'a [WmiRow]) -> Option<&'a WmiRow> {
-    if gpu.pci_device_id != 0 {
-        let want = hardware_id(gpu.pci_vendor_id, gpu.pci_device_id);
-        let by_id = rows.iter().find(|row| {
-            row.get("PNPDeviceID")
-                .and_then(variant_as_string)
-                .map(|pnp| pnp.to_ascii_uppercase().contains(&want))
-                .unwrap_or(false)
-        });
-        if by_id.is_some() {
-            return by_id;
-        }
+    let want = hardware_id(gpu.pci_vendor_id, gpu.pci_device_id);
+    let by_id = rows.iter().find(|row| {
+        row.get("PNPDeviceID")
+            .and_then(variant_as_string)
+            .map(|pnp| pnp.to_ascii_uppercase().contains(&want))
+            .unwrap_or(false)
+    });
+    if by_id.is_some() {
+        return by_id;
     }
     let needle = gpu.model.to_ascii_lowercase();
     rows.iter().find(|row| {
@@ -397,7 +543,36 @@ mod tests {
             driver_version: "Unknown".into(),
             vram_bytes: 0,
             recommended_runtimes: vec![],
+            is_dch: true,
+            identifiable: did != 0,
+            fsr4_capable: supports_fsr4(vendor, did, model),
         }
+    }
+
+    #[test]
+    fn fsr4_capability_is_rdna4_only() {
+        assert!(supports_fsr4(
+            GpuVendor::Amd,
+            0x7550,
+            "AMD Radeon RX 9070 XT"
+        ));
+        assert!(supports_fsr4(GpuVendor::Amd, 0x7590, "AMD Radeon RX 9060"));
+        assert!(supports_fsr4(GpuVendor::Amd, 0, "AMD Radeon RX 9070"));
+        assert!(!supports_fsr4(
+            GpuVendor::Amd,
+            0x744C,
+            "AMD Radeon RX 7900 XTX"
+        ));
+        assert!(!supports_fsr4(
+            GpuVendor::Amd,
+            0x73BF,
+            "AMD Radeon RX 6800 XT"
+        ));
+        assert!(!supports_fsr4(
+            GpuVendor::Nvidia,
+            0x7550,
+            "NVIDIA GeForce RTX 4070 Ti SUPER"
+        ));
     }
 
     #[test]
@@ -465,8 +640,67 @@ mod tests {
     }
 
     #[test]
-    fn recommended_for_other_falls_back_to_universal_xess() {
+    fn recommended_for_other_includes_vendor_neutral_families() {
         let recs = recommended_for(GpuVendor::Other);
-        assert_eq!(recs, vec!["Intel XeSS".to_string()]);
+        assert!(recs.iter().any(|r| r == "Intel XeSS"));
+        assert!(recs.iter().any(|r| r == "DirectStorage"));
+        assert!(recs.iter().any(|r| r == "NVIDIA Reflex"));
+        assert!(recs.iter().any(|r| r == "NVIDIA Streamline"));
+        // An unsupported GPU must not be told it can run vendor-exclusive upscalers.
+        assert!(!recs.iter().any(|r| r.contains("DLSS")));
+        assert!(!recs.iter().any(|r| r.contains("FSR")));
+    }
+
+    #[test]
+    fn classify_nvidia_inf_recognizes_dch_packages() {
+        assert!(classify_nvidia_inf("nv_dispi.inf"));
+        assert!(classify_nvidia_inf("nvmdi.inf"));
+        assert!(classify_nvidia_inf("NVMDIG.INF"));
+    }
+
+    #[test]
+    fn classify_nvidia_inf_recognizes_standard_packages() {
+        assert!(!classify_nvidia_inf("nvlt.inf"));
+        assert!(!classify_nvidia_inf("nvltwa.inf"));
+        assert!(!classify_nvidia_inf("nv_disp.inf"));
+        assert!(!classify_nvidia_inf("nvaci.inf"));
+    }
+
+    #[test]
+    fn classify_nvidia_inf_prefers_dch_for_the_nv_dispi_vs_nv_disp_overlap() {
+        // `nv_dispi` (DCH) has `nv_disp` (Standard) as a prefix — the more specific
+        // DCH match must win so a DCH card is never misread as Standard.
+        assert!(classify_nvidia_inf("nv_dispi.inf"));
+        assert!(!classify_nvidia_inf("nv_disp.inf"));
+    }
+
+    #[test]
+    fn classify_nvidia_inf_defaults_to_dch_for_unknown_names() {
+        assert!(classify_nvidia_inf("oem42.inf"));
+        assert!(classify_nvidia_inf(""));
+        assert!(classify_nvidia_inf("something_else.inf"));
+    }
+
+    #[test]
+    fn nvidia_is_dch_defaults_to_true_when_inf_is_absent() {
+        let store: Vec<StorePackage> = Vec::new();
+        assert!(nvidia_is_dch(None, &store));
+        assert!(nvidia_is_dch(Some(""), &store));
+        assert!(nvidia_is_dch(Some("   "), &store));
+    }
+
+    #[test]
+    fn nvidia_is_dch_flips_to_false_for_a_standard_inf() {
+        let store: Vec<StorePackage> = Vec::new();
+        assert!(!nvidia_is_dch(Some("nvlt.inf"), &store));
+        assert!(nvidia_is_dch(Some("nv_dispi.inf"), &store));
+    }
+
+    #[test]
+    fn unidentifiable_gpu_has_identifiable_false() {
+        let g = gpu(GpuVendor::Nvidia, 0x10DE, 0, "NVIDIA GeForce RTX 4090");
+        assert!(!g.identifiable);
+        let ok = gpu(GpuVendor::Nvidia, 0x10DE, 0x2684, "NVIDIA GeForce RTX 4090");
+        assert!(ok.identifiable);
     }
 }

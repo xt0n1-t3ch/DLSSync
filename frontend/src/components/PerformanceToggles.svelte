@@ -1,76 +1,46 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { t } from "../lib/i18n/index";
-  import { setEfficiencyMode } from "../lib/api";
+  import {
+    EFFICIENCY_PREF_EVENT,
+    EFFICIENCY_PREF_KEY,
+    readEfficiencyPreference,
+    writeEfficiencyPreference,
+    type EfficiencyPreferenceEvent,
+  } from "../lib/efficiencyMode";
   import Sparkles from "@lucide/svelte/icons/sparkles";
 
-  const PREF_KEYS = {
-    efficiencyOnMinimize: "dlssync-pref-efficiency-on-minimize",
-  } as const;
+  let efficiencyEnabled = $state(true);
 
-  let efficiencyOnMinimize = $state(true);
-  let efficiencyApplied = $state(false);
-
-  onMount(async () => {
+  onMount(() => {
     try {
-      efficiencyOnMinimize = localStorage.getItem(PREF_KEYS.efficiencyOnMinimize) !== "false";
+      efficiencyEnabled = readEfficiencyPreference();
     } catch {}
-    if (efficiencyOnMinimize) {
-      await wireEfficiencyHooks();
-    }
+
+    const onPreference = (event: Event): void => {
+      const enabled = (event as EfficiencyPreferenceEvent).detail?.enabled;
+      if (typeof enabled === "boolean") {
+        efficiencyEnabled = enabled;
+      }
+    };
+    const onStorage = (event: StorageEvent): void => {
+      if (event.key === EFFICIENCY_PREF_KEY) {
+        efficiencyEnabled = event.newValue !== "false";
+      }
+    };
+
+    window.addEventListener(EFFICIENCY_PREF_EVENT, onPreference);
+    window.addEventListener("storage", onStorage);
+
+    return () => {
+      window.removeEventListener(EFFICIENCY_PREF_EVENT, onPreference);
+      window.removeEventListener("storage", onStorage);
+    };
   });
 
-  let cleanupHooks: Array<() => void> = [];
-
-  async function wireEfficiencyHooks(): Promise<void> {
-    await teardownEfficiencyHooks();
-    try {
-      const { getCurrentWindow } = await import("@tauri-apps/api/window");
-      const win = getCurrentWindow();
-      const unlistenFocus = await win.onFocusChanged(async (e) => {
-        if (e.payload) {
-          await applyEfficiency(false);
-        }
-      });
-      cleanupHooks.push(() => unlistenFocus());
-
-      const onVis = (): void => {
-        void applyEfficiency(document.visibilityState === "hidden");
-      };
-      document.addEventListener("visibilitychange", onVis);
-      cleanupHooks.push(() => document.removeEventListener("visibilitychange", onVis));
-    } catch (err: unknown) {
-      console.warn("efficiency hooks unavailable", err);
-    }
-  }
-
-  async function teardownEfficiencyHooks(): Promise<void> {
-    for (const fn of cleanupHooks) {
-      try { fn(); } catch {}
-    }
-    cleanupHooks = [];
-    if (efficiencyApplied) {
-      try { await setEfficiencyMode(false); } catch {}
-      efficiencyApplied = false;
-    }
-  }
-
-  async function applyEfficiency(enable: boolean): Promise<void> {
-    if (efficiencyApplied === enable) return;
-    try {
-      await setEfficiencyMode(enable);
-      efficiencyApplied = enable;
-    } catch {}
-  }
-
-  async function toggleEfficiency(next: boolean): Promise<void> {
-    efficiencyOnMinimize = next;
-    try { localStorage.setItem(PREF_KEYS.efficiencyOnMinimize, String(next)); } catch {}
-    if (next) {
-      await wireEfficiencyHooks();
-    } else {
-      await teardownEfficiencyHooks();
-    }
+  function toggleEfficiency(next: boolean): void {
+    efficiencyEnabled = next;
+    try { writeEfficiencyPreference(next); } catch {}
   }
 
 </script>
@@ -88,7 +58,7 @@
       <span class="perf-sub">{$t("component.perf.efficiency.sub")}</span>
     </div>
     <label class="toggle">
-      <input type="checkbox" checked={efficiencyOnMinimize} onchange={(e) => toggleEfficiency((e.target as HTMLInputElement).checked)} />
+      <input type="checkbox" checked={efficiencyEnabled} onchange={(e) => toggleEfficiency((e.target as HTMLInputElement).checked)} />
       <span class="toggle-slider"></span>
     </label>
   </div>

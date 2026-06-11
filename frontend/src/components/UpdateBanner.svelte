@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
+  import { invoke } from "@tauri-apps/api/core";
   import { get } from "svelte/store";
   import { fly, slide } from "svelte/transition";
   import { showToast, updateBannerActive } from "../lib/stores";
@@ -53,7 +54,6 @@
 
   async function loadRuntimeMode(): Promise<void> {
     try {
-      const { invoke } = await import("@tauri-apps/api/core");
       runtime = await invoke<RuntimeMode>("runtime_mode");
     } catch {
       runtime = null;

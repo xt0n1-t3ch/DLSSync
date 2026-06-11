@@ -18,6 +18,10 @@ pub enum DriverInstallError {
     Stalled { seconds: u64 },
     #[error("truncated: received {got} bytes of {expected}")]
     Truncated { got: u64, expected: u64 },
+    #[error("oversized: stream exceeded the {cap}-byte cap")]
+    Oversized { cap: u64 },
+    #[error("deadline: download still running after {seconds} s")]
+    Deadline { seconds: u64 },
     #[error("cancelled by user")]
     Cancelled,
     #[error("after {attempts} attempts: {last}")]

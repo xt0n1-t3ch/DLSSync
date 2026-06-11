@@ -27,6 +27,9 @@
 
   let selected = $derived(options.find((o) => o.id === selectedId) ?? options[0]);
   let activeLabel = $derived(selected?.label ?? "");
+  let activeDescendant = $derived(
+    options[activeIndex] ? `filter-opt-${options[activeIndex].id}` : undefined,
+  );
 
   function openMenu(): void {
     open = true;
@@ -118,6 +121,7 @@
       class="filter-menu-popover surface"
       role="listbox"
       aria-label={label}
+      aria-activedescendant={activeDescendant}
       tabindex="-1"
       bind:this={panelEl}
       onkeydown={onPanelKey}
@@ -126,6 +130,7 @@
       {#each options as opt, i (opt.id)}
         <button
           class="filter-menu-option"
+          id="filter-opt-{opt.id}"
           class:active={i === activeIndex}
           class:chosen={opt.id === selectedId}
           class:tone-danger={opt.tone === "danger"}
