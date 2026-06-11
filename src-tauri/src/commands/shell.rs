@@ -1,17 +1,33 @@
 use crate::error::{AppError, AppResult};
 use std::path::PathBuf;
 
+/// Windows file names cannot contain `"` or control characters. Rejecting them
+/// keeps a webview-supplied path from breaking out of the `/select,"<path>"`
+/// argument or smuggling shell metacharacters into Explorer.
+fn reject_unsafe_path(path: &str) -> AppResult<()> {
+    if path.contains('"') || path.chars().any(|c| c.is_control()) {
+        return Err(AppError::Validation(format!(
+            "refusing to open path with illegal characters: {path:?}"
+        )));
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn open_path(path: String) -> AppResult<()> {
+    reject_unsafe_path(&path)?;
     let p = PathBuf::from(&path);
-    if !p.exists() {
-        return Err(AppError::Other(format!("path does not exist: {path}")));
+    if !p.is_dir() {
+        return Err(AppError::Validation(format!(
+            "open_path only opens directories: {path}"
+        )));
     }
     spawn_explorer(&[p.as_os_str()])
 }
 
 #[tauri::command]
 pub async fn reveal_path(path: String) -> AppResult<()> {
+    reject_unsafe_path(&path)?;
     let p = PathBuf::from(&path);
     #[cfg(target_os = "windows")]
     {

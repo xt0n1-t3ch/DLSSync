@@ -16,6 +16,7 @@
   import { t, translate, locale } from "../lib/i18n/index";
   import { get } from "svelte/store";
   import BrandMark from "./BrandMark.svelte";
+  import { focusTrap } from "../actions/focusTrap";
 
   let { open, onClose }: { open: boolean; onClose: () => void } = $props();
   let panelEl: HTMLDivElement | undefined = $state();
@@ -162,7 +163,7 @@
 </script>
 
 {#if open}
-  <div class="bell-panel glass-dialog" role="dialog" aria-label={$t("component.notif.title")} bind:this={panelEl}>
+  <div class="bell-panel glass-dialog" role="dialog" aria-modal="true" aria-label={$t("component.notif.title")} bind:this={panelEl} use:focusTrap>
     <header class="bell-panel-header">
       <span class="bell-panel-title">{$t("component.notif.title")}</span>
       <span class="bell-panel-count" aria-label={$t("component.notif.entriesCount", { count: entries.length })}>{entries.length}</span>

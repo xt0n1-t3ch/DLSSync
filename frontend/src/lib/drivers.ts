@@ -74,6 +74,21 @@ export function vendorHelpUrl(vendor: string): string {
   );
 }
 
+export type DlssPresetHint = "k" | "lm";
+
+const PRESET_HINT_RTX_40_50 = /rtx\s*[45]0\d{2}/;
+const PRESET_HINT_RTX_20_30 = /rtx\s*[23]0\d{2}/;
+
+/** Recommended DLSS transformer preset family for an NVIDIA GPU generation:
+ *  RTX 40/50 run the newest Performance presets (L/M) at full speed, RTX 20/30
+ *  are best served by Preset K across modes. Unknown models get no hint. */
+export function dlssPresetHint(model: string): DlssPresetHint | null {
+  const normalized = model.toLowerCase();
+  if (PRESET_HINT_RTX_40_50.test(normalized)) return "lm";
+  if (PRESET_HINT_RTX_20_30.test(normalized)) return "k";
+  return null;
+}
+
 export function driverUpdateCount(reports: DriverStatusReport[]): number {
   return reports.reduce((total, report) => (hasDriverUpdate(report) ? total + 1 : total), 0);
 }

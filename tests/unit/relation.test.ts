@@ -9,6 +9,7 @@ import {
   isStreamlinePlugin,
   recordUpdatable,
   gameStatusFromRecords,
+  pinKey,
   versionMajor,
   type RelationContext,
 } from "@/lib/relation";
@@ -175,6 +176,46 @@ describe("gameStatusFromRecords", () => {
     const reflexCtx = ctx({ latestByKey: { reflex: "2.5.0.0" } });
     expect(gameStatusFromRecords(records, reflexCtx, [], null, prefs({ update_streamline: true }))).toBe("outdated");
     expect(gameStatusFromRecords(records, reflexCtx, [], null, prefs({ update_streamline: false }))).toBe("up_to_date");
+  });
+
+  it("a DLL pinned to its installed version reads up_to_date, not outdated (F2)", () => {
+    const r = rec({ family: "dlss_sr", path: "C:\\g\\nvngx_dlss.dll", current_version: "1.0.0.0" });
+    const pinned = { [`${r.family}|${r.path}`]: "1.0.0.0" };
+    expect(gameStatusFromRecords([r], outdatedCtx, [], null, prefs(), {})).toBe("outdated");
+    expect(gameStatusFromRecords([r], outdatedCtx, [], null, prefs(), pinned)).toBe("up_to_date");
+  });
+
+  it("a pin below the installed version still reads up_to_date (pin is the target)", () => {
+    const r = rec({ family: "dlss_sr", path: "C:\\g\\nvngx_dlss.dll", current_version: "2.0.0.0" });
+    const pinned = { [`${r.family}|${r.path}`]: "1.0.0.0" };
+    expect(gameStatusFromRecords([r], outdatedCtx, [], null, prefs(), pinned)).toBe("up_to_date");
+  });
+
+  it("only the pinned DLL is held back; an unpinned outdated sibling still flags outdated", () => {
+    const pinnedRec = rec({ family: "dlss_sr", path: "C:\\g\\nvngx_dlss.dll", current_version: "1.0.0.0" });
+    const looseRec = rec({ family: "dlss_fg", path: "C:\\g\\nvngx_dlssg.dll", current_version: "1.0.0.0" });
+    const c = ctx({ latestByKey: { dlss_sr: "2.0.0.0", dlss_fg: "2.0.0.0" } });
+    const pinned = { [`${pinnedRec.family}|${pinnedRec.path}`]: "1.0.0.0" };
+    expect(gameStatusFromRecords([pinnedRec, looseRec], c, [], null, prefs(), pinned)).toBe("outdated");
+  });
+
+  it("a pin keyed by family|path does not leak to a same-family DLL at a different path", () => {
+    const r = rec({ family: "dlss_sr", path: "C:\\g\\nvngx_dlss.dll", current_version: "1.0.0.0" });
+    const pinnedOther = { "dlss_sr|C:\\other\\nvngx_dlss.dll": "1.0.0.0" };
+    expect(gameStatusFromRecords([r], outdatedCtx, [], null, prefs(), pinnedOther)).toBe("outdated");
+  });
+
+  it("omitted pinnedVersions defaults to empty (back-compat with the old signature)", () => {
+    const r = rec({ family: "dlss_sr", current_version: "1.0.0.0" });
+    expect(gameStatusFromRecords([r], outdatedCtx, [], null, prefs())).toBe("outdated");
+  });
+});
+
+describe("pinKey", () => {
+  it("joins family and path with a pipe (mirrors game_preferences.pinned_versions)", () => {
+    expect(pinKey(rec({ family: "dlss_fg", path: "C:\\g\\nvngx_dlssg.dll" }))).toBe(
+      "dlss_fg|C:\\g\\nvngx_dlssg.dll",
+    );
   });
 });
 

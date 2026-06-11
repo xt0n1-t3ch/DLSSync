@@ -6,6 +6,13 @@ use crate::{
 };
 use async_trait::async_trait;
 
+/// Bundled snapshot of `gpu-data.json` from the ZenitH-AT/nvidia-data repo.
+/// Used as a fallback when the live fetch of [`c::GPU_DATA_URL`] fails so that
+/// pfid resolution still works offline or during CDN outages. The snapshot is
+/// refreshed by re-running the manifest-builder pipeline (or manually via
+/// `curl <GPU_DATA_URL> > crates/driver-catalog/data/gpu-data.json`).
+const EMBEDDED_GPU_DATA: &str = include_str!("../../data/gpu-data.json");
+
 pub struct NvidiaGpuSource;
 
 pub fn os_id(os: &OsTarget) -> u32 {
@@ -313,23 +320,86 @@ impl DriverSource for NvidiaGpuSource {
     }
 }
 
+/// Fetch gpu-data.json from the live URL and resolve the pfid for `device`.
+/// If the live fetch fails for any reason (network error, non-2xx status,
+/// or invalid JSON), a warning is logged and the bundled snapshot
+/// [`EMBEDDED_GPU_DATA`] is used as a fallback so pfid resolution degrades
+/// gracefully rather than failing the whole driver-check.
 async fn resolve_pfid(
     client: &reqwest::Client,
     device: &DeviceId,
 ) -> Result<Option<String>, DriverError> {
-    let gpu_data: serde_json::Value = client
+    let gpu_data = fetch_gpu_data(client).await;
+    Ok(match_pfid(&gpu_data, &device.model))
+}
+
+/// Attempt to fetch the live gpu-data JSON; fall back to the embedded snapshot
+/// on any failure.
+async fn fetch_gpu_data(client: &reqwest::Client) -> serde_json::Value {
+    match try_fetch_gpu_data(client).await {
+        Ok(v) => v,
+        Err(e) => {
+            tracing::warn!(
+                error = %e,
+                url = c::GPU_DATA_URL,
+                "gpu-data fetch failed; falling back to embedded snapshot"
+            );
+            // The embedded snapshot is valid JSON (verified by the unit test
+            // `embedded_gpu_data_parses`). unwrap_or_default() yields
+            // Value::Null, which causes match_pfid to return None gracefully.
+            serde_json::from_str(EMBEDDED_GPU_DATA).unwrap_or_default()
+        }
+    }
+}
+
+async fn try_fetch_gpu_data(client: &reqwest::Client) -> Result<serde_json::Value, DriverError> {
+    let value: serde_json::Value = client
         .get(c::GPU_DATA_URL)
         .send()
         .await?
         .error_for_status()?
         .json()
         .await?;
-    Ok(match_pfid(&gpu_data, &device.model))
+    Ok(value)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Verify that the bundled snapshot is well-formed JSON that parses into a
+    /// `serde_json::Value` object with the expected top-level keys (`desktop`
+    /// and `notebook`). This fails the build if the snapshot is accidentally
+    /// truncated or corrupted, and also confirms that the fallback code path
+    /// (`serde_json::from_str(EMBEDDED_GPU_DATA)`) will never yield
+    /// `Value::Null` in practice.
+    #[test]
+    fn embedded_gpu_data_parses_with_desktop_and_notebook_sections() {
+        let gpu_data: serde_json::Value = serde_json::from_str(EMBEDDED_GPU_DATA)
+            .expect("embedded gpu-data.json must be valid JSON");
+        let obj = gpu_data
+            .as_object()
+            .expect("gpu-data root must be a JSON object");
+        assert!(
+            obj.contains_key("desktop"),
+            "embedded gpu-data must have a 'desktop' key"
+        );
+        assert!(
+            obj.contains_key("notebook"),
+            "embedded gpu-data must have a 'notebook' key"
+        );
+        // Sanity-check that at least one well-known desktop GPU is present.
+        let desktop = &gpu_data["desktop"];
+        assert!(
+            desktop.as_object().map_or(0, |m| m.len()) > 100,
+            "desktop section should contain hundreds of GPU entries"
+        );
+        // Smoke-test pfid resolution against the snapshot.
+        assert!(
+            match_pfid(&gpu_data, "NVIDIA GeForce RTX 3070").is_some(),
+            "RTX 3070 pfid must resolve from the embedded snapshot"
+        );
+    }
 
     #[test]
     fn clean_gpu_name_strips_prefix_and_suffixes() {

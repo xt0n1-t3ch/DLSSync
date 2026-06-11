@@ -56,6 +56,8 @@ pub async fn detect_dlls(
     install_dir: String,
 ) -> AppResult<Vec<dll_scanner::DllRecord>> {
     let path = PathBuf::from(install_dir);
+    crate::paths::PathGuard::assert_safe_scan_dir(&path)
+        .map_err(|e| AppError::Validation(e.to_string()))?;
     let records = tokio::task::spawn_blocking(move || dll_scanner::scan_install(&path))
         .await
         .map_err(|e| AppError::Other(e.to_string()))??;

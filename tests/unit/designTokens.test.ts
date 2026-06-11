@@ -61,4 +61,12 @@ describe("design tokens — spacing scale, density, tactile + glass-dialog utili
       /\.glass-dialog\s*\{\s*background:\s*var\(--glass-fallback\)/,
     );
   });
+
+  it("centralizes tokenized scrollbar styling with forced-colors fallback", () => {
+    expect(css).toMatch(/--scrollbar-thumb:\s*rgba\(/);
+    expect(css).toMatch(/--scrollbar-thumb-hover:\s*rgba\(/);
+    expect(css).toMatch(/::-webkit-scrollbar-thumb\s*\{[^}]*var\(--scrollbar-thumb\)/);
+    expect(css).toMatch(/@supports not selector\(::-webkit-scrollbar\)/);
+    expect(css).toMatch(/@media \(forced-colors:\s*active\)/);
+  });
 });

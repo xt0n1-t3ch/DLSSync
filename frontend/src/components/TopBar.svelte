@@ -209,5 +209,5 @@
   .win-quiet { color: var(--text-placeholder); }
   .win-quiet:hover { color: var(--text-primary); background: var(--bg-elevated); }
   .win-close { color: var(--text-muted); }
-  .win-close:hover { color: var(--accent-fg); background: var(--danger); }
+  .win-close:hover { color: #fff; background: var(--danger); }
 </style>

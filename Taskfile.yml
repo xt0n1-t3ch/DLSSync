@@ -1,0 +1,23 @@
+version: "3"
+
+tasks:
+  test:
+    desc: Frontend vitest (happy-dom) plus the full Rust workspace
+    cmds:
+      - pnpm --filter dlssync-frontend test
+      - cargo test --workspace
+
+  test:fe:
+    desc: Frontend vitest only
+    cmds:
+      - pnpm --filter dlssync-frontend test
+
+  test:rust:
+    desc: Rust workspace tests only
+    cmds:
+      - cargo test --workspace
+
+  test:e2e:
+    desc: Playwright over CDP driving the real WebView2 debug build
+    cmds:
+      - pnpm --filter dlssync-frontend exec playwright test --config ../tests/e2e/playwright.config.ts

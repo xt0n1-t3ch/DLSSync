@@ -166,6 +166,8 @@ fn collect_executables(dir: &Path, depth: usize, out: &mut Vec<(u64, PathBuf)>) 
 
 #[tauri::command]
 pub async fn find_game_executable(install_dir: String) -> AppResult<Option<String>> {
+    crate::paths::PathGuard::assert_safe_scan_dir(Path::new(&install_dir))
+        .map_err(|e| AppError::Validation(e.to_string()))?;
     let resolved = tokio::task::spawn_blocking(move || {
         let mut executables = Vec::new();
         collect_executables(Path::new(&install_dir), 0, &mut executables);

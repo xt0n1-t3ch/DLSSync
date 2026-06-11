@@ -1,4 +1,5 @@
 use crate::error::{AppError, AppResult};
+use crate::paths::PathGuard;
 use crate::state::AppState;
 use backup_store::{BackupEntry, DeleteOutcome};
 use tauri::State;
@@ -14,13 +15,22 @@ pub async fn list_backups(state: State<'_, AppState>) -> AppResult<Vec<BackupEnt
 
 #[tauri::command]
 pub async fn restore_backup(state: State<'_, AppState>, backup_id: String) -> AppResult<()> {
-    let entry = {
+    let (entry, root_dir) = {
         let guard = state.backups.read();
         let store = guard
             .as_ref()
             .ok_or_else(|| AppError::Other("backup store not initialized".into()))?;
-        store.get(&backup_id)?
+        (store.get(&backup_id)?, store.root_dir.clone())
     };
+
+    PathGuard::assert_under_root(&entry.backup_path, &root_dir)
+        .map_err(|e| AppError::Validation(e.to_string()))?;
+    PathGuard::assert_dll_ext(&entry.original_path)
+        .map_err(|e| AppError::Validation(e.to_string()))?;
+    PathGuard::deny_system_dir(&entry.original_path)
+        .map_err(|e| AppError::Validation(e.to_string()))?;
+    PathGuard::assert_not_symlink(&entry.original_path)
+        .map_err(|e| AppError::Validation(e.to_string()))?;
 
     if !entry.backup_path.exists() {
         return Err(AppError::Other(format!(
@@ -72,7 +82,10 @@ pub async fn delete_backup(
     Ok(store.delete(&backup_id, true)?)
 }
 
-fn atomic_replace(source: &std::path::Path, dest: &std::path::Path) -> std::io::Result<()> {
+pub(crate) fn atomic_replace(
+    source: &std::path::Path,
+    dest: &std::path::Path,
+) -> std::io::Result<()> {
     let parent = dest.parent().ok_or_else(|| {
         std::io::Error::new(
             std::io::ErrorKind::InvalidInput,

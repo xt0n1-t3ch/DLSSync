@@ -1,4 +1,5 @@
 import type { DllFamily, DllRecord, LauncherKind } from "./api";
+import { FAMILY_META } from "./familyMeta";
 
 export const VENDOR_LABELS: Record<string, string> = {
   nvidia: "NVIDIA",
@@ -34,6 +35,19 @@ export function vendorAccentVar(key: string): string {
   return VENDOR_ACCENT_VARS[key] ?? DEFAULT_VENDOR_ACCENT_VAR;
 }
 
+export const VENDOR_INK_VARS: Record<string, string> = {
+  nvidia: "var(--vendor-nvidia-ink)",
+  amd: "var(--vendor-amd-ink)",
+  intel: "var(--vendor-intel-ink)",
+  microsoft: "var(--vendor-microsoft-ink)",
+};
+
+export const DEFAULT_VENDOR_INK_VAR = "var(--text-secondary)";
+
+export function vendorInkVar(key: string): string {
+  return VENDOR_INK_VARS[key] ?? DEFAULT_VENDOR_INK_VAR;
+}
+
 export interface VendorPortal {
   label: string;
   url: string;
@@ -50,6 +64,7 @@ export function vendorPortal(key: string): VendorPortal | null {
   return VENDOR_PORTALS[key] ?? null;
 }
 
+/** Return the brand accent colour for `key`, falling back to `DEFAULT_VENDOR_ACCENT`. */
 export function launcherAccent(key: LauncherKind | string): string {
   return LAUNCHER_ACCENTS[key as LauncherKind] ?? DEFAULT_VENDOR_ACCENT;
 }
@@ -106,31 +121,14 @@ export const FAMILY_SHORT: Record<string, string> = {
   direct_storage_core: "DS Core",
 };
 
-export const FAMILY_TO_VENDOR: Record<string, string> = {
-  dlss_sr: "nvidia",
-  dlss_fg: "nvidia",
-  dlss_rr: "nvidia",
-  sl_dlss_sr: "nvidia",
-  sl_dlss_fg: "nvidia",
-  sl_dlss_rr: "nvidia",
-  streamline: "nvidia",
-  streamline_common: "nvidia",
-  streamline_pcl: "nvidia",
-  streamline_nis: "nvidia",
-  streamline_direct_sr: "nvidia",
-  reflex: "nvidia",
-  xess_sr: "intel",
-  xess_sr_dx11: "intel",
-  xess_fg: "intel",
-  xell: "intel",
-  fsr_upscaler: "amd",
-  fsr_upscaler_vk: "amd",
-  fsr_fg: "amd",
-  fsr_loader: "amd",
-  fsr_denoiser: "amd",
-  direct_storage: "microsoft",
-  direct_storage_core: "microsoft",
-};
+/** Family → vendor key, derived from the canonical {@link FAMILY_META}.
+ *  Previously hand-maintained and disagreed with `ux.ts` on
+ *  `streamline_direct_sr` (was wrongly `nvidia` here); now single-sourced. */
+export const FAMILY_TO_VENDOR: Record<string, string> = Object.fromEntries(
+  (Object.entries(FAMILY_META) as [DllFamily, (typeof FAMILY_META)[DllFamily]][]).map(
+    ([family, m]) => [family, m.vendor],
+  ),
+);
 
 export const FAMILY_TO_CATALOG_KEY: Record<string, string> = {
   dlss_sr: "dlss_sr",
@@ -169,6 +167,11 @@ export const LAUNCHER_LABELS: Record<LauncherKind, string> = {
   manual: "Manual",
 };
 
+/**
+ * Brand accent hex colours for each launcher, used as CSS `--launcher-accent`
+ * via `data-launcher` attributes. Kept as a single source of truth; the
+ * matching CSS rules in `global.css` must stay in sync with these keys.
+ */
 export const LAUNCHER_ACCENTS: Record<LauncherKind, string> = {
   steam: "#66c0f4",
   epic: "#f5f5f5",
@@ -177,7 +180,7 @@ export const LAUNCHER_ACCENTS: Record<LauncherKind, string> = {
   ea_desktop: "#ff5050",
   xbox: "#107c10",
   battlenet: "#148eff",
-  manual: "#22d3ee",
+  manual: "#aeb3bd",
 };
 
 export type UpdateStatus = "outdated" | "up_to_date" | "no_dlls" | "unknown" | "scanning" | "scan_failed";
@@ -207,10 +210,12 @@ export function launcherLabel(key: LauncherKind): string {
   return LAUNCHER_LABELS[key] ?? key;
 }
 
+/** Map a DLL family key to its owning vendor string (e.g. `"dlss_sr"` → `"nvidia"`). */
 export function familyVendor(key: DllFamily): string {
   return FAMILY_TO_VENDOR[key] ?? "nvidia";
 }
 
+/** Map a typed `DllFamily` key to the vendor-catalog lookup key (may differ for aliases). */
 export function familyCatalogKey(key: DllFamily): string {
   return FAMILY_TO_CATALOG_KEY[key] ?? key;
 }
@@ -244,6 +249,27 @@ export const GROUP_ACCENT_VAR: Record<FamilyGroup, string> = {
   xess: "var(--vendor-intel)",
   advanced: "var(--neutral)",
 };
+
+export const GROUP_VENDOR: Record<FamilyGroup, string> = {
+  dlss: "nvidia",
+  fsr: "amd",
+  xess: "intel",
+  advanced: "microsoft",
+};
+
+export type DllSetKey = "fsr" | "xess";
+
+export const DLL_SET_FAMILIES: Record<DllSetKey, string[]> = {
+  fsr: ["fsr_upscaler", "fsr_upscaler_vk", "fsr_fg", "fsr_loader", "fsr_denoiser"],
+  xess: ["xess_sr", "xess_sr_dx11", "xess_fg", "xell"],
+};
+
+export const DLL_SET_LABELS: Record<DllSetKey, string> = {
+  fsr: "AMD FSR",
+  xess: "Intel XeSS",
+};
+
+export const FSR4_GATED_FAMILIES = ["fsr_upscaler", "fsr_upscaler_vk", "fsr_fg"];
 
 export const FAMILY_TO_GROUP: Record<string, FamilyGroup> = {
   dlss_sr: "dlss",

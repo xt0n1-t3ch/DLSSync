@@ -24,8 +24,22 @@ pub struct MigrationReport {
     pub errors: Vec<String>,
 }
 
+/// Debug-only data-root override so the e2e harness can point the app at a
+/// throwaway directory instead of mutating the host's real `~/DLSSync` state.
+/// Release builds ignore it entirely.
+#[cfg(debug_assertions)]
+fn data_dir_override() -> Option<PathBuf> {
+    std::env::var_os("DLSSYNC_DATA_DIR")
+        .filter(|v| !v.is_empty())
+        .map(PathBuf::from)
+}
+
 impl AppPaths {
     pub fn resolve(handle: &AppHandle) -> Result<Self, String> {
+        #[cfg(debug_assertions)]
+        if let Some(root) = data_dir_override() {
+            return Ok(Self::from_root(root));
+        }
         let home = handle
             .path()
             .home_dir()
@@ -66,6 +80,10 @@ impl AppPaths {
 
     pub fn migrate_legacy(&self, handle: &AppHandle) -> MigrationReport {
         let mut report = MigrationReport::default();
+        #[cfg(debug_assertions)]
+        if data_dir_override().is_some() {
+            return report;
+        }
         let legacy_root = match handle.path().app_config_dir() {
             Ok(p) => p,
             Err(e) => {
@@ -133,6 +151,104 @@ impl AppPaths {
     }
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum PathGuardError {
+    #[error("path escapes the permitted root: {0}")]
+    OutsideRoot(String),
+    #[error("path is not a .dll file: {0}")]
+    NotDll(String),
+    #[error("refusing to operate on a protected system location: {0}")]
+    SystemDir(String),
+    #[error("refusing to follow a symlink: {0}")]
+    Symlink(String),
+    #[error("refusing to scan an unsafe or too-shallow path: {0}")]
+    UnsafeScanDir(String),
+}
+
+/// Containment guards shared by every restore/rollback/scan write path. The
+/// backup database stores `backup_path`/`original_path` as opaque strings, so a
+/// tampered row is an untrusted file pointer until these checks pass. Centralised
+/// here so `restore_backup`, `rollback_all`, and apply-rollback all enforce the
+/// same invariant instead of each re-deriving it.
+pub struct PathGuard;
+
+impl PathGuard {
+    /// The path must live inside `root`. `Path::starts_with` is component-wise,
+    /// so `/data/BackupsEvil` does not match a `/data/Backups` root.
+    pub fn assert_under_root(path: &Path, root: &Path) -> Result<(), PathGuardError> {
+        if path.starts_with(root) {
+            Ok(())
+        } else {
+            Err(PathGuardError::OutsideRoot(path.display().to_string()))
+        }
+    }
+
+    /// Restore targets are always game DLLs; reject anything else so a tampered
+    /// `original_path` cannot be aimed at an `.exe`, startup-folder shortcut, etc.
+    pub fn assert_dll_ext(path: &Path) -> Result<(), PathGuardError> {
+        let is_dll = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .is_some_and(|e| e.eq_ignore_ascii_case("dll"));
+        if is_dll {
+            Ok(())
+        } else {
+            Err(PathGuardError::NotDll(path.display().to_string()))
+        }
+    }
+
+    /// Reject writes anywhere under the Windows directory (System32/SysWOW64 and
+    /// friends). Game libraries legitimately live under Program Files, so only the
+    /// OS tree is denied.
+    pub fn deny_system_dir(path: &Path) -> Result<(), PathGuardError> {
+        let lower = path
+            .to_string_lossy()
+            .to_ascii_lowercase()
+            .replace('/', "\\");
+        let windir = std::env::var("WINDIR")
+            .or_else(|_| std::env::var("SystemRoot"))
+            .unwrap_or_else(|_| "C:\\Windows".to_string())
+            .to_ascii_lowercase()
+            .replace('/', "\\");
+        let under_windir = lower.starts_with(&format!("{windir}\\")) || lower == windir;
+        let under_sys =
+            lower.contains("\\windows\\system32\\") || lower.contains("\\windows\\syswow64\\");
+        if under_windir || under_sys {
+            Err(PathGuardError::SystemDir(path.display().to_string()))
+        } else {
+            Ok(())
+        }
+    }
+
+    /// A scan target supplied by the webview must be a real game directory, not a
+    /// bare drive root or a system location — otherwise a crafted `install_dir`
+    /// turns the recursive scanners into an arbitrary filesystem-enumeration / DoS
+    /// lever. Requires at least one normal path component and rejects the OS tree.
+    pub fn assert_safe_scan_dir(path: &Path) -> Result<(), PathGuardError> {
+        Self::deny_system_dir(path)
+            .map_err(|_| PathGuardError::UnsafeScanDir(path.display().to_string()))?;
+        let normal_components = path
+            .components()
+            .filter(|c| matches!(c, std::path::Component::Normal(_)))
+            .count();
+        if normal_components < 1 {
+            return Err(PathGuardError::UnsafeScanDir(path.display().to_string()));
+        }
+        Ok(())
+    }
+
+    /// Refuse to write through a symlink/junction: a local attacker could plant
+    /// one at a previously-backed-up DLL path to redirect the write elsewhere.
+    pub fn assert_not_symlink(path: &Path) -> Result<(), PathGuardError> {
+        match std::fs::symlink_metadata(path) {
+            Ok(meta) if meta.file_type().is_symlink() => {
+                Err(PathGuardError::Symlink(path.display().to_string()))
+            }
+            _ => Ok(()),
+        }
+    }
+}
+
 fn root_subdir() -> &'static str {
     if cfg!(target_os = "windows") {
         "DLSSync"
@@ -189,6 +305,47 @@ fn move_or_copy_file(src: &Path, dst: &Path) -> std::io::Result<()> {
 mod tests {
     use super::*;
     use tempfile::tempdir;
+
+    #[test]
+    fn guard_under_root_is_component_wise() {
+        let root = Path::new("/data/DLSSync/Backups");
+        assert!(PathGuard::assert_under_root(
+            Path::new("/data/DLSSync/Backups/Cyberpunk/sl.dll"),
+            root
+        )
+        .is_ok());
+        assert!(PathGuard::assert_under_root(Path::new("/etc/passwd"), root).is_err());
+        assert!(
+            PathGuard::assert_under_root(Path::new("/data/DLSSync/BackupsEvil/x.dll"), root)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn guard_dll_ext_only() {
+        assert!(PathGuard::assert_dll_ext(Path::new("C:/g/nvngx_dlss.DLL")).is_ok());
+        assert!(PathGuard::assert_dll_ext(Path::new("C:/g/evil.exe")).is_err());
+        assert!(PathGuard::assert_dll_ext(Path::new("C:/g/nodll")).is_err());
+    }
+
+    #[test]
+    fn guard_denies_system_dirs_but_allows_program_files() {
+        assert!(PathGuard::deny_system_dir(Path::new("C:\\Windows\\System32\\ntdll.dll")).is_err());
+        assert!(PathGuard::deny_system_dir(Path::new("C:\\Windows\\SysWOW64\\x.dll")).is_err());
+        assert!(PathGuard::deny_system_dir(Path::new(
+            "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Game\\nvngx_dlss.dll"
+        ))
+        .is_ok());
+    }
+
+    #[test]
+    fn guard_not_symlink_passes_for_missing_and_regular_files() {
+        let dir = tempdir().unwrap();
+        let regular = dir.path().join("real.dll");
+        std::fs::write(&regular, b"x").unwrap();
+        assert!(PathGuard::assert_not_symlink(&regular).is_ok());
+        assert!(PathGuard::assert_not_symlink(&dir.path().join("missing.dll")).is_ok());
+    }
 
     #[test]
     fn from_root_lays_out_subdirs() {

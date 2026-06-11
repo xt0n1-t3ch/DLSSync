@@ -7,7 +7,12 @@ const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "../../frontend/src");
 const api = readFileSync(resolve(root, "lib/api.ts"), "utf8");
 const controller = readFileSync(resolve(root, "lib/applyController.ts"), "utf8");
+// v1.6.7 drawer decomposition: the set-action button + its override-note title
+// live in DrawerFooter; the enabler banner in DrawerHero; the members $derived +
+// dispatchStreamlineSet routing stay in the orchestrator (GameDetailDrawer).
 const drawer = readFileSync(resolve(root, "components/GameDetailDrawer.svelte"), "utf8");
+const hero = readFileSync(resolve(root, "components/DrawerHero.svelte"), "utf8");
+const footer = readFileSync(resolve(root, "components/DrawerFooter.svelte"), "utf8");
 const enCatalog = readFileSync(resolve(root, "lib/i18n/locales/en.json"), "utf8");
 
 describe("api — applyStreamlineSet binding", () => {
@@ -47,7 +52,7 @@ describe("GameDetailDrawer — Update Streamline set action", () => {
   });
 
   it("renders the set action gated on members and routes through dispatchStreamlineSet", () => {
-    expect(drawer).toMatch(/\{#if streamlineSetMembers\.length > 0\}/);
+    expect(footer).toMatch(/\{#if streamlineSetCount > 0\}/);
     expect(enCatalog).toContain("Update Streamline set");
     expect(drawer).toMatch(/dispatchStreamlineSet\(targets/);
   });
@@ -55,7 +60,7 @@ describe("GameDetailDrawer — Update Streamline set action", () => {
   it("surfaces that a same-major set update is offered under an enabler (requires Streamline >= 2.11)", () => {
     expect(enCatalog).toMatch(/DLSS Enabler requires NVIDIA Streamline 2\.11 or newer/);
     expect(enCatalog).toMatch(/same major version/);
-    expect(drawer).toMatch(/\{#if dlssEnabler\}[\s\S]*?\$t\(["']note\.enablerManaged["']\)/);
-    expect(drawer).toMatch(/title=\{`[^`]*\$\{STREAMLINE_OVERRIDE_NOTE\}`\}/);
+    expect(hero).toMatch(/\{#if dlssEnabler\}[\s\S]*?\$t\(["']note\.enablerManaged["']\)/);
+    expect(footer).toMatch(/title=\{`[^`]*\$\{STREAMLINE_OVERRIDE_NOTE\}`\}/);
   });
 });

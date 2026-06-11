@@ -1,6 +1,11 @@
 use serde::ser::SerializeStruct;
 use serde::Serialize;
 
+/// Top-level error type returned by all Tauri commands.
+///
+/// Serializes to `{ kind: "<variant>", message: "<human text>" }` so the
+/// frontend can branch on `kind` for calm error messaging (e.g. `"validation"`
+/// shows a field-level hint, `"catalog"` shows a reload prompt).
 #[derive(Debug, thiserror::Error)]
 pub enum AppError {
     #[error("io error: {0}")]
@@ -24,6 +29,12 @@ pub enum AppError {
     #[error("notifications error: {0}")]
     Notifications(#[from] notifications_store::NotificationsError),
 
+    /// Input failed a security or integrity check (path traversal, URL allowlist,
+    /// update-ID format, etc.). `kind = "validation"` on the wire — the frontend
+    /// surfaces a calm hint instead of a generic error modal.
+    #[error("validation failed: {0}")]
+    Validation(String),
+
     #[error("{0}")]
     Other(String),
 }
@@ -38,6 +49,7 @@ impl Serialize for AppError {
             AppError::PeVersion(_) => "pe_version",
             AppError::Backup(_) => "backup",
             AppError::Notifications(_) => "notifications",
+            AppError::Validation(_) => "validation",
             AppError::Other(_) => "other",
         };
         let mut s = serializer.serialize_struct("AppError", 2)?;
@@ -47,4 +59,5 @@ impl Serialize for AppError {
     }
 }
 
+/// Convenience alias used by every Tauri command handler.
 pub type AppResult<T> = Result<T, AppError>;

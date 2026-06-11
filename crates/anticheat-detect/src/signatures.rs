@@ -148,9 +148,32 @@ pub fn classify(name: &str) -> ProtectionKind {
     ProtectionKind::AntiCheat
 }
 
-/// Match a filename against the anti-cheat binary table.
+/// Match a filename against the compile-time anti-cheat binary table.
 pub fn match_anti_cheat_binary(name: &str) -> Option<&'static str> {
     let lower = name.to_ascii_lowercase();
+    ANTI_CHEAT_BINARIES
+        .iter()
+        .find(|(needle, _)| lower.contains(needle))
+        .map(|(_, ac)| *ac)
+}
+
+/// Match a filename against `extra` manifest-supplied signatures first, then the
+/// compile-time [`ANTI_CHEAT_BINARIES`] baseline. The manifest layer wins on a
+/// collision so an updated mapping can correct a stale baseline name; an empty
+/// `extra` is identical to [`match_anti_cheat_binary`]. `extra` needles are
+/// expected lowercase (the manifest builder normalizes them); matching is
+/// case-insensitive against the filename either way.
+pub fn match_anti_cheat_binary_with<'a>(
+    name: &str,
+    extra: &'a [(String, String)],
+) -> Option<&'a str> {
+    let lower = name.to_ascii_lowercase();
+    if let Some((_, ac)) = extra
+        .iter()
+        .find(|(needle, _)| lower.contains(&needle.to_ascii_lowercase()))
+    {
+        return Some(ac.as_str());
+    }
     ANTI_CHEAT_BINARIES
         .iter()
         .find(|(needle, _)| lower.contains(needle))
@@ -190,6 +213,34 @@ mod tests {
             Some("EA anticheat")
         );
         assert_eq!(match_anti_cheat_binary("nvngx_dlss.dll"), None);
+    }
+
+    #[test]
+    fn match_with_empty_extra_equals_static_match() {
+        assert_eq!(
+            match_anti_cheat_binary_with("EasyAntiCheat_x64.dll", &[]),
+            Some("Easy Anti-Cheat")
+        );
+        assert_eq!(match_anti_cheat_binary_with("game.exe", &[]), None);
+    }
+
+    #[test]
+    fn match_with_extra_detects_manifest_only_signature() {
+        let extra = vec![("newguard".to_string(), "New Guard AC".to_string())];
+        assert_eq!(
+            match_anti_cheat_binary_with("NewGuard64.sys", &extra),
+            Some("New Guard AC")
+        );
+        assert_eq!(match_anti_cheat_binary_with("NewGuard64.sys", &[]), None);
+    }
+
+    #[test]
+    fn match_with_extra_wins_over_static_on_collision() {
+        let extra = vec![("easyanticheat".to_string(), "EAC (renamed)".to_string())];
+        assert_eq!(
+            match_anti_cheat_binary_with("EasyAntiCheat_x64.dll", &extra),
+            Some("EAC (renamed)")
+        );
     }
 
     #[test]

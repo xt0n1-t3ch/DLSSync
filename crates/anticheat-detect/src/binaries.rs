@@ -1,4 +1,4 @@
-use crate::signatures::{classify, match_anti_cheat_binary, HitSource};
+use crate::signatures::{classify, match_anti_cheat_binary_with, HitSource};
 use crate::ProtectionHit;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -23,8 +23,14 @@ const EXE_SKIP_TOKENS: &[&str] = &[
 
 /// Single depth-limited walk that both matches anti-cheat binary filenames and
 /// tracks the largest plausible game executable (the one most likely to carry a
-/// packer/anti-tamper). Returns (anti-cheat hits, largest exe path).
-pub fn scan(root: &Path, max_depth: usize) -> (Vec<ProtectionHit>, Option<PathBuf>) {
+/// packer/anti-tamper). `extra` adds manifest-supplied `(needle, name)`
+/// signatures on top of the compile-time baseline (empty = baseline only).
+/// Returns (anti-cheat hits, largest exe path).
+pub fn scan(
+    root: &Path,
+    max_depth: usize,
+    extra: &[(String, String)],
+) -> (Vec<ProtectionHit>, Option<PathBuf>) {
     let mut seen: BTreeSet<String> = BTreeSet::new();
     let mut hits = Vec::new();
     let mut largest: Option<(u64, PathBuf)> = None;
@@ -37,7 +43,7 @@ pub fn scan(root: &Path, max_depth: usize) -> (Vec<ProtectionHit>, Option<PathBu
             continue;
         }
         let name = entry.file_name().to_string_lossy().to_string();
-        if let Some(anti_cheat) = match_anti_cheat_binary(&name) {
+        if let Some(anti_cheat) = match_anti_cheat_binary_with(&name, extra) {
             if seen.insert(anti_cheat.to_string()) {
                 hits.push(ProtectionHit {
                     name: anti_cheat.to_string(),
@@ -60,10 +66,10 @@ pub fn scan(root: &Path, max_depth: usize) -> (Vec<ProtectionHit>, Option<PathBu
     (hits, largest.map(|(_, p)| p))
 }
 
-/// Anti-cheat binary scan only (no executable tracking). Thin wrapper over
-/// [`scan`].
+/// Anti-cheat binary scan only (no executable tracking) against the compile-time
+/// baseline. Thin wrapper over [`scan`].
 pub fn scan_dir(root: &Path, max_depth: usize) -> Vec<ProtectionHit> {
-    scan(root, max_depth).0
+    scan(root, max_depth, &[]).0
 }
 
 #[cfg(test)]

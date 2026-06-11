@@ -5,6 +5,65 @@ All notable changes to DLSSync are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.7] - 2026-06-10
+
+The vendor-parity, trust, and color release. AMD one-click driver install works now — it was quietly broken before. The catalog is cryptographically enforced: a tampered manifest is rejected, and an offline first run still loads a signed catalog instead of a blank screen. Two full security passes closed holes around the driver installer, backup restore, elevated restores, and downloads. FSR and XeSS now update as coherent multi-DLL sets in one atomic click — with a hardware gate so FSR 4 is never pushed onto a GPU that can't run it. And the whole interface learned to speak in color: vendor-brand tech badges, a status hero in the Library, traffic-light state everywhere, and game art that tints the app around it.
+
+### Security
+
+- Manifest signatures are now enforced. A catalog whose Ed25519 signature does not verify is refused, and the app falls back to the last trusted copy on disk or a signed manifest bundled in the app — so a CDN hiccup or a tampered file can never feed you the wrong DLLs, and an offline first run still works.
+- Closed an argument-injection path: the value passed to the elevated (Administrator) driver installer is now strictly validated and quoted, so a crafted update id cannot smuggle extra flags into the elevated process.
+- Backup restore is fenced in. It refuses to write outside the backup store, through a symlink, or onto a system file, and it verifies the backup's hash before restoring.
+- Driver downloads only happen from official NVIDIA, AMD, and Intel domains. An arbitrary download URL is rejected.
+- Hardened the rest of the surface: notification links are sanitized to known hosts, scan targets can't be pointed at your whole drive, the catalog download can't be tricked into a giant allocation, and every CI action is pinned to an exact commit.
+- The elevated system-driver restore validates and safely quotes its backup path before the Administrator helper sees it, and it refuses paths outside the backup store or through symlinks.
+- The driver installer is downloaded into a randomized staging folder and verified-then-launched from that same path, closing the window where a local attacker could swap the file between the check and the run.
+- Every download now has a hard total-size cap and an overall deadline, so a misbehaving server can't slowly stream gigabytes into your disk or stall an install forever.
+- DLL paths arriving from the interface are re-checked at the apply boundary — extension, location, and system directories — before any file is touched, and a driver whose signature chain skipped revocation checking is labeled instead of silently trusted.
+
+### Added
+
+- AMD one-click driver install. DLSSync now resolves the real Adrenalin installer for your card's branch and installs it — previously the AMD path had no installer link and silently failed.
+- NVIDIA Standard-vs-DCH driver detection, so the small set of users on Standard drivers stop being handed a DCH installer that won't take.
+- Intel drivers now match your Windows version, so a Windows 10 machine is never offered a Windows 11-only package.
+- Silent driver installs for NVIDIA and Intel — a routine update no longer pops the full vendor installer wizard.
+- A bundled NVIDIA GPU database and the signed fallback catalog, so driver lookups and the catalog both keep working if a source is briefly unreachable.
+- Anti-cheat detection can pick up new or renamed engines from a catalog refresh, instead of waiting for an app update.
+- Unrecognized GPUs now get vendor-neutral recommendations (XeSS, DirectStorage, Reflex, Streamline) instead of nothing.
+- One-click FSR and XeSS set updates. AMD's FSR and Intel's XeSS ship as matched multi-DLL sets (loader, upscaler, frame generation), and swapping only one member breaks games — DLSSync now updates the whole set as a single atomic transaction from the game panel: all files succeed together or everything rolls back.
+- An FSR 4 hardware gate. FSR 4 upscaling only runs on AMD RDNA4 cards (Radeon RX 9000 series); on anything else the set action is locked with an explanation instead of letting you install DLLs the GPU can't use — checked in the interface and enforced again in the backend.
+- Reverted-swap detection. When a game update quietly rolls your swapped DLL back to the old version, DLSSync notices on the next scan and raises a notification — the game shows as outdated again and one click (or background auto-apply) re-applies your version.
+- A "Managed by NVIDIA App" notice in the game panel when NVIDIA's own per-game DLSS override is active and DLSSync has no preferences for that game, so the two tools never silently fight over the same files.
+- A Library status hero: the pending-update count as a big color-coded numeral, a bar segmented by vendor so you see at a glance whose tech needs updating, and Games / Up to date / Protected counters (Protected = games with restore points).
+- A driver health summary strip at the top of Drivers — one chip per GPU with a status dot, plus a system-components chip — and a DLSS preset recommendation matched to your GPU generation (Preset K for RTX 20/30; K plus L/M Performance presets for RTX 40/50).
+- Catalog freshness at a glance: the manifest timestamp is green when fresh, amber when the feed has gone stale.
+
+### Changed
+
+- Library cleanup: one primary Apply action instead of three competing buttons, per-game tech badges that highlight what's outdated versus up to date, a shortcut to reveal hidden games, and a designed cover for games with no art.
+- The game detail panel was split into focused pieces (hero, feature list, action bar). The footer buttons are labeled, the selection checkboxes show a keyboard focus ring, and the scrollbar appears on hover so long feature lists are obviously scrollable.
+- Per-game DLSS presets are keyed to the full executable path, so two games that share an executable name no longer share each other's overrides.
+- Every dialog now traps keyboard focus and restores it on close, with the correct screen-reader roles.
+- The background scan holds its cadence instead of drifting later each day on a slow machine.
+- Settings, Drivers, Backups, About, and Catalog each got a pass for clearer grouping, copy, and progressive disclosure.
+- The interface speaks in color now. Tech badges carry their vendor's brand color (NVIDIA green, AMD red, Intel blue, Microsoft purple) with contrast-checked inks in both themes; state dots mark outdated (amber), current (green), and anti-cheat (red); counters and numerals are toned by meaning instead of all reading gray.
+- The focused game's cover art now tints the app backdrop with its dominant color — a subtle radial accent that follows what you're looking at, calmer in light mode, and still when you've asked Windows for reduced motion.
+- Accessibility pass across all six views: every checkbox and toggle has a real accessible name, game cards and list rows are keyboard-reachable without nested-button traps, each game-panel row has a visible "More actions" button as the keyboard twin of right-click, and axe reports zero critical or serious issues in both themes.
+- The end-to-end test suite now runs against an isolated data directory, so a test run can never touch your real library, settings, or backups.
+
+### Fixed
+
+- Pinned DLLs no longer show up as "outdated" in the library, sidebar, and Apply-all count.
+- A background auto-apply that lands while you're applying updates by hand no longer wipes the progress modal.
+- Efficiency mode stays off until you turn it on — it used to enable itself on a first run.
+- The catalog cache survives a power loss mid-write instead of blanking the library on the next launch.
+- The notification vendor logos and CDN routing now agree on one source of truth per technology, and a Spanish notification typo was corrected.
+- The DLSSync logo chip rendered as a dark blob in light mode; it now follows the theme.
+- The Drivers view showed raw translation keys for the system-components summary, and About's "What's New" leaked the date into the first line — both fixed, in English and Spanish.
+- About's header buttons overflowed the window at narrow widths instead of wrapping.
+- Cancelling an apply that fails now tells you instead of doing nothing; finished apply progress is pruned after a few minutes so a long tray session can't accumulate state forever; background scan ticks no longer race a manual apply or pop phantom "found games" toasts; and notification de-duplication is language-independent, so switching languages doesn't re-spam old notifications.
+- The app shell now owns scrolling consistently: long views keep an elegant token-styled scrollbar, the root window no longer exposes the default right-edge scrollbar, and the detail rail no longer fights the main content for scroll space.
+
 ## [1.6.6] - 2026-06-07
 
 Quality-of-life on the X button, the apply modal, and Backups. The X minimizes to the system tray for new installs while your saved choice still wins. The Apply Progress wall is gone: close the modal mid-apply, navigate to Catalog or About, then pick it back up from the activity dock. And the date-grouped Backups view divides itself into month headers, so months of history read at a glance instead of a flat scroll.
@@ -163,6 +222,8 @@ of the Arc desktop package, and install progress no longer breaks when you switc
 - AMD opens its official download page instead of a constructed installer URL. The direct `.exe` is gated behind a license prompt and its filename changes per release, so a fabricated link was unreliable; version and changelog detection are unchanged.
 - Vendor installer exit codes are reported with a readable message. Intel's "no compatible device" (exit code 8) now explains the GPU may be OEM-locked or need a different driver branch, pointing to the manufacturer or Windows Update.
 
+[1.6.7]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.7
+[1.6.6]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.6
 [1.6.5]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.5
 [1.6.4]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.4
 [1.6.3]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.3

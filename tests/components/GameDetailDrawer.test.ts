@@ -5,7 +5,13 @@ import { resolve, dirname } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "../../frontend/src");
+// v1.6.7 decomposed the drawer: hero/back/learn-more → DrawerHero, the KPI
+// summary → DrawerFeatureList, the action bar → DrawerFooter; the orchestrator
+// (GameDetailDrawer) keeps the in-flow layout + Escape + feature-list logic.
 const drawerSource = readFileSync(resolve(root, "components/GameDetailDrawer.svelte"), "utf8");
+const heroSource = readFileSync(resolve(root, "components/DrawerHero.svelte"), "utf8");
+const featureSource = readFileSync(resolve(root, "components/DrawerFeatureList.svelte"), "utf8");
+const footerSource = readFileSync(resolve(root, "components/DrawerFooter.svelte"), "utf8");
 const appSource = readFileSync(resolve(root, "App.svelte"), "utf8");
 const librarySource = readFileSync(resolve(root, "views/Library.svelte"), "utf8");
 const uxSource = readFileSync(resolve(root, "lib/ux.ts"), "utf8");
@@ -32,29 +38,29 @@ describe("GameDetailView — full-page detail, not an overlay drawer", () => {
   });
 
   it("has a Back-to-Library affordance wired to onClose, and Escape closes", () => {
-    expect(drawerSource).toMatch(/class="detail-back"[\s\S]*?onclick=\{onClose\}/);
+    expect(heroSource).toMatch(/class="detail-back"[\s\S]*?onclick=\{onClose\}/);
     expect(enCatalog).toMatch(/Back to Library/);
     expect(drawerSource).toMatch(/e\.key === "Escape"\) onClose\(\)/);
   });
 
   it("uses a compact hero banner (fixed height, not a 16:9 art block) with the launcher-accent stripe", () => {
-    expect(drawerSource).toMatch(/\.detail-hero\s*\{/);
-    const art = ruleBody(drawerSource, ".drawer-art");
+    expect(heroSource).toMatch(/\.detail-hero\s*\{/);
+    const art = ruleBody(heroSource, ".drawer-art");
     expect(art).toMatch(/height:\s*clamp/);
     expect(art).not.toMatch(/aspect-ratio/);
-    expect(drawerSource).toMatch(/\.drawer-art::before\s*\{[\s\S]*?--launcher-accent/);
+    expect(heroSource).toMatch(/\.drawer-art::before\s*\{[\s\S]*?--launcher-accent/);
   });
 
   it("the KPI summary scrolls with the page (not sticky) and the action bar is sticky-bottom", () => {
-    const summary = ruleBody(drawerSource, ".summary-row");
+    const summary = ruleBody(featureSource, ".summary-row");
     expect(summary).not.toMatch(/position:\s*sticky/);
-    const foot = ruleBody(drawerSource, ".drawer-foot");
+    const foot = ruleBody(footerSource, ".drawer-foot");
     expect(foot).toMatch(/position:\s*sticky/);
     expect(foot).toMatch(/bottom:\s*0/);
   });
 
   it("aligns the warning-banner Learn-more anchor with the link-btn doctrine", () => {
-    const learnMore = ruleBody(drawerSource, ".learn-more");
+    const learnMore = ruleBody(heroSource, ".learn-more");
     expect(learnMore).toMatch(/height:\s*28px/);
     expect(learnMore).toMatch(/border-radius:\s*var\(--radius-md\)/);
     expect(learnMore).not.toMatch(/text-transform:\s*uppercase/);
@@ -89,9 +95,9 @@ describe("GameDetailView — DLSS-Enabler Streamline copy + same-major offers (v
 
   it("shows the enabler banner from the centralized i18n note, never inlining the literal", () => {
     expect(drawerSource).toMatch(/import \{[^}]*\bisStreamlinePlugin\b[^}]*\} from "\.\.\/lib\/relation"/);
-    expect(drawerSource).toMatch(/\{#if dlssEnabler\}[\s\S]*?\$t\(["']note\.enablerManaged["']\)/);
+    expect(heroSource).toMatch(/\{#if dlssEnabler\}[\s\S]*?\$t\(["']note\.enablerManaged["']\)/);
     expect(enCatalog).toMatch(/DLSS Enabler requires NVIDIA Streamline 2\.11 or newer/);
-    expect(drawerSource).not.toMatch(/"Managed by Enabler"/);
+    expect(heroSource).not.toMatch(/"Managed by Enabler"/);
   });
 
   it("no longer suppresses sl.* under an enabler — the per-row enabler treatment is gone", () => {
@@ -103,7 +109,7 @@ describe("GameDetailView — DLSS-Enabler Streamline copy + same-major offers (v
 
   it("both row checkboxes disable only on family-disabled / same / no-target (no enabler clause)", () => {
     expect(
-      countMatches(drawerSource, /disabled=\{fd \|\| rel === "same" \|\| rel === "no-target"\}/g),
+      countMatches(featureSource, /disabled=\{fd\s*\|\|\s*rel\s*===\s*"same"\s*\|\|\s*rel\s*===\s*"no-target"\}/g),
     ).toBe(2);
   });
 
@@ -115,6 +121,6 @@ describe("GameDetailView — DLSS-Enabler Streamline copy + same-major offers (v
   });
 
   it("annotates the Update Streamline set action with the centralized override note", () => {
-    expect(drawerSource).toMatch(/title=\{`[^`]*\$\{STREAMLINE_OVERRIDE_NOTE\}`\}/);
+    expect(footerSource).toMatch(/title=\{`[^`]*\$\{STREAMLINE_OVERRIDE_NOTE\}`\}/);
   });
 });

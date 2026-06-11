@@ -9,7 +9,7 @@ const distDir = resolve(here, "../../frontend/dist/assets");
 
 const BUDGET_JS_GZIP_BYTES = 250 * 1024;
 const BUDGET_CSS_GZIP_BYTES = 75 * 1024;
-const KNOWN_CHUNK_PREFIXES = ["index-", "image-", "app-", "window-"];
+const KNOWN_CHUNK_PREFIXES = ["index-", "image-", "app-", "window-", "icons-", "svelte-", "tauri-", "vendor-"];
 const STEALTH_CHUNK_MIN_BYTES = 1024;
 
 function gzipBytes(path: string): number {
@@ -19,6 +19,15 @@ function gzipBytes(path: string): number {
 function fmt(bytes: number): string {
   return `${(bytes / 1024).toFixed(1)} KB`;
 }
+
+describe("bundle budget preconditions", () => {
+  it.runIf(process.env.CI)("frontend/dist exists on CI — the budget suite must not silently skip", () => {
+    expect(
+      existsSync(distDir),
+      `${distDir} is missing — run the Vite build BEFORE vitest in CI or the budget is never enforced`,
+    ).toBe(true);
+  });
+});
 
 describe.skipIf(!existsSync(distDir))(
   "bundle size budget (post-build, gzip-measured)",

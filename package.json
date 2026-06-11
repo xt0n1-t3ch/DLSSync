@@ -1,6 +1,6 @@
 {
   "name": "dlssync",
-  "version": "1.6.6",
+  "version": "1.6.7",
   "private": true,
   "scripts": {
     "dev": "tauri dev",
@@ -10,7 +10,8 @@
     "lint:rust": "cargo clippy --workspace --all-targets -- -D warnings",
     "fmt:rust": "cargo fmt --all",
     "fmt:rust:check": "cargo fmt --all -- --check",
-    "test": "task test"
+    "test": "task test",
+    "test:e2e": "pnpm --filter dlssync-frontend exec playwright test --config ../tests/e2e/playwright.config.ts"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0",

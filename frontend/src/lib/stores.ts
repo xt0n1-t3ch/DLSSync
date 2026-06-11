@@ -18,6 +18,8 @@ import {
   scanSystemDrivers,
   installSystemDriver,
   driverInstallContext,
+  getSystemInfo,
+  type SystemInfo,
   type DetectedGame,
   type BackupEntry,
   type AppSettings,
@@ -52,6 +54,7 @@ import {
   makeNotificationEntry,
   type NotificationKind,
 } from "./notifications";
+import { detectRevertedSwaps, type RevertedSwap } from "./revertDetect";
 
 const CATALOG_UPDATE_NOTIFICATION_CAP = 5;
 
@@ -69,22 +72,29 @@ export function diffCatalogLatest(
   return out;
 }
 
-function alreadyEmitted(kind: NotificationKind, signature: string): boolean {
+function alreadyEmitted(kind: NotificationKind, dedupKey: string): boolean {
   return get(notifications).some(
-    (n) => n.kind === kind && (n.title.includes(signature) || (n.body ?? "").includes(signature)),
+    (n) =>
+      n.kind === kind &&
+      (n.dedup_key != null
+        ? n.dedup_key === dedupKey
+        : n.title.includes(dedupKey) || (n.body ?? "").includes(dedupKey)),
   );
 }
 
 function emitFailureNotification(kind: NotificationKind, title: string, body: string): void {
-  if (alreadyEmitted(kind, body)) return;
-  const entry = makeNotificationEntry(kind, title, body);
+  const dedupKey = `fail:${kind}:${body}`;
+  if (alreadyEmitted(kind, dedupKey)) return;
+  const entry = makeNotificationEntry(kind, title, body, { dedup_key: dedupKey });
   pushNotification(entry).catch((err) => console.warn(`[dlssync] push ${kind} notification failed:`, err));
 }
 
 function emitCatalogUpdateNotifications(
   diffs: Array<{ family: string; oldVersion: string; newVersion: string }>,
 ): void {
-  const fresh = diffs.filter((d) => !alreadyEmitted("catalog_update_available", `${d.family} ${d.newVersion}`));
+  const fresh = diffs.filter(
+    (d) => !alreadyEmitted("catalog_update_available", `catalog:${d.family}:${d.newVersion}`),
+  );
   if (fresh.length === 0) return;
   const head = fresh.slice(0, CATALOG_UPDATE_NOTIFICATION_CAP);
   const overflow = fresh.length - head.length;
@@ -95,7 +105,7 @@ function emitCatalogUpdateNotifications(
       "catalog_update_available",
       translate(loc, "notif.catalog.available", { label, version: d.newVersion }),
       translate(loc, "notif.catalog.wasVersion", { version: d.oldVersion }),
-      { vendor: vendorForFamily(d.family) },
+      { vendor: vendorForFamily(d.family), dedup_key: `catalog:${d.family}:${d.newVersion}` },
     );
     pushNotification(entry).catch((err) =>
       console.warn("[dlssync] push catalog-update notification failed:", err),
@@ -119,7 +129,11 @@ function emitDriverUpdateNotifications(reports: DriverStatusReport[]): void {
   const fresh = reports
     .filter(hasDriverUpdate)
     .filter(
-      (r) => !alreadyEmitted("driver_update_available", `${r.device.model} ${r.latest?.version.display ?? ""}`),
+      (r) =>
+        !alreadyEmitted(
+          "driver_update_available",
+          `driver:${r.device.model}:${r.latest?.version.display ?? ""}`,
+        ),
     );
   const loc = get(locale);
   for (const report of fresh.slice(0, DRIVER_UPDATE_NOTIFICATION_CAP)) {
@@ -128,7 +142,11 @@ function emitDriverUpdateNotifications(reports: DriverStatusReport[]): void {
       "driver_update_available",
       translate(loc, "notif.driver.title", { version, model: report.device.model }),
       translate(loc, "notif.driver.body", { vendor: vendorLabel(report.device.vendor) }),
-      { link: driverPageUrl(report), vendor: report.device.vendor === "other" ? null : report.device.vendor },
+      {
+        link: driverPageUrl(report),
+        vendor: report.device.vendor === "other" ? null : report.device.vendor,
+        dedup_key: `driver:${report.device.model}:${report.latest?.version.display ?? ""}`,
+      },
     );
     pushNotification(entry).catch((err) =>
       console.warn("[dlssync] push driver-update notification failed:", err),
@@ -141,12 +159,14 @@ function emitSystemDriverUpdateNotification(groups: SystemDeviceGroup[]): void {
   if (count === 0) return;
   const loc = get(locale);
   const title = translate(loc, "notif.systemDriver.available", { count });
-  if (alreadyEmitted("system_driver_update_available", title)) return;
   const categories = groups.filter((group) => group.updates.length > 0).length;
+  const dedupKey = `sysdrv:${count}:${categories}`;
+  if (alreadyEmitted("system_driver_update_available", dedupKey)) return;
   const entry = makeNotificationEntry(
     "system_driver_update_available",
     title,
     translate(loc, "notif.systemDriver.categories", { count: categories }),
+    { dedup_key: dedupKey },
   );
   pushNotification(entry).catch((err) =>
     console.warn("[dlssync] push system-driver notification failed:", err),
@@ -325,8 +345,10 @@ export const gameStatuses: Readable<GameStatusMap> = derived(
     const out: GameStatusMap = {};
     const prefs = $settings?.update_prefs ?? null;
     for (const g of $games) {
-      const disabled = $settings?.game_preferences[g.id]?.disabled_families ?? [];
-      out[g.id] = gameStatusFromRecords($dlls[g.id], $ctx, disabled, $errs[g.id] ?? null, prefs);
+      const gamePrefs = $settings?.game_preferences[g.id];
+      const disabled = gamePrefs?.disabled_families ?? [];
+      const pinned = gamePrefs?.pinned_versions ?? {};
+      out[g.id] = gameStatusFromRecords($dlls[g.id], $ctx, disabled, $errs[g.id] ?? null, prefs, pinned);
     }
     return out;
   },
@@ -451,15 +473,54 @@ export function emitDllUpdatesDigest(): void {
   const loc = get(locale);
   const gamesPhrase = translate(loc, "notif.dll.digestGames", { count: gameCount });
   const title = translate(loc, "notif.dll.digestTitle", { count: total, games: gamesPhrase });
-  if (alreadyEmitted("dll_updates_available", title)) return;
+  const dedupKey = `digest:${total}:${gameCount}`;
+  if (alreadyEmitted("dll_updates_available", dedupKey)) return;
   const entry = makeNotificationEntry(
     "dll_updates_available",
     title,
     translate(loc, "notif.dll.digestBody"),
+    { dedup_key: dedupKey },
   );
   pushNotification(entry).catch((err) =>
     console.warn("[dlssync] push dll-updates digest failed:", err),
   );
+}
+
+/** One notification per game whose swapped DLLs a game update silently rolled
+ *  back. Routed to the Library so the user can re-apply (or auto-apply picks it
+ *  up on the next tick — a reverted DLL scans as outdated again). */
+export async function emitRevertedSwapNotifications(): Promise<void> {
+  try {
+    const allBackups = await listBackups();
+    const reverted = detectRevertedSwaps(get(games), get(gameDlls), allBackups);
+    if (reverted.length === 0) return;
+    const byGame = new Map<string, RevertedSwap[]>();
+    for (const item of reverted) {
+      const list = byGame.get(item.game.id) ?? [];
+      list.push(item);
+      byGame.set(item.game.id, list);
+    }
+    const loc = get(locale);
+    for (const [gameId, items] of byGame) {
+      const signature = items
+        .map((i) => `${i.record.family}@${i.backup.previous_version ?? ""}`)
+        .sort()
+        .join(",");
+      const dedupKey = `revert:${gameId}:${signature}`;
+      if (alreadyEmitted("dll_updates_available", dedupKey)) continue;
+      const entry = makeNotificationEntry(
+        "dll_updates_available",
+        translate(loc, "notif.revert.title", { game: items[0].game.name }),
+        translate(loc, "notif.revert.body", { count: items.length }),
+        { link: "library", game_id: gameId, dedup_key: dedupKey },
+      );
+      pushNotification(entry).catch((err) =>
+        console.warn("[dlssync] push revert notification failed:", err),
+      );
+    }
+  } catch (err: unknown) {
+    console.warn("[dlssync] revert detection failed:", err);
+  }
 }
 
 export const restorableBackupCount: Readable<number> = derived(
@@ -499,17 +560,26 @@ export function triggerUpdateCheck(): void { requestUpdateCheck.update((n) => n 
 export function triggerRestoreMostRecent(): void { requestRestoreMostRecent.update((n) => n + 1); }
 
 
-export async function scanGames(): Promise<void> {
+export interface QuietableOptions {
+  silent?: boolean;
+}
+
+export async function scanGames(opts: QuietableOptions = {}): Promise<void> {
+  if (get(scanInProgress)) return;
   scanInProgress.set(true);
   try {
     const result = await scanLibraries();
     games.set(result);
-    showToast("success", translate(get(locale), "toast.scanGamesFound", { count: result.length }));
+    if (!opts.silent) {
+      showToast("success", translate(get(locale), "toast.scanGamesFound", { count: result.length }));
+    }
     void loadAllDlls(result);
     void enrichManualArt(result);
   } catch (err: unknown) {
     const message = formatError(err);
-    showToast("danger", translate(get(locale), "toast.scanFailed", { msg: message }));
+    if (!opts.silent) {
+      showToast("danger", translate(get(locale), "toast.scanFailed", { msg: message }));
+    }
     emitFailureNotification(
       "scan_failed",
       translate(get(locale), "notifKind.scan_failed"),
@@ -527,8 +597,7 @@ function firstArtUrl(art: GameArt): string | null {
 }
 
 async function enrichManualArt(list: DetectedGame[]): Promise<void> {
-  let apiKey = "";
-  settings.subscribe((s) => { apiKey = (s?.steamgriddb.api_key ?? "").trim(); })();
+  const apiKey = (get(settings)?.steamgriddb.api_key ?? "").trim();
   const targets = list.filter((g) => !g.image_url);
   for (const g of targets) {
     let url: string | null = null;
@@ -576,11 +645,9 @@ async function scanOne(g: DetectedGame): Promise<void> {
   gameDllsLoading.update((m) => ({ ...m, [g.id]: false }));
 }
 
-let failureToastShown = false;
 async function loadAllDlls(list: DetectedGame[]): Promise<void> {
   const concurrency = 2;
   let idx = 0;
-  failureToastShown = false;
   const workers: Promise<void>[] = [];
   for (let w = 0; w < concurrency; w++) {
     workers.push(
@@ -594,20 +661,22 @@ async function loadAllDlls(list: DetectedGame[]): Promise<void> {
     );
   }
   await Promise.all(workers);
-  let errCount = 0;
-  gameDllErrors.subscribe((m) => { errCount = Object.values(m).filter(Boolean).length; })();
-  if (errCount > 0 && !failureToastShown) {
-    failureToastShown = true;
+  const errs = get(gameDllErrors);
+  const errCount = list.reduce((n, g) => (errs[g.id] ? n + 1 : n), 0);
+  if (errCount > 0) {
     showToast("warning", translate(get(locale), "toast.gamesFailedToScan", { count: errCount }));
   }
   emitDllUpdatesDigest();
+  void emitRevertedSwapNotifications();
 }
 
 export async function rescanGame(gameId: string): Promise<void> {
-  let target: DetectedGame | undefined;
-  games.subscribe((list) => { target = list.find((g) => g.id === gameId); })();
+  const target = get(games).find((g) => g.id === gameId);
   if (!target) return;
   await scanOne(target);
+  if (get(gameDllErrors)[gameId]) {
+    showToast("warning", translate(get(locale), "toast.gamesFailedToScan", { count: 1 }));
+  }
 }
 
 function applySummary(summary: Awaited<ReturnType<typeof catalogSummary>>): void {
@@ -644,7 +713,7 @@ export async function bootstrapCatalog(): Promise<void> {
   }
 }
 
-export async function loadCatalog(): Promise<void> {
+export async function loadCatalog(opts: QuietableOptions = {}): Promise<void> {
   catalogStatus.set({ kind: "warning", label: "loading" });
   const before = { ...get(catalogLatestByKey) };
   try {
@@ -660,7 +729,9 @@ export async function loadCatalog(): Promise<void> {
   } catch (err: unknown) {
     catalogStatus.set({ kind: "danger", label: "error" });
     const message = formatError(err);
-    showToast("danger", translate(get(locale), "toast.catalogRefreshFailed", { msg: message }));
+    if (!opts.silent) {
+      showToast("danger", translate(get(locale), "toast.catalogRefreshFailed", { msg: message }));
+    }
     emitFailureNotification(
       "catalog_refresh_failed",
       translate(get(locale), "notifKind.catalog_refresh_failed"),
@@ -686,6 +757,26 @@ export async function loadBackups(): Promise<void> {
     showToast("warning", translate(get(locale), "toast.backupsLoadFailed", { msg: formatError(err) }));
   }
 }
+
+export const systemInfo: Writable<SystemInfo | null> = writable(null);
+let systemInfoPromise: Promise<SystemInfo> | null = null;
+
+export function ensureSystemInfo(): Promise<SystemInfo> {
+  if (!systemInfoPromise) {
+    systemInfoPromise = getSystemInfo().then((si) => {
+      systemInfo.set(si);
+      return si;
+    });
+    systemInfoPromise.catch(() => {
+      systemInfoPromise = null;
+    });
+  }
+  return systemInfoPromise;
+}
+
+export const fsr4Capable: Readable<boolean> = derived(systemInfo, ($si) =>
+  ($si?.gpus ?? []).some((g) => g.fsr4_capable),
+);
 
 export const driverReports: Writable<DriverStatusReport[]> = writable([]);
 export const driverCheckInProgress: Writable<boolean> = writable(false);
@@ -845,13 +936,20 @@ const SYSTEM_DRIVER_IDLE: SystemDriverInstallState = {
   fraction: null,
 };
 
-/** Human label per install stage (the backend enum is machine-cased). */
-export const DRIVER_INSTALL_STAGE_LABEL: Record<string, string> = {
-  downloading: "Downloading",
-  installing: "Installing",
-  completed: "Done",
-  failed: "Failed",
-};
+const DRIVER_INSTALL_STAGES = ["downloading", "installing", "completed", "failed"] as const;
+
+/** Localized label per install stage (the backend enum is machine-cased), pulled
+ * from the `installStage.*` i18n keys and kept in sync with the active locale via a
+ * module-level subscription. A consumer reads `DRIVER_INSTALL_STAGE_LABEL[stage]`
+ * and falls back to `view.drivers.installStageFallback` for an unknown stage. */
+export const DRIVER_INSTALL_STAGE_LABEL: Record<string, string> = {};
+
+locale.subscribe(($locale) => {
+  for (const key of Object.keys(DRIVER_INSTALL_STAGE_LABEL)) delete DRIVER_INSTALL_STAGE_LABEL[key];
+  for (const stage of DRIVER_INSTALL_STAGES) {
+    DRIVER_INSTALL_STAGE_LABEL[stage] = translate($locale, `installStage.${stage}`);
+  }
+});
 
 export const systemDriverInstall: Writable<SystemDriverInstallState> = writable({
   ...SYSTEM_DRIVER_IDLE,
@@ -993,7 +1091,7 @@ export async function persistSettings(next: AppSettings): Promise<void> {
   }
 }
 
-function formatError(err: unknown): string {
+export function formatError(err: unknown): string {
   if (err && typeof err === "object" && "message" in err) {
     return String((err as { message: unknown }).message);
   }

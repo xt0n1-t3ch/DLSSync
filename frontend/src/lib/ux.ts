@@ -4,7 +4,9 @@ import type {
   LibrarySort,
   BackupsGroupBy,
   SettingsTab,
+  DllFamily,
 } from "./api";
+import { FAMILY_META, type VendorKey } from "./familyMeta";
 
 export const LIBRARY_VIEW_MODES: readonly LibraryViewMode[] = ["grid", "list"];
 export const LIBRARY_DENSITIES: readonly LibraryDensity[] = ["compact", "comfy"];
@@ -247,28 +249,15 @@ export const ENABLER_MANAGED_NOTE =
 export const STREAMLINE_OVERRIDE_NOTE =
   "Updating Streamline replaces the shared sl.* plug-in set. Per-game DLSS overrides keep working; NVIDIA App global preset and ratio overrides may need to be set again. If a game misbehaves, restore the previous set from Backups.";
 
-export const VENDOR_TOKEN_BY_FAMILY: Record<string, string> = {
-  dlss_sr: "var(--vendor-nvidia)",
-  dlss_fg: "var(--vendor-nvidia)",
-  dlss_rr: "var(--vendor-nvidia)",
-  reflex: "var(--vendor-nvidia)",
-  streamline: "var(--vendor-nvidia)",
-  streamline_common: "var(--vendor-nvidia)",
-  streamline_pcl: "var(--vendor-nvidia)",
-  streamline_nis: "var(--vendor-nvidia)",
-  streamline_direct_sr: "var(--vendor-microsoft)",
-  xess_sr: "var(--vendor-intel)",
-  xess_sr_dx11: "var(--vendor-intel)",
-  xess_fg: "var(--vendor-intel)",
-  xell: "var(--vendor-intel)",
-  fsr_upscaler: "var(--vendor-amd)",
-  fsr_upscaler_vk: "var(--vendor-amd)",
-  fsr_fg: "var(--vendor-amd)",
-  fsr_loader: "var(--vendor-amd)",
-  direct_storage: "var(--vendor-microsoft)",
-};
+export type { VendorKey };
 
-export type VendorKey = "nvidia" | "amd" | "intel" | "microsoft";
+/** Vendor tint token per family, derived from the canonical {@link FAMILY_META}.
+ *  Kept as a `Record<string, string>` so existing keyed lookups keep working. */
+export const VENDOR_TOKEN_BY_FAMILY: Record<string, string> = Object.fromEntries(
+  (Object.entries(FAMILY_META) as [DllFamily, (typeof FAMILY_META)[DllFamily]][]).map(
+    ([family, m]) => [family, m.token],
+  ),
+);
 
 export const VENDOR_LABELS: Record<VendorKey, string> = {
   nvidia: "NVIDIA",
@@ -278,14 +267,7 @@ export const VENDOR_LABELS: Record<VendorKey, string> = {
 };
 
 export function vendorForFamily(family: string): VendorKey | null {
-  if (family.startsWith("dlss") || family === "reflex" || family === "streamline" || family.startsWith("streamline_")) {
-    if (family === "streamline_direct_sr") return "microsoft";
-    return "nvidia";
-  }
-  if (family.startsWith("xess") || family === "xell") return "intel";
-  if (family.startsWith("fsr")) return "amd";
-  if (family === "direct_storage") return "microsoft";
-  return null;
+  return FAMILY_META[family as DllFamily]?.vendor ?? null;
 }
 
 export function isModifierComboMatch(event: KeyboardEvent, keys: readonly string[]): boolean {
@@ -315,4 +297,15 @@ function keyAliasFor(key: string): string {
 export function pushRecentCommand(recent: readonly string[], id: string): string[] {
   const next = [id, ...recent.filter((r) => r !== id)];
   return next.slice(0, COMMAND_PALETTE_RECENT_MAX);
+}
+
+export function reducedMotion(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
+export function motionDuration(ms: number): number {
+  return reducedMotion() ? 0 : ms;
 }

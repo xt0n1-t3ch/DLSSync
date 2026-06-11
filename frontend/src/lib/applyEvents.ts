@@ -65,6 +65,7 @@ function buildTerminalEntry(
     error_class: p.error_class ?? null,
     link: null,
     vendor: family ? vendorForFamily(family) : null,
+    dedup_key: null,
   };
 }
 

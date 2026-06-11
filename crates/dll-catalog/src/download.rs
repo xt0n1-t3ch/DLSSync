@@ -29,6 +29,9 @@ pub struct DownloadProgress {
 pub struct DownloadOptions {
     pub max_retries: u32,
     pub chunk_timeout: Duration,
+    /// Hard ceiling on bytes buffered per attempt, independent of the server's
+    /// `Content-Length` claim — bounds a stream that never ends.
+    pub max_total_bytes: u64,
     pub progress_tx: Option<mpsc::UnboundedSender<DownloadProgress>>,
     pub cancel: Option<CancellationToken>,
 }
@@ -38,6 +41,7 @@ impl Default for DownloadOptions {
         Self {
             max_retries: DEFAULT_MAX_RETRIES,
             chunk_timeout: DEFAULT_CHUNK_TIMEOUT,
+            max_total_bytes: crate::zip::MAX_ZIP_TOTAL_BYTES,
             progress_tx: None,
             cancel: None,
         }
@@ -188,7 +192,20 @@ async fn download_once(
     let response = client.get(url).send().await?.error_for_status()?;
     let content_length = response.content_length();
     let total = content_length;
-    let mut buf: Vec<u8> = Vec::with_capacity(total.unwrap_or(8 * 1024 * 1024) as usize);
+    if total.is_some_and(|len| len > opts.max_total_bytes) {
+        return Err(CatalogError::Unsafe(format!(
+            "download larger than the {} byte ceiling",
+            opts.max_total_bytes
+        )));
+    }
+    // Never trust Content-Length as an allocation hint: a hostile/misconfigured
+    // server reporting e.g. 4 GiB would otherwise force an immediate giant
+    // reservation (OOM/abort). Cap the pre-allocation at the same ceiling the zip
+    // extractor enforces; the streamed read below still grows as needed.
+    let pre_alloc = total
+        .unwrap_or(8 * 1024 * 1024)
+        .min(crate::zip::MAX_ZIP_TOTAL_BYTES) as usize;
+    let mut buf: Vec<u8> = Vec::with_capacity(pre_alloc);
     let mut stream = response.bytes_stream();
     let started = Instant::now();
     let mut last_emit = Instant::now();
@@ -209,6 +226,12 @@ async fn download_once(
             }
         };
         buf.extend_from_slice(&chunk);
+        if buf.len() as u64 > opts.max_total_bytes {
+            return Err(CatalogError::Unsafe(format!(
+                "download stream exceeded the {} byte ceiling",
+                opts.max_total_bytes
+            )));
+        }
         if let Some(tx) = &opts.progress_tx {
             if last_emit.elapsed() >= DEFAULT_PROGRESS_INTERVAL {
                 let elapsed = started.elapsed().as_secs_f64().max(0.001);
@@ -328,8 +351,7 @@ mod tests {
         let opts = DownloadOptions {
             max_retries: 1,
             chunk_timeout: Duration::from_millis(200),
-            progress_tx: None,
-            cancel: None,
+            ..Default::default()
         };
         let first = fetch_shared(&cache, &client, url, opts.clone()).await;
         assert!(first.is_err());

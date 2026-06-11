@@ -104,6 +104,10 @@ pub struct NotificationEntry {
     pub link: Option<String>,
     #[serde(default)]
     pub vendor: Option<String>,
+    /// Locale-independent identity for dedup (e.g. `driver:RTX 4070:610.47`).
+    /// Localized titles change with the UI language; this key does not.
+    #[serde(default)]
+    pub dedup_key: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -152,6 +156,7 @@ impl NotificationsStore {
         )?;
         ensure_column(&conn, "link")?;
         ensure_column(&conn, "vendor")?;
+        ensure_column(&conn, "dedup_key")?;
         conn.execute_batch(DEDUP_PRUNE_DDL)?;
         conn.execute_batch(DEDUP_INDEX_DDL)?;
         Ok(())
@@ -159,11 +164,22 @@ impl NotificationsStore {
 
     pub fn insert(&self, entry: &NotificationEntry) -> Result<bool, NotificationsError> {
         let conn = self.conn()?;
+        if let Some(key) = &entry.dedup_key {
+            let active_dupes: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM notifications
+                 WHERE kind = ?1 AND dedup_key = ?2 AND dismissed_at IS NULL",
+                rusqlite::params![entry.kind.as_str(), key],
+                |r| r.get(0),
+            )?;
+            if active_dupes > 0 {
+                return Ok(false);
+            }
+        }
         let inserted = conn.execute(
             "INSERT OR IGNORE INTO notifications
                 (id, kind, title, body, created_at, read_at, dismissed_at,
-                 apply_id, game_id, error_class, link, vendor)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+                 apply_id, game_id, error_class, link, vendor, dedup_key)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
             rusqlite::params![
                 entry.id,
                 entry.kind.as_str(),
@@ -177,6 +193,7 @@ impl NotificationsStore {
                 entry.error_class,
                 entry.link,
                 entry.vendor,
+                entry.dedup_key,
             ],
         )?;
         if inserted == 0 {
@@ -214,13 +231,13 @@ impl NotificationsStore {
         let limit = filter.limit.unwrap_or(DEFAULT_LIST_LIMIT) as i64;
         let sql = if include_dismissed {
             "SELECT id, kind, title, body, created_at, read_at, dismissed_at,
-                    apply_id, game_id, error_class, link, vendor
+                    apply_id, game_id, error_class, link, vendor, dedup_key
              FROM notifications
              ORDER BY created_at DESC
              LIMIT ?1"
         } else {
             "SELECT id, kind, title, body, created_at, read_at, dismissed_at,
-                    apply_id, game_id, error_class, link, vendor
+                    apply_id, game_id, error_class, link, vendor, dedup_key
              FROM notifications
              WHERE dismissed_at IS NULL
              ORDER BY created_at DESC
@@ -322,6 +339,7 @@ fn row_to_entry(row: &rusqlite::Row<'_>) -> Result<NotificationEntry, rusqlite::
         error_class: row.get(9)?,
         link: row.get(10)?,
         vendor: row.get(11)?,
+        dedup_key: row.get(12)?,
     })
 }
 
@@ -380,6 +398,7 @@ mod tests {
             error_class: None,
             link: None,
             vendor: None,
+            dedup_key: None,
         }
     }
 
@@ -387,6 +406,36 @@ mod tests {
         let mut entry = make_entry(NotificationKind::ApplySuccess, title);
         entry.created_at = chrono::Utc::now() - chrono::Duration::seconds(secs_ago);
         store.insert(&entry).unwrap();
+    }
+
+    #[test]
+    fn dedup_key_blocks_duplicate_even_when_localized_title_differs() {
+        let dir = tempdir().unwrap();
+        let store = fresh_store(&dir);
+        let mut english = make_entry(NotificationKind::DriverUpdateAvailable, "GPU driver 610.47");
+        english.dedup_key = Some("driver:RTX 4070 Ti SUPER:610.47".into());
+        assert!(store.insert(&english).unwrap());
+
+        let mut spanish = make_entry(
+            NotificationKind::DriverUpdateAvailable,
+            "Controlador 610.47",
+        );
+        spanish.dedup_key = Some("driver:RTX 4070 Ti SUPER:610.47".into());
+        assert!(
+            !store.insert(&spanish).unwrap(),
+            "same structural identity must dedup across locales"
+        );
+
+        store.dismiss(&english.id).unwrap();
+        let mut after_dismiss = make_entry(
+            NotificationKind::DriverUpdateAvailable,
+            "Controlador 610.47",
+        );
+        after_dismiss.dedup_key = Some("driver:RTX 4070 Ti SUPER:610.47".into());
+        assert!(
+            store.insert(&after_dismiss).unwrap(),
+            "a dismissed entry no longer blocks a re-emit"
+        );
     }
 
     #[test]

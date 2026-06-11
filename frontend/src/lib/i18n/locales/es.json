@@ -36,15 +36,25 @@
     "library": {
       "title": "Biblioteca",
       "subtitle": "{detected} juegos detectados — {shown} mostrados",
+      "hiddenChip_one": "{count} oculto",
+      "hiddenChip_other": "{count} ocultos",
+      "hiddenChipTitle": "Mostrar los juegos que has ocultado",
       "addFolder": "Añadir carpeta",
       "scanning": "Escaneando",
       "rescan": "Reescanear",
       "hero": {
-        "aria": "Actualizaciones pendientes",
+        "aria": "Estado de la biblioteca",
         "updatesReadyLabel_one": "actualización lista",
         "updatesReadyLabel_other": "actualizaciones listas",
         "acrossGames_one": "en {count} juego",
         "acrossGames_other": "en {count} juegos",
+        "allClear": "Biblioteca al día",
+        "allClearDetail": "Cada DLL escaneado coincide con el catálogo",
+        "segAria": "Actualizaciones pendientes por fabricante",
+        "kpiGames": "Juegos",
+        "kpiUpToDate": "Al día",
+        "kpiProtected": "Protegidos",
+        "kpiProtectedTitle": "Juegos con puntos de restauración en Copias",
         "review": "Revisar",
         "reviewTitle": "Filtra la biblioteca para mostrar solo los juegos con actualizaciones pendientes",
         "applyAll": "Aplicar todo",
@@ -163,10 +173,12 @@
       "versionsCount_one": "{count} versión",
       "versionsCount_other": "{count} versiones",
       "openPortal": "Abrir {name}",
-      "browseModulesAria": "Explorar módulos de {name}",
+      "browseModulesAria": "Explorar {name}",
       "viewVersionsAria": "Ver versiones de {name}",
-      "modulesSummary_one": "{count} módulo · {detail} en total",
-      "modulesSummary_other": "{count} módulos · {detail} en total",
+      "modulesSummary_one": "{count} tecnología adicional · {detail} versiones en total",
+      "modulesSummary_other": "{count} tecnologías adicionales · {detail} versiones en total",
+      "moreTechCount_one": "{count} más",
+      "moreTechCount_other": "{count} más",
       "versionsSummary_one": "{count} versión · última v{latest}",
       "versionsSummary_other": "{count} versiones · última v{latest}",
       "foot": {
@@ -189,6 +201,18 @@
     "drivers": {
       "title": "Controladores",
       "subtitle": "El controlador de GPU más reciente para cada adaptador detectado, comprobado en directo con el fabricante, además de controles de preajuste de DLSS y de generación de fotogramas.",
+      "health": {
+        "aria": "Resumen de salud de los controladores",
+        "gpuUpdates_one": "{count} actualización de controlador de GPU",
+        "gpuUpdates_other": "{count} actualizaciones de controlador de GPU",
+        "gpusCurrent": "Controladores de GPU al día",
+        "systemUpdates_one": "{count} actualización de componente del sistema",
+        "systemUpdates_other": "{count} actualizaciones de componentes del sistema"
+      },
+      "presetHint": {
+        "k": "Recomendado para {model}: Preset K — el modelo transformer más reciente que esta generación de GPU ejecuta mejor en todos los modos de calidad.",
+        "lm": "Recomendado para {model}: Preset K, más L (Ultra Rendimiento) y M (Rendimiento) — las RTX 40/50 ejecutan los presets transformer más nuevos a plena velocidad."
+      },
       "checking": "Comprobando…",
       "checkForUpdates": "Buscar actualizaciones",
       "noGpus": "No se han detectado GPU.",
@@ -214,6 +238,9 @@
       "rescan": "Volver a analizar",
       "systemSub": "Actualizaciones de controladores para el resto de tu PC: audio, red, Bluetooth, chipset, entrada y almacenamiento. Provienen de Windows Update y del Microsoft Update Catalog, se mantienen firmadas por el fabricante y nunca ofrecemos una más antigua que el controlador que ya tienes.",
       "betaNote": "La detección puede pasar por alto o interpretar mal parte del hardware, así que revisa cada actualización antes de aplicarla. Si alguna causa problemas, la copia de seguridad automática la revierte.",
+      "systemSummary": "Mantiene al día el resto de tu PC: controladores de audio, red, chipset, entrada y almacenamiento directamente desde Windows Update.",
+      "learnMore": "Más información",
+      "showLess": "Mostrar menos",
       "scanningWindowsUpdate": "Buscando controladores de componentes en Windows Update…",
       "allComponentsUpToDate": "Todos los componentes están actualizados; Windows Update no tiene ningún controlador más reciente.",
       "latestFallback": "más reciente",
@@ -256,6 +283,15 @@
         "missingHint": "Los archivos de la copia ya no están en el disco; se movieron o eliminaron fuera de DLSSync. Elimina las filas para limpiar la lista.",
         "missingCount": "{count} faltante"
       },
+      "legend": {
+        "label": "Qué significan los recuentos",
+        "restorable": "Restaurable",
+        "restorableHint": "La DLL original está respaldada y lista para revertir; aún no se ha restaurado.",
+        "restored": "Ya restaurada",
+        "restoredHint": "Ya revertida a la carpeta del juego; vuelve a restaurar solo si aplicaste una DLL más reciente después.",
+        "missing": "Faltante",
+        "missingHint": "El archivo de la copia ya no está en el disco y no se puede restaurar."
+      },
       "bulk": {
         "selected": "{count} seleccionada",
         "selected_one": "{count} seleccionada",
@@ -291,9 +327,9 @@
       "group": {
         "selectAll": "Seleccionar todo en este juego",
         "deselectAll": "Deseleccionar todo en este juego",
-        "snapshots": "<strong>{count}</strong> instantánea",
-        "snapshots_one": "<strong>{count}</strong> instantánea",
-        "snapshots_other": "<strong>{count}</strong> instantáneas",
+        "snapshots": "{count} instantánea",
+        "snapshots_one": "{count} instantánea",
+        "snapshots_other": "{count} instantáneas",
         "restorable": "{count} restaurable",
         "restorable_one": "{count} restaurable",
         "restorable_other": "{count} restaurables",
@@ -307,6 +343,7 @@
       },
       "entry": {
         "selectHint": "Seleccionar para restaurar/eliminar en lote",
+        "selectAria": "Seleccionar {file} para restaurar o eliminar en lote",
         "snapshotMissing": "Instantánea faltante",
         "missingHint": "El archivo de la instantánea ya no está en el disco; se movió o eliminó fuera de DLSSync. No se puede restaurar; elimina la fila para ordenar la lista.",
         "restored": "Restaurada",
@@ -433,7 +470,7 @@
         },
         "performance": {
           "title": "Rendimiento",
-          "help": "Consumo de CPU y batería. EcoQoS programa DLSSync en los núcleos eficientes mientras está minimizado, reduciendo su impacto casi a cero."
+          "help": "Consumo de CPU y batería. EcoQoS mantiene DLSSync programado en núcleos eficientes mientras este interruptor está activo, así el Administrador de tareas muestra el Modo de eficiencia durante toda la sesión."
         },
         "updateBehavior": {
           "title": "Comportamiento de actualización",
@@ -520,6 +557,12 @@
           "sub": "Desactivado por defecto. Actívalo para actualizaciones desatendidas."
         }
       },
+      "featureGroup": {
+        "nvidia": "NVIDIA",
+        "intel": "Intel",
+        "amd": "AMD",
+        "microsoft": "Microsoft"
+      },
       "filesDisclosure": {
         "hide": "Ocultar archivos",
         "show": "Mostrar archivos técnicos"
@@ -565,6 +608,14 @@
         "addFolder": "Añadir carpeta",
         "noFolders": "Aún no hay carpetas personalizadas",
         "openFolderTitle": "Abrir carpeta",
+        "confirmRemove": {
+          "ok": "Quitar",
+          "cancel": "Cancelar",
+          "folderTitle": "¿Quitar carpeta personalizada?",
+          "folderBody": "¿Quitar {path} de las carpetas de escaneo personalizadas? Los juegos encontrados allí dejarán de detectarse en el próximo escaneo. No se modificará ningún archivo del disco.",
+          "pathTitle": "¿Quitar ruta del lanzador?",
+          "pathBody": "¿Quitar la ruta personalizada del lanzador {path}? La detección volverá al valor predeterminado del registro. No se modificará ningún archivo del disco."
+        },
         "removeTitle": "Quitar",
         "rescanNow": "Reescanear ahora",
         "launcherOverrides": {
@@ -1168,6 +1219,7 @@
   "note": {
     "adminElevation": "Windows instala los controladores por equipo solo con permisos de administrador, por eso Actualizar muestra un aviso de UAC. DLSSync se mantiene sin elevar y ejecuta un ayudante firmado con tu aprobación — primero crea una instantánea del controlador actual y un punto de restauración del sistema, para que puedas revertir.",
     "enablerManaged": "DLSS Enabler requiere NVIDIA Streamline 2.11 o posterior pero no lo actualiza, así que DLSSync actualiza el conjunto de Streamline dentro de la misma versión mayor para que Enabler siga funcionando. Nunca cambia el conjunto a otra versión mayor.",
+    "nvidiaAppManaged": "NVIDIA App gestiona los overrides de DLSS de este juego. DLSSync no interviene por defecto — un intercambio de DLL aplicado aquí puede sobrescribirse la próxima vez que NVIDIA App reaplique su override.",
     "streamlineOverride": "Actualizar Streamline reemplaza el conjunto compartido de complementos sl.*. Los overrides de DLSS por juego siguen funcionando; puede que tengas que volver a definir los overrides globales de preset y ratio de NVIDIA App. Si un juego falla, restaura el conjunto anterior desde Copias de seguridad."
   },
   "component": {
@@ -1304,8 +1356,8 @@
         "sub": "Mantén DLSSync ejecutándose en la bandeja del sistema cuando pulses la X. Usa el icono de la bandeja para recuperarlo. Recomendado para comprobar actualizaciones en segundo plano."
       },
       "efficiency": {
-        "label": "Modo de eficiencia al minimizar",
-        "sub": "Programa DLSSync en los núcleos eficientes y baja su prioridad mientras no lo estás mirando. Reduce el consumo de CPU y batería casi a cero. Muestra la insignia de la hoja verde en el Administrador de tareas."
+        "label": "Modo de eficiencia siempre activo",
+        "sub": "Mantiene DLSSync en EcoQoS de Windows mientras el interruptor está activo, reforzándolo en segundo plano para que el Administrador de tareas conserve la hoja verde."
       },
       "autostart": {
         "label": "Iniciar con Windows",
@@ -1455,7 +1507,8 @@
         "deselectAll": "Deseleccionar todo en esta función",
         "reEnable": "Reactivar la función para este juego",
         "disable": "Desactivar la función para este juego",
-        "toggleAria": "Alternar función"
+        "toggleAria": "Alternar función",
+        "moreActions": "Más acciones"
       },
       "version": {
         "pickDifferent": "Elegir otra versión",
@@ -1469,7 +1522,8 @@
         "showMany": "Mostrar archivos ({count})",
         "hideMany": "Ocultar archivos",
         "showOne": "Mostrar archivo",
-        "hideOne": "Ocultar archivo"
+        "hideOne": "Ocultar archivo",
+        "checkboxAria": "Seleccionar {file} para actualizar"
       },
       "fileStatus": {
         "update": "Actualizar",
@@ -1496,6 +1550,15 @@
         "label_other": "Actualizar conjunto de Streamline ({count})",
         "labelVersion_one": "Actualizar conjunto de Streamline → v{version} ({count})",
         "labelVersion_other": "Actualizar conjunto de Streamline → v{version} ({count})"
+      },
+      "dllSet": {
+        "title": "Actualizar el conjunto multi-DLL coincidente de {label} como una sola transacción atómica (todos los archivos, o ninguno).",
+        "label_one": "Actualizar conjunto de {label} ({count})",
+        "label_other": "Actualizar conjunto de {label} ({count})",
+        "labelVersion_one": "Actualizar conjunto de {label} → v{version} ({count})",
+        "labelVersion_other": "Actualizar conjunto de {label} → v{version} ({count})",
+        "blockedFsr4": "El escalado FSR 4 requiere una GPU AMD RDNA4 (serie Radeon RX 9000). Este conjunto queda bloqueado en el hardware actual.",
+        "requiresRdna4": "Requiere RDNA4"
       },
       "applySelected_one": "Aplicar selección ({count})",
       "applySelected_other": "Aplicar selección ({count})"
@@ -1687,6 +1750,8 @@
     "settingsSaveFailed": "No se pudo guardar la configuración: {msg}",
     "saveFailed": "No se pudo guardar: {msg}",
     "nothingSelected": "Nada seleccionado",
+    "applyInProgress": "Ya hay una aplicación en curso; espera a que termine antes de iniciar otra",
+    "cancelFailed": "No se pudo cancelar: {msg}",
     "queuedAcross": "{updates} en cola {games}",
     "queuedUpdates_one": "{count} actualización",
     "queuedUpdates_other": "{count} actualizaciones",
@@ -1703,6 +1768,14 @@
     "streamlineUpdateFailed": "Error al actualizar el conjunto de Streamline: {error}{rolledBack}",
     "unknownError": "desconocido",
     "streamlineApplyFailed": "Error al aplicar el conjunto de Streamline: {msg}",
+    "setNoUpdates": "No hay actualizaciones del conjunto de {label}",
+    "setUpdating_one": "Actualizando conjunto de {label} ({count} archivo)…",
+    "setUpdating_other": "Actualizando conjunto de {label} ({count} archivos)…",
+    "setUpdated_one": "Conjunto de {label} actualizado ({count} archivo)",
+    "setUpdated_other": "Conjunto de {label} actualizado ({count} archivos)",
+    "setFailed": "El conjunto de {label} falló",
+    "setUpdateFailed": "Error al actualizar el conjunto de {label}: {error}{rolledBack}",
+    "setApplyFailed": "Error al aplicar el conjunto de {label}: {msg}",
     "trackerUpdatedTo": "Actualizado a v{version}",
     "trackerUpdated": "Actualizado",
     "trackerQueued": "En cola",
@@ -1736,6 +1809,11 @@
       "digestGames_other": "{count} juegos",
       "digestBody": "Abre la Biblioteca para aplicarlas"
     },
+    "revert": {
+      "title": "Una actualización del juego revirtió tus DLL en {game}",
+      "body_one": "{count} DLL intercambiada fue revertida; abre la Biblioteca para volver a aplicarla",
+      "body_other": "{count} DLL intercambiadas fueron revertidas; abre la Biblioteca para volver a aplicarlas"
+    },
     "apply": {
       "successTitle": "{gameLabel} actualizado",
       "failureTitle": "Error al actualizar {gameLabel}",
@@ -1743,7 +1821,7 @@
       "successBody": "{family} → {version}"
     },
     "background": {
-      "toastTitle_one": "{count} actualizacion lista",
+      "toastTitle_one": "{count} actualización lista",
       "toastTitle_other": "{count} actualizaciones listas",
       "toastBody": "En {games} - abre DLSSync para aplicar"
     }

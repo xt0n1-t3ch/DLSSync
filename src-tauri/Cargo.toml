@@ -17,7 +17,7 @@ path = "src/main.rs"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["tray-icon", "devtools"] }
+tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-notification = "2"
@@ -46,6 +46,7 @@ reqwest.workspace = true
 sha2.workspace = true
 tempfile.workspace = true
 uuid.workspace = true
+url.workspace = true
 sysinfo.workspace = true
 
 pe-version = { path = "../crates/pe-version" }
@@ -68,3 +69,4 @@ win32-ecoqos = "0.6"
 
 [dev-dependencies]
 rusqlite = { workspace = true }
+tokio = { workspace = true, features = ["test-util"] }

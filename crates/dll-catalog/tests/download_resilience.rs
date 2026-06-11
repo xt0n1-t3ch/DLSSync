@@ -120,6 +120,41 @@ async fn xess_regression_zip_downloads_exactly_once_for_four_dlls() {
 }
 
 #[tokio::test]
+async fn stream_exceeding_byte_cap_is_refused() {
+    let server = MockServer::start().await;
+    let payload = b"this-body-is-far-larger-than-the-tiny-cap-below";
+    let zip_bytes = build_xess_like_zip(&["libxess.dll"], payload);
+    Mock::given(method("GET"))
+        .and(path("/huge.zip"))
+        .respond_with(ResponseTemplate::new(200).set_body_bytes(zip_bytes))
+        .mount(&server)
+        .await;
+
+    let url = format!("{}/huge.zip", server.uri());
+    let release = release_for(
+        "libxess.dll",
+        &url,
+        &sha256_of(payload),
+        payload.len() as u64,
+    );
+    let client = reqwest::Client::new();
+    let cache = DownloadCache::new();
+    let tmp = tempfile::tempdir().unwrap();
+    let opts = DownloadOptions {
+        max_total_bytes: 16,
+        ..Default::default()
+    };
+    let err = download_and_extract_dll_cached(&cache, &client, &release, tmp.path(), opts)
+        .await
+        .unwrap_err();
+    let msg = err.to_string();
+    assert!(
+        msg.contains("byte ceiling"),
+        "expected the size-cap refusal, got: {msg}"
+    );
+}
+
+#[tokio::test]
 async fn truncated_body_then_full_succeeds_via_retry() {
     let server = MockServer::start().await;
     let payload = b"recoverable-payload-bytes";
@@ -162,8 +197,7 @@ async fn truncated_body_then_full_succeeds_via_retry() {
     let opts = DownloadOptions {
         max_retries: 3,
         chunk_timeout: Duration::from_secs(5),
-        progress_tx: None,
-        cancel: None,
+        ..Default::default()
     };
     let bytes = fetch_shared(&cache, &client, &url, opts).await.unwrap();
     assert_eq!(bytes.as_ref().as_ref(), payload);
@@ -248,8 +282,8 @@ async fn cancellation_token_aborts_in_flight_download() {
     let opts = DownloadOptions {
         max_retries: 1,
         chunk_timeout: Duration::from_secs(5),
-        progress_tx: None,
         cancel: Some(cancel.clone()),
+        ..Default::default()
     };
     let cancel_handle = cancel.clone();
     tokio::spawn(async move {
@@ -474,7 +508,7 @@ async fn progress_events_emitted_during_download() {
         max_retries: 1,
         chunk_timeout: Duration::from_secs(5),
         progress_tx: Some(tx),
-        cancel: None,
+        ..Default::default()
     };
     let result = fetch_shared(&cache, &client, &url, opts).await;
     assert!(result.is_ok());

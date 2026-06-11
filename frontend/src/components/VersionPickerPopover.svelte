@@ -13,6 +13,7 @@
   } from "../lib/labels";
   import { settings } from "../lib/stores";
   import FeatureIcon from "./FeatureIcon.svelte";
+  import { focusTrap } from "../actions/focusTrap";
 
   let {
     family,
@@ -157,7 +158,7 @@
 </script>
 
 <div class="picker-backdrop" role="presentation" onclick={onClose} onkeydown={handleKey} tabindex="-1"></div>
-<div class="picker glass-dialog" transition:fly={{ y: -6, duration: 140 }} onkeydown={handleKey} role="dialog" aria-label={$t("component.flyout.pickVersion")} tabindex="-1">
+<div class="picker glass-dialog" transition:fly={{ y: -6, duration: 140 }} onkeydown={handleKey} role="dialog" aria-modal="true" aria-label={$t("component.flyout.pickVersion")} tabindex="-1" use:focusTrap>
   <header class="picker-head">
     <div class="picker-glyph" aria-hidden="true">
       <FeatureIcon id={icon} size={20} />
@@ -610,5 +611,4 @@
     border-radius: 50%;
     animation: spin 0.7s linear infinite;
   }
-  @keyframes spin { to { transform: rotate(360deg); } }
 </style>

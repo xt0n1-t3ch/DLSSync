@@ -1,7 +1,6 @@
 <script lang="ts">
   import type { DetectedGame, DllRecord } from "../lib/api";
   import {
-    LAUNCHER_ACCENTS,
     launcherLabel,
     recordFeature,
     featureShort,
@@ -9,6 +8,7 @@
     featureVendor,
     FEATURE_ORDER,
     vendorAccentVar,
+    vendorInkVar,
     GROUP_ACCENT_VAR,
     type UpdateStatus,
     type FeatureSlot,
@@ -30,13 +30,6 @@
     onContextMenu?: (g: DetectedGame, e: MouseEvent) => void;
   } = $props();
 
-  function handleCardKey(e: KeyboardEvent): void {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      onClick(game);
-    }
-  }
-
   let imgErrored = $state(false);
   let status: UpdateStatus = $derived(($gameStatuses[game.id] ?? "unknown") as UpdateStatus);
   let loading = $derived($gameDllsLoading[game.id] ?? false);
@@ -53,6 +46,7 @@
     outdated: boolean;
     count: number;
     vendorAccent: string;
+    vendorInk: string;
     short: string;
     iconId: string;
   };
@@ -70,6 +64,7 @@
           count: 1,
           vendorAccent:
             f === "advanced" ? GROUP_ACCENT_VAR.advanced : vendorAccentVar(featureVendor(f)),
+          vendorInk: vendorInkVar(featureVendor(f)),
           short: f === "advanced" ? $t("feature.advanced.short") : featureShort(f),
           iconId: featureIconId(f),
         });
@@ -85,7 +80,6 @@
   let visibleChips = $derived(featureChips.slice(0, 4));
   let hiddenChipCount = $derived(Math.max(0, featureChips.length - visibleChips.length));
 
-  let accent = $derived(LAUNCHER_ACCENTS[game.launcher] ?? "#22d3ee");
   let brandMark = $derived(launcherIcon(game.launcher));
 
   let haloVariant = $derived(
@@ -104,15 +98,11 @@
   class:status-no_dlls={status === "no_dlls"}
   class:status-scan_failed={status === "scan_failed"}
   class:is-hidden={hidden}
-  role="button"
-  tabindex="0"
-  onclick={() => onClick(game)}
+  role="presentation"
   oncontextmenu={onContextMenu ? (e) => { e.preventDefault(); onContextMenu(game, e); } : undefined}
-  onkeydown={handleCardKey}
   onmouseenter={() => setActiveArt(game.image_url)}
-  onfocus={() => setActiveArt(game.image_url)}
 >
-  <div class="art" style:--launcher-accent={accent}>
+  <div class="art" data-launcher={game.launcher}>
     {#if game.image_url && !imgErrored}
       <img
         class="art-img"
@@ -131,7 +121,7 @@
     {/if}
     <div class="art-overlay"></div>
     <div class="art-top">
-      <span class="launcher-chip" style:background={accent} title={launcherLabel(game.launcher)} aria-label={launcherLabel(game.launcher)}>
+      <span class="launcher-chip" title={launcherLabel(game.launcher)} aria-label={launcherLabel(game.launcher)}>
         <svg class="launcher-mark" viewBox={brandMark.viewBox} fill="currentColor" aria-hidden="true">
           <path d={brandMark.path} />
         </svg>
@@ -173,7 +163,13 @@
     </div>
   </div>
   <div class="body">
-    <h3 class="game-name truncate" title={game.name}>{game.name}</h3>
+    <h3 class="game-name truncate" title={game.name}>
+      <button
+        class="game-name-btn truncate"
+        onclick={() => onClick(game)}
+        onfocus={() => setActiveArt(game.image_url)}
+      >{game.name}</button>
+    </h3>
     {#if loading}
       <div class="loading-row">
         <span class="loading-dot"></span>
@@ -190,15 +186,13 @@
             class="feature-chip"
             class:outdated={fc.outdated}
             style:--chip-accent={fc.vendorAccent}
+            style:--chip-ink={fc.vendorInk}
             title="{fc.short}{fc.count > 1 ? $t('component.card.chipFilesSuffix', { count: fc.count }) : ''}{fc.outdated ? $t('component.card.chipUpdateSuffix') : ''}"
           >
             <span class="feature-chip-icon" aria-hidden="true">
               <FeatureIcon id={fc.iconId} size={12} strokeWidth={1.8} />
             </span>
             <span class="feature-chip-name">{fc.short}</span>
-            {#if fc.outdated}
-              <span class="feature-chip-pulse" aria-hidden="true"></span>
-            {/if}
           </span>
         {/each}
         {#if hiddenChipCount > 0}
@@ -211,12 +205,14 @@
 
 <style>
   .game-card {
+    position: relative;
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    box-shadow: var(--card-edge);
     transition: transform 0.18s var(--ease), border-color 0.18s var(--ease), box-shadow 0.18s var(--ease);
     cursor: pointer;
     text-align: left;
@@ -225,8 +221,26 @@
     color: inherit;
     background: var(--bg-card);
   }
-  .game-card:focus-visible {
-    outline: none;
+  .game-name-btn {
+    display: block;
+    max-width: 100%;
+    padding: 0;
+    background: transparent;
+    border: none;
+    font: inherit;
+    color: inherit;
+    letter-spacing: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .game-name-btn::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+  }
+  .game-name-btn:focus-visible { outline: none; }
+  .game-card:focus-within {
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-dim);
   }
@@ -274,15 +288,22 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--bg-art-fallback);
+    background:
+      radial-gradient(
+        120% 120% at 30% 18%,
+        color-mix(in oklab, var(--launcher-accent, var(--accent)) 16%, transparent),
+        transparent 58%
+      ),
+      linear-gradient(150deg, var(--bg-elevated), var(--bg-art-fallback));
     color: var(--text-muted);
   }
   .art-fallback-text {
     font-size: 56px;
-    font-weight: 700;
+    font-weight: 800;
     letter-spacing: -0.04em;
     color: var(--launcher-accent, var(--accent));
-    opacity: 0.55;
+    opacity: 0.42;
+    text-shadow: 0 1px 0 color-mix(in oklab, var(--launcher-accent, var(--accent)) 20%, transparent);
   }
   .art-overlay {
     position: absolute;
@@ -314,13 +335,18 @@
     font-weight: 700;
     letter-spacing: var(--letter-wider);
     text-transform: uppercase;
-    color: #0a0d13;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.35);
+    color: #ffffff;
+    background: rgba(7, 9, 13, 0.68);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
   }
   .launcher-mark {
     width: 12px;
     height: 12px;
     flex-shrink: 0;
+    color: var(--launcher-brand, #94a3b8);
   }
   .launcher-text { line-height: 1; }
   .status-pill {
@@ -457,16 +483,18 @@
     font-size: 10.5px;
     font-weight: 600;
     border-radius: var(--radius-sm);
-    background: color-mix(in oklab, var(--chip-accent, var(--accent)) 8%, var(--bg-elevated));
-    color: var(--text-secondary);
-    border: 1px solid color-mix(in oklab, var(--chip-accent, var(--accent)) 28%, var(--border));
+    background: var(--bg-elevated);
+    color: var(--chip-ink, var(--text-secondary));
+    border: 1px solid color-mix(in oklab, var(--chip-accent, var(--accent)) 32%, var(--border));
     letter-spacing: 0.01em;
   }
   .feature-chip.outdated {
-    background: var(--update-dim);
-    color: var(--update);
-    border-color: rgba(34, 211, 238, 0.30);
+    background: var(--chip-ink, var(--accent));
+    color: var(--vendor-chip-fg);
+    border-color: transparent;
+    font-weight: 700;
   }
+  .feature-chip.outdated .feature-chip-icon { color: var(--vendor-chip-fg); }
   .feature-chip.overflow {
     color: var(--text-muted);
     padding: 3px 8px;
@@ -474,24 +502,9 @@
   }
   .feature-chip-icon {
     display: inline-flex;
-    color: var(--chip-accent, var(--accent));
+    color: var(--chip-ink, var(--chip-accent, var(--accent)));
   }
-  .feature-chip.outdated .feature-chip-icon { color: var(--update); }
   .feature-chip-name { line-height: 1; }
-  .feature-chip-pulse {
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: var(--update);
-    box-shadow: 0 0 6px var(--update);
-    margin-left: 2px;
-    animation: pulseDot 1.6s var(--ease) infinite;
-  }
-  :global([data-theme="light"]) .feature-chip.outdated {
-    background: rgba(8, 145, 178, 0.12);
-    color: #075d76;
-    border-color: rgba(8, 145, 178, 0.35);
-  }
 
   .loading-row, .meta-row {
     display: flex;
@@ -508,8 +521,4 @@
     animation: blink 1.2s infinite;
   }
   @keyframes blink { 0%, 100% { opacity: 0.3 } 50% { opacity: 1 } }
-  @keyframes pulseDot {
-    0%, 100% { transform: scale(1); opacity: 0.6; }
-    50% { transform: scale(1.4); opacity: 1; }
-  }
 </style>

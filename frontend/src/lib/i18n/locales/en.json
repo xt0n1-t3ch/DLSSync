@@ -36,15 +36,25 @@
     "library": {
       "title": "Library",
       "subtitle": "{detected} games detected — {shown} shown",
+      "hiddenChip_one": "{count} hidden",
+      "hiddenChip_other": "{count} hidden",
+      "hiddenChipTitle": "Show the games you have hidden",
       "addFolder": "Add folder",
       "scanning": "Scanning",
       "rescan": "Rescan",
       "hero": {
-        "aria": "Pending updates",
+        "aria": "Library status",
         "updatesReadyLabel_one": "update ready",
         "updatesReadyLabel_other": "updates ready",
         "acrossGames_one": "across {count} game",
         "acrossGames_other": "across {count} games",
+        "allClear": "Library up to date",
+        "allClearDetail": "Every scanned DLL matches the catalog",
+        "segAria": "Pending updates by vendor",
+        "kpiGames": "Games",
+        "kpiUpToDate": "Up to date",
+        "kpiProtected": "Protected",
+        "kpiProtectedTitle": "Games with restore points in Backups",
         "review": "Review",
         "reviewTitle": "Filter the library to just the games with pending updates",
         "applyAll": "Apply all",
@@ -163,10 +173,12 @@
       "versionsCount_one": "{count} version",
       "versionsCount_other": "{count} versions",
       "openPortal": "Open {name}",
-      "browseModulesAria": "Browse {name} modules",
+      "browseModulesAria": "Browse {name}",
       "viewVersionsAria": "View {name} versions",
-      "modulesSummary_one": "{count} module · {detail} total",
-      "modulesSummary_other": "{count} modules · {detail} total",
+      "modulesSummary_one": "{count} extra technology · {detail} versions in total",
+      "modulesSummary_other": "{count} extra technologies · {detail} versions in total",
+      "moreTechCount_one": "{count} more",
+      "moreTechCount_other": "{count} more",
       "versionsSummary_one": "{count} version · latest v{latest}",
       "versionsSummary_other": "{count} versions · latest v{latest}",
       "foot": {
@@ -189,6 +201,18 @@
     "drivers": {
       "title": "Drivers",
       "subtitle": "Latest GPU driver for each detected adapter, checked live against the vendor — plus DLSS preset and frame-generation controls.",
+      "health": {
+        "aria": "Driver health summary",
+        "gpuUpdates_one": "{count} GPU driver update",
+        "gpuUpdates_other": "{count} GPU driver updates",
+        "gpusCurrent": "GPU drivers up to date",
+        "systemUpdates_one": "{count} system component update",
+        "systemUpdates_other": "{count} system component updates"
+      },
+      "presetHint": {
+        "k": "Recommended for {model}: Preset K — the latest transformer model this GPU generation runs best across all quality modes.",
+        "lm": "Recommended for {model}: Preset K, plus L (Ultra Performance) and M (Performance) — RTX 40/50 run the newest transformer presets at full speed."
+      },
       "checking": "Checking…",
       "checkForUpdates": "Check for updates",
       "noGpus": "No GPUs detected.",
@@ -214,6 +238,9 @@
       "rescan": "Rescan",
       "systemSub": "Driver updates for the rest of your PC: audio, network, Bluetooth, chipset, input, and storage. They come from Windows Update and the Microsoft Update Catalog, stay vendor-signed, and we never offer one older than the driver you already have.",
       "betaNote": "Detection can miss or misread some hardware, so check each update before you apply it. If one causes trouble, the auto-backup rolls it back.",
+      "systemSummary": "Keeps the rest of your PC current — audio, network, chipset, input, and storage drivers straight from Windows Update.",
+      "learnMore": "Learn more",
+      "showLess": "Show less",
       "scanningWindowsUpdate": "Scanning Windows Update for component drivers…",
       "allComponentsUpToDate": "Every component is up to date — Windows Update has no newer driver.",
       "latestFallback": "latest",
@@ -256,6 +283,15 @@
         "missingHint": "Snapshot files no longer present on disk — they were moved or deleted outside DLSSync. Delete the rows to tidy up.",
         "missingCount": "{count} missing"
       },
+      "legend": {
+        "label": "What the counts mean",
+        "restorable": "Restorable",
+        "restorableHint": "Original DLL is snapshotted and ready to roll back — not yet restored.",
+        "restored": "Already restored",
+        "restoredHint": "Already rolled back into the game folder — restore again only if you applied a newer DLL since.",
+        "missing": "Missing",
+        "missingHint": "Snapshot file is gone from disk and can no longer be restored."
+      },
       "bulk": {
         "selected": "{count} selected",
         "selected_one": "{count} selected",
@@ -291,9 +327,9 @@
       "group": {
         "selectAll": "Select all in this game",
         "deselectAll": "Deselect all in this game",
-        "snapshots": "<strong>{count}</strong> snapshot",
-        "snapshots_one": "<strong>{count}</strong> snapshot",
-        "snapshots_other": "<strong>{count}</strong> snapshots",
+        "snapshots": "{count} snapshot",
+        "snapshots_one": "{count} snapshot",
+        "snapshots_other": "{count} snapshots",
         "restorable": "{count} restorable",
         "restorable_one": "{count} restorable",
         "restorable_other": "{count} restorable",
@@ -307,6 +343,7 @@
       },
       "entry": {
         "selectHint": "Select for bulk restore/delete",
+        "selectAria": "Select {file} for bulk restore or delete",
         "snapshotMissing": "Snapshot missing",
         "missingHint": "The snapshot file is no longer on disk — it was moved or deleted outside DLSSync. This snapshot can't be restored; delete the row to tidy the list.",
         "restored": "Restored",
@@ -433,7 +470,7 @@
         },
         "performance": {
           "title": "Performance",
-          "help": "CPU and battery footprint. EcoQoS schedules DLSSync onto efficient cores while minimized, dropping its impact near zero."
+          "help": "CPU and battery footprint. EcoQoS keeps DLSSync scheduled on efficient cores while this toggle is enabled, so Task Manager shows Efficiency Mode during the whole session."
         },
         "updateBehavior": {
           "title": "Update behavior",
@@ -520,6 +557,12 @@
           "sub": "Off by default. Enable for unattended updates."
         }
       },
+      "featureGroup": {
+        "nvidia": "NVIDIA",
+        "intel": "Intel",
+        "amd": "AMD",
+        "microsoft": "Microsoft"
+      },
       "filesDisclosure": {
         "hide": "Hide files",
         "show": "Show technical files"
@@ -565,6 +608,14 @@
         "addFolder": "Add folder",
         "noFolders": "No custom folders yet",
         "openFolderTitle": "Open folder",
+        "confirmRemove": {
+          "ok": "Remove",
+          "cancel": "Cancel",
+          "folderTitle": "Remove custom folder?",
+          "folderBody": "Remove {path} from custom scan folders? Games found there will no longer be detected on the next scan. This won't touch any files on disk.",
+          "pathTitle": "Remove launcher path?",
+          "pathBody": "Remove the launcher override path {path}? Detection falls back to the registry default. This won't touch any files on disk."
+        },
         "removeTitle": "Remove",
         "rescanNow": "Rescan now",
         "launcherOverrides": {
@@ -1168,6 +1219,7 @@
   "note": {
     "adminElevation": "Windows installs per-machine drivers only with Administrator rights, so Update shows a UAC prompt. DLSSync stays unelevated and runs a signed helper with your approval — it snapshots the current driver and sets a System Restore point first, so you can roll back.",
     "enablerManaged": "DLSS Enabler requires NVIDIA Streamline 2.11 or newer but does not update it, so DLSSync updates the Streamline set within the same major version to keep the Enabler working. It never swaps the set across a major version.",
+    "nvidiaAppManaged": "NVIDIA App manages DLSS overrides for this game. DLSSync stays hands-off by default — applying a DLL swap here may be overwritten the next time NVIDIA App re-applies its override.",
     "streamlineOverride": "Updating Streamline replaces the shared sl.* plug-in set. Per-game DLSS overrides keep working; NVIDIA App global preset and ratio overrides may need to be set again. If a game misbehaves, restore the previous set from Backups."
   },
   "component": {
@@ -1304,8 +1356,8 @@
         "sub": "Keep DLSSync running in the system tray when you click the X. Use the tray icon to bring it back. Recommended for background update checks."
       },
       "efficiency": {
-        "label": "Efficiency Mode when minimized",
-        "sub": "Schedules DLSSync onto efficient cores and lowers priority while you're not looking at it. Drops CPU/battery footprint near zero. Shows the green leaf badge in Task Manager."
+        "label": "Efficiency Mode always on",
+        "sub": "Keeps DLSSync in Windows EcoQoS while the toggle is enabled, reasserting it in the background so Task Manager keeps showing the green leaf badge."
       },
       "autostart": {
         "label": "Start with Windows",
@@ -1455,7 +1507,8 @@
         "deselectAll": "Deselect all in this feature",
         "reEnable": "Re-enable feature for this game",
         "disable": "Disable feature for this game",
-        "toggleAria": "Toggle feature"
+        "toggleAria": "Toggle feature",
+        "moreActions": "More actions"
       },
       "version": {
         "pickDifferent": "Pick a different version",
@@ -1469,7 +1522,8 @@
         "showMany": "Show files ({count})",
         "hideMany": "Hide files",
         "showOne": "Show file",
-        "hideOne": "Hide file"
+        "hideOne": "Hide file",
+        "checkboxAria": "Select {file} for update"
       },
       "fileStatus": {
         "update": "Update",
@@ -1496,6 +1550,15 @@
         "label_other": "Update Streamline set ({count})",
         "labelVersion_one": "Update Streamline set → v{version} ({count})",
         "labelVersion_other": "Update Streamline set → v{version} ({count})"
+      },
+      "dllSet": {
+        "title": "Update the matched {label} multi-DLL set together as one atomic transaction (all files, or none).",
+        "label_one": "Update {label} set ({count})",
+        "label_other": "Update {label} set ({count})",
+        "labelVersion_one": "Update {label} set → v{version} ({count})",
+        "labelVersion_other": "Update {label} set → v{version} ({count})",
+        "blockedFsr4": "FSR 4 upscaling requires an AMD RDNA4 GPU (Radeon RX 9000 series). This set stays locked on the current hardware.",
+        "requiresRdna4": "Requires RDNA4"
       },
       "applySelected_one": "Apply selected ({count})",
       "applySelected_other": "Apply selected ({count})"
@@ -1687,6 +1750,8 @@
     "settingsSaveFailed": "Could not save settings: {msg}",
     "saveFailed": "Could not save: {msg}",
     "nothingSelected": "Nothing selected",
+    "applyInProgress": "An apply is already running — wait for it to finish first",
+    "cancelFailed": "Cancel failed: {msg}",
     "queuedAcross": "Queued {updates} across {games}",
     "queuedUpdates_one": "{count} update",
     "queuedUpdates_other": "{count} updates",
@@ -1703,6 +1768,14 @@
     "streamlineUpdateFailed": "Streamline set update failed: {error}{rolledBack}",
     "unknownError": "unknown",
     "streamlineApplyFailed": "Streamline set apply failed: {msg}",
+    "setNoUpdates": "No {label} set updates available",
+    "setUpdating_one": "Updating {label} set ({count} file)…",
+    "setUpdating_other": "Updating {label} set ({count} files)…",
+    "setUpdated_one": "{label} set updated ({count} file)",
+    "setUpdated_other": "{label} set updated ({count} files)",
+    "setFailed": "{label} set failed",
+    "setUpdateFailed": "{label} set update failed: {error}{rolledBack}",
+    "setApplyFailed": "{label} set apply failed: {msg}",
     "trackerUpdatedTo": "Updated to v{version}",
     "trackerUpdated": "Updated",
     "trackerQueued": "Queued",
@@ -1735,6 +1808,11 @@
       "digestGames_one": "{count} game",
       "digestGames_other": "{count} games",
       "digestBody": "Open the Library to apply them"
+    },
+    "revert": {
+      "title": "A game update rolled back your DLLs in {game}",
+      "body_one": "{count} swapped DLL was reverted — open the Library to re-apply it",
+      "body_other": "{count} swapped DLLs were reverted — open the Library to re-apply them"
     },
     "apply": {
       "successTitle": "{gameLabel} updated",
