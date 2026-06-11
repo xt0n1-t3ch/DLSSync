@@ -7,6 +7,7 @@
     persistSettings,
     sidebarCounts,
     languageMenuOpen,
+    drawerGameId,
   } from "../lib/stores";
   import { t, locale, LOCALE_LABELS } from "../lib/i18n/index";
   import CounterPill from "./CounterPill.svelte";
@@ -55,6 +56,7 @@
   ];
 
   function switchView(id: string): void {
+    drawerGameId.set(null);
     currentView.set(id);
   }
 

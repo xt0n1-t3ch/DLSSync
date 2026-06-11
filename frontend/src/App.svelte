@@ -225,6 +225,7 @@
     grid-row: 1 / -1;
     grid-column: 1;
     height: 100%;
+    z-index: 70;
   }
   .app-shell :global(.topbar) {
     grid-row: 1;

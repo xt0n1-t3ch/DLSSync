@@ -68,7 +68,7 @@ function spawnApp(dataDir: string): ChildProcess {
     cwd: repoRoot,
     stdio: "ignore",
     windowsHide: false,
-    env: { ...process.env, DLSSYNC_DATA_DIR: dataDir },
+    env: { ...process.env, DLSSYNC_DATA_DIR: dataDir, DLSSYNC_E2E_GPU_FIXTURE: "1" },
   });
 }
 

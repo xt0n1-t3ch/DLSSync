@@ -218,10 +218,64 @@ fn ddr_label(smbios: u32, legacy: u32) -> String {
 }
 
 fn collect_gpus() -> Vec<GpuInfo> {
+    #[cfg(debug_assertions)]
+    if std::env::var_os(E2E_GPU_FIXTURE_ENV).is_some() {
+        return e2e_fixture_gpus();
+    }
+
     let mut out = collect_gpus_dxgi();
     dedupe_adapters(&mut out);
     enrich_drivers(&mut out);
     out
+}
+
+#[cfg(debug_assertions)]
+const E2E_GPU_FIXTURE_ENV: &str = "DLSSYNC_E2E_GPU_FIXTURE";
+
+#[cfg(debug_assertions)]
+fn e2e_fixture_gpus() -> Vec<GpuInfo> {
+    [
+        (
+            GpuVendor::Nvidia,
+            0x10DE,
+            0x2705,
+            "NVIDIA GeForce RTX 4070 Ti SUPER",
+            "610.47",
+            16 * 1024 * 1024 * 1024,
+        ),
+        (
+            GpuVendor::Amd,
+            0x1002,
+            0x7550,
+            "AMD Radeon RX 9070 XT",
+            "25.6.1",
+            16 * 1024 * 1024 * 1024,
+        ),
+        (
+            GpuVendor::Intel,
+            0x8086,
+            0x9A49,
+            "Intel Iris Xe Graphics",
+            "32.0.101.6734",
+            4 * 1024 * 1024 * 1024,
+        ),
+    ]
+    .into_iter()
+    .map(
+        |(vendor, vendor_id, device_id, model, version, vram_bytes)| GpuInfo {
+            vendor,
+            pci_vendor_id: vendor_id,
+            pci_device_id: device_id,
+            model: model.into(),
+            driver_version: version.into(),
+            vram_bytes,
+            recommended_runtimes: recommended_for(vendor),
+            is_dch: true,
+            identifiable: true,
+            fsr4_capable: supports_fsr4(vendor, device_id, model),
+        },
+    )
+    .collect()
 }
 
 /// Drop adapters that resolve to the same physical GPU. DXGI can surface a card
@@ -702,5 +756,19 @@ mod tests {
         assert!(!g.identifiable);
         let ok = gpu(GpuVendor::Nvidia, 0x10DE, 0x2684, "NVIDIA GeForce RTX 4090");
         assert!(ok.identifiable);
+    }
+
+    #[cfg(debug_assertions)]
+    #[test]
+    fn e2e_fixture_covers_gpu_driver_vendors() {
+        let gpus = e2e_fixture_gpus();
+        assert!(gpus.iter().any(|g| g.vendor == GpuVendor::Nvidia));
+        assert!(gpus.iter().any(|g| g.vendor == GpuVendor::Amd));
+        assert!(gpus.iter().any(|g| g.vendor == GpuVendor::Intel));
+        assert!(gpus
+            .iter()
+            .find(|g| g.vendor == GpuVendor::Amd)
+            .map(|g| g.fsr4_capable)
+            .unwrap_or(false));
     }
 }
