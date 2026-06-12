@@ -9,7 +9,7 @@ DLSSync should be discoverable without looking like keyword spam. The public pro
 - Lead with the minimalist banner: `.github/assets/nexus/banner-2560x720.png`.
 - Keep the first paragraph under 90 words and include the real search phrases users type: DLSS updater, FSR updater, XeSS updater, GPU driver updater, DLSS swapper alternative.
 - Keep the visible "Also useful if you searched for" line. Do not hide a keyword block in HTML comments.
-- Keep the release chip current with the exact app version and changelog anchor. For v1.6.8, the public hook is mouse side-button back/forward navigation through DLSSync menus and the game-detail drawer, plus the v1.6.7 trust/driver foundation.
+- Keep the release chip current with the exact app version and changelog anchor. For v1.6.9, the public hook is build and manifest integrity hardening: patched esbuild resolution, strict signed-catalog shape, and the v1.6.8 mouse side-button navigation polish carried forward.
 - Keep security claims tied to the implementation: signed manifest, SHA-256 catalog hashes, Authenticode publisher gate, official vendor domains, local backup snapshots, one-click rollback, zero telemetry.
 
 ## Nexus Mods
