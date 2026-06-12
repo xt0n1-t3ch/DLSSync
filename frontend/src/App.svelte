@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { get } from "svelte/store";
   import { invoke } from "@tauri-apps/api/core";
   import { fade, fly } from "svelte/transition";
   import Sidebar from "./components/Sidebar.svelte";
@@ -43,6 +44,11 @@
   } from "./lib/driverInstallEvents";
   import { isLocale, localeFromNavigator, setLocale, t } from "./lib/i18n/index";
   import { motionDuration } from "./lib/ux";
+  import {
+    createAppNavigationHistory,
+    navigationDirectionForMouseButton,
+    type AppNavigationState,
+  } from "./lib/appNavigation";
 
   let theme = $state(localStorage.getItem("dlssync-theme") || "dark");
 
@@ -60,6 +66,15 @@
 
   let collapsed = $derived($settings?.ui_prefs.sidebar_collapsed ?? false);
   let railGameId = $derived($currentView === "library" ? $drawerGameId : null);
+
+  const navHistory = createAppNavigationHistory({
+    view: get(currentView),
+    drawerGameId: get(drawerGameId),
+  });
+  $effect(() => {
+    const state: AppNavigationState = { view: $currentView, drawerGameId: $drawerGameId };
+    navHistory.record(state);
+  });
 
   let gameAccent = $state<string | null>(null);
   $effect(() => {
@@ -133,6 +148,21 @@
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+  });
+
+  onMount(() => {
+    const onMouse = (e: MouseEvent): void => {
+      const direction = navigationDirectionForMouseButton(e.button);
+      if (!direction) return;
+      e.preventDefault();
+      if (!navHistory.canMove(direction)) return;
+      const target = navHistory.move(direction);
+      if (!target) return;
+      currentView.set(target.view);
+      drawerGameId.set(target.drawerGameId);
+    };
+    window.addEventListener("mouseup", onMouse);
+    return () => window.removeEventListener("mouseup", onMouse);
   });
 </script>
 
