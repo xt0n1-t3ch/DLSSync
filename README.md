@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <sub><b>New in v1.6.7:</b> AMD one-click driver install, signed manifest enforcement, hardware-gated FSR/XeSS set updates, reverted-swap detection, catalog fallback, and a cleaner color-coded interface. See <a href="CHANGELOG.md#167---2026-06-10">CHANGELOG</a>.</sub>
+  <sub><b>New in v1.6.8:</b> mouse side buttons now move backward and forward through DLSSync menus and the game-detail drawer, with the v1.6.7 driver, manifest, catalog, and color-system work carried forward. See <a href="CHANGELOG.md#168---2026-06-12">CHANGELOG</a>.</sub>
 </p>
 
 <p align="center">
@@ -226,7 +226,7 @@ The DLL-sync path has no driver, no kernel-mode hook, no in-process injection â€
 
 <p align="center">
   <a href="https://github.com/xt0n1-t3ch/DLSSync/releases/latest">
-    <img src="./.github/assets/download-button.svg" alt="Download DLSSync v1.6.7 for Windows 10 / 11" width="520"/>
+    <img src="./.github/assets/download-button.svg" alt="Download DLSSync v1.6.8 for Windows 10 / 11" width="520"/>
   </a>
 </p>
 
