@@ -1,3 +1,4 @@
 .gitattributes text eol=lf
+CHANGELOG.md text eol=lf
 crates/dll-catalog/fallback/manifest.json text eol=lf
 crates/dll-catalog/fallback/manifest.json.sig -text

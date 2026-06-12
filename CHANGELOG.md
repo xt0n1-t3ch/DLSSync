@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.6.9] - 2026-06-12
 
-The integrity-hardening release. This closes the active esbuild Dependabot advisory without forcing a risky frontend framework migration, restores the generated manifest/schema contract that was breaking the hourly DLSSync-Manifest pipeline, and tightens the release docs around the signed catalog path.
+The integrity-hardening release. This is the public v1.6.9 line for the v1.6.8 mouse side-button navigation polish plus the security/integrity follow-up: it closes the active esbuild Dependabot advisory without forcing a risky frontend framework migration, restores the generated manifest/schema contract that was breaking the hourly DLSSync-Manifest pipeline, and tightens the release docs around the signed catalog path.
+
+### Added
+
+- Shipped the v1.6.8 mouse side-button navigation polish in the public v1.6.9 build: button 3 moves back through DLSSync app state and button 4 restores the next state when one exists.
 
 ### Security
 
@@ -261,7 +265,7 @@ of the Arc desktop package, and install progress no longer breaks when you switc
 - Vendor installer exit codes are reported with a readable message. Intel's "no compatible device" (exit code 8) now explains the GPU may be OEM-locked or need a different driver branch, pointing to the manufacturer or Windows Update.
 
 [1.6.9]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.9
-[1.6.8]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.8
+[1.6.8]: https://github.com/xt0n1-t3ch/DLSSync/compare/v1.6.7...981c0c962ca1b53b34f2ba87a0726b459162c4ff
 [1.6.7]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.7
 [1.6.6]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.6
 [1.6.5]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.5
