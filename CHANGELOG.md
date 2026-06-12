@@ -5,6 +5,24 @@ All notable changes to DLSSync are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.8] - 2026-06-12
+
+The navigation-polish release. DLSSync now respects the back and forward side buttons on gaming mice, but keeps that movement inside the app instead of handing it to Chromium history. You can jump back to the previous menu, restore the next app state when one exists, and reopen or close the game-detail drawer through the same history stack.
+
+### Added
+
+- Mouse side-button navigation across DLSSync app state: button 3 goes back and button 4 goes forward through views and game-detail drawer open/close states.
+- A small app-navigation history contract with unit coverage for back/forward movement, duplicate-state suppression, forward-branch dropping after new navigation, and mouse-button mapping.
+
+### Changed
+
+- The app shell now intercepts recognized side-button `mouseup` events and writes the target state back into `currentView` and `drawerGameId`, so browser history is never used for internal navigation.
+- README and release-marketing docs now point at v1.6.8 as the current public release line.
+
+### Fixed
+
+- Mouse users no longer have to return to the sidebar or keyboard shortcuts just to move back to the previous DLSSync menu or detail-drawer state.
+
 ## [1.6.7] - 2026-06-10
 
 The vendor-parity, trust, and color release. AMD one-click driver install works now — it was quietly broken before. The catalog is cryptographically enforced: a tampered manifest is rejected, and an offline first run still loads a signed catalog instead of a blank screen. Two full security passes closed holes around the driver installer, backup restore, elevated restores, and downloads. FSR and XeSS now update as coherent multi-DLL sets in one atomic click — with a hardware gate so FSR 4 is never pushed onto a GPU that can't run it. And the whole interface learned to speak in color: vendor-brand tech badges, a status hero in the Library, traffic-light state everywhere, and game art that tints the app around it.
@@ -222,6 +240,7 @@ of the Arc desktop package, and install progress no longer breaks when you switc
 - AMD opens its official download page instead of a constructed installer URL. The direct `.exe` is gated behind a license prompt and its filename changes per release, so a fabricated link was unreliable; version and changelog detection are unchanged.
 - Vendor installer exit codes are reported with a readable message. Intel's "no compatible device" (exit code 8) now explains the GPU may be OEM-locked or need a different driver branch, pointing to the manufacturer or Windows Update.
 
+[1.6.8]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.8
 [1.6.7]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.7
 [1.6.6]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.6
 [1.6.5]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.5
