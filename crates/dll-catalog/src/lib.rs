@@ -66,7 +66,7 @@ pub struct Catalog {
     /// or renamed engine is detected from a manifest refresh without shipping an
     /// app release. Absent in older manifests (`#[serde(default)]` → empty) →
     /// the static baseline alone applies, no regression.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub anti_cheat_binaries: Vec<AntiCheatBinary>,
 }
 
@@ -912,6 +912,24 @@ mod tests {
                 needle: "newguard".into(),
                 name: "New Guard AC".into(),
             }]
+        );
+    }
+
+    #[test]
+    fn catalog_omits_empty_anti_cheat_binaries_when_serialized() {
+        let catalog = catalog_with(
+            "xess_sr",
+            vec![release_with(
+                "libxess.dll",
+                "1.0.0",
+                1,
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            )],
+        );
+        let value = serde_json::to_value(catalog).unwrap();
+        assert!(
+            value.get("anti_cheat_binaries").is_none(),
+            "empty anti_cheat_binaries must not be emitted into the public manifest"
         );
     }
 

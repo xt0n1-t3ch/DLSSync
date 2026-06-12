@@ -5,6 +5,26 @@ All notable changes to DLSSync are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.9] - 2026-06-12
+
+The integrity-hardening release. This closes the active esbuild Dependabot advisory without forcing a risky frontend framework migration, restores the generated manifest/schema contract that was breaking the hourly DLSSync-Manifest pipeline, and tightens the release docs around the signed catalog path.
+
+### Security
+
+- Forced the transitive `esbuild` toolchain dependency to `0.28.1`, the patched line for GHSA-gv7w-rqvm-qjhr, through the root `package.json` pnpm override instead of leaving Vite/Vitest on a vulnerable binary resolver.
+- Kept the signed manifest contract strict: empty dynamic anti-cheat binary rows are no longer serialized into the generated public catalog, preventing schema drift from breaking the manifest publisher.
+
+### Changed
+
+- Release metadata, README, docs, and test index now point at v1.6.9 as the current security/integrity line.
+- The production frontend build now targets the Tauri WebView2 baseline directly instead of falling back to Safari when `TAURI_PLATFORM` is absent.
+- The anti-cheat docs now document how optional manifest binary signatures layer over the static detector without emitting an empty field.
+
+### Fixed
+
+- The hourly DLSSync-Manifest workflow no longer receives a generated `anti_cheat_binaries: []` field that the public schema rejects.
+- Patched esbuild no longer tries to downlevel the Svelte runtime to an irrelevant Safari target during standalone frontend builds.
+
 ## [1.6.8] - 2026-06-12
 
 The navigation-polish release. DLSSync now respects the back and forward side buttons on gaming mice, but keeps that movement inside the app instead of handing it to Chromium history. You can jump back to the previous menu, restore the next app state when one exists, and reopen or close the game-detail drawer through the same history stack.
@@ -240,6 +260,7 @@ of the Arc desktop package, and install progress no longer breaks when you switc
 - AMD opens its official download page instead of a constructed installer URL. The direct `.exe` is gated behind a license prompt and its filename changes per release, so a fabricated link was unreliable; version and changelog detection are unchanged.
 - Vendor installer exit codes are reported with a readable message. Intel's "no compatible device" (exit code 8) now explains the GPU may be OEM-locked or need a different driver branch, pointing to the manufacturer or Windows Update.
 
+[1.6.9]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.9
 [1.6.8]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.8
 [1.6.7]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.7
 [1.6.6]: https://github.com/xt0n1-t3ch/DLSSync/releases/tag/v1.6.6
