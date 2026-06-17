@@ -11,7 +11,9 @@
     "fmt:rust": "cargo fmt --all",
     "fmt:rust:check": "cargo fmt --all -- --check",
     "test": "task test",
-    "test:e2e": "pnpm --filter dlssync-frontend exec playwright test --config ../tests/e2e/playwright.config.ts"
+    "test:e2e": "pnpm --filter dlssync-frontend exec playwright test --config ../tests/e2e/playwright.config.ts",
+    "build:nexus": "node scripts/build-nexus.mjs",
+    "check:nexus": "node scripts/build-nexus.mjs --prepare-only && node scripts/verify-nexus-build.mjs"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0",

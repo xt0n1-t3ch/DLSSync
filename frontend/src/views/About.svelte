@@ -24,6 +24,7 @@
   } from "../lib/api";
   import { vendorLabel, vendorAccent } from "../lib/labels";
   import { EXTERNAL_URLS } from "../lib/ux";
+  import { appUpdaterEnabled, distributionLabel } from "../lib/distribution";
   import { fetchStarCount, shareDlssync } from "../lib/community";
   import changelogRaw from "../../../CHANGELOG.md?raw";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
@@ -101,9 +102,10 @@
   }
 
   async function openReleases(): Promise<void> {
+    const url = appUpdaterEnabled ? EXTERNAL_URLS.releases : EXTERNAL_URLS.nexusMod;
     try {
       const { open } = await import("@tauri-apps/plugin-shell");
-      await open(EXTERNAL_URLS.releases);
+      await open(url);
     } catch (err) { showToast("warning", translate(get(locale), "view.about.toast.openLinkFailed", { error: String(err) })); }
   }
 
@@ -195,6 +197,10 @@
   }
 
   async function checkForUpdates(): Promise<void> {
+    if (!appUpdaterEnabled) {
+      await openReleases();
+      return;
+    }
     if (updateChecking) return;
     updateChecking = true;
     updateMessage = { kind: "info", text: translate(get(locale), "view.about.update.checking") };
@@ -293,13 +299,16 @@
         {$t("view.about.action.report")}
       {/if}
     </button>
-    <button class="btn btn-primary" onclick={checkForUpdates} disabled={updateChecking}>
-      {#if updateChecking}
+    <button class="btn btn-primary" onclick={checkForUpdates} disabled={appUpdaterEnabled && updateChecking}>
+      {#if appUpdaterEnabled && updateChecking}
         <span class="spin"></span>
         {$t("view.about.action.checking")}
-      {:else}
+      {:else if appUpdaterEnabled}
         <RefreshCw size={14} />
         {$t("view.about.action.checkUpdates")}
+      {:else}
+        <ExternalLink size={14} />
+        {$t("view.about.action.openReleases")}
       {/if}
     </button>
   </div>
@@ -337,6 +346,14 @@
     </span>
   </div>
 </section>
+
+{#if !appUpdaterEnabled}
+  <section class="nexus-notice" in:fly={{ y: 6, duration: 220, delay: 20 }}>
+    <div class="nexus-notice-kicker">{$t("view.about.nexus.kicker", { distribution: distributionLabel })}</div>
+    <h3>{$t("view.about.nexus.title")}</h3>
+    <p>{$t("view.about.nexus.body")}</p>
+  </section>
+{/if}
 
 {#if releaseHighlights && (releaseHighlights.summary || releaseHighlights.bullets.length > 0)}
   <section class="whats-new" in:fly={{ y: 6, duration: 240, delay: 40 }}>
@@ -617,6 +634,36 @@
 </footer>
 
 <style>
+
+  .nexus-notice {
+    margin: 0 0 18px;
+    padding: 16px 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius-xl);
+  }
+  .nexus-notice-kicker {
+    font-size: var(--fs-2xs);
+    font-weight: 700;
+    letter-spacing: var(--letter-wider);
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 5px;
+  }
+  .nexus-notice h3 {
+    font-size: var(--fs-md);
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 5px;
+  }
+  .nexus-notice p {
+    font-size: var(--fs-sm);
+    color: var(--text-secondary);
+    line-height: var(--lh-normal);
+    margin: 0;
+  }
+
   .sponsor-btn svg { color: #db61a2; }
   .sponsor-btn:hover svg { color: #f0707f; }
   .kofi-btn svg { color: #ff5e5b; }

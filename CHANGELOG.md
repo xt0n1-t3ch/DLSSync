@@ -5,6 +5,16 @@ All notable changes to DLSSync are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Nexus Mods compliant distribution. A dedicated `nexus` build keeps the full DLL/FSR/XeSS/Streamline/DirectStorage/driver sync intact but removes the application self-updater so the package meets Nexus Mods hosting rules. The `nexus` Cargo feature drops the Tauri updater plugin from the binary; `scripts/build-nexus.mjs` generates a `tauri.conf.json` with `plugins.updater.active = false` and no endpoints and a capability file without `updater:default`; the frontend nexus build ships no app-updater code path. The signed DLL catalog is pinned to an immutable manifest commit instead of tracking `@main`, so download destinations cannot change without a source edit and a new release. `docs/nexus-build.md` documents the build and verification chain; `scripts/verify-nexus-build.mjs` enforces the strip.
+
+### Changed
+
+- In the Nexus build, the in-app "check for updates" and changelog actions open the Nexus Mods page instead of GitHub Releases, so the distributed package never routes users to an auto-updating download.
+
 ## [1.6.9] - 2026-06-12
 
 The integrity-hardening release. This is the public v1.6.9 line for the v1.6.8 mouse side-button navigation polish plus the security/integrity follow-up: it closes the active esbuild Dependabot advisory without forcing a risky frontend framework migration, restores the generated manifest/schema contract that was breaking the hourly DLSSync-Manifest pipeline, and tightens the release docs around the signed catalog path.

@@ -15,6 +15,7 @@
   import X from "@lucide/svelte/icons/x";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import ExternalLink from "@lucide/svelte/icons/external-link";
+  import { appUpdaterEnabled } from "../lib/distribution";
 
   type UpdateInfo = {
     version: string;
@@ -41,6 +42,7 @@
   const DISMISS_KEY = "dlssync-update-dismissed";
 
   onMount(() => {
+    if (!appUpdaterEnabled) return;
     try {
       dismissedVersion = localStorage.getItem(DISMISS_KEY);
     } catch {
@@ -61,6 +63,7 @@
   }
 
   function handleExternalCheck(e: Event): void {
+    if (!appUpdaterEnabled) return;
     const detail = (e as CustomEvent<{ force?: boolean }>).detail;
     if (detail?.force) {
       try { localStorage.removeItem(DISMISS_KEY); } catch {}
@@ -138,6 +141,7 @@
   }
 
   async function checkForUpdates(): Promise<void> {
+    if (!appUpdaterEnabled) return;
     if (stage === "downloading" || stage === "installing") return;
     const fake = devFakeUpdate();
     if (fake) {
@@ -196,6 +200,7 @@
   }
 
   async function applyUpdate(): Promise<void> {
+    if (!appUpdaterEnabled) return;
     if (!available || stage === "downloading" || stage === "installing") return;
     if (runtime?.portable) {
       await openReleasePage();
@@ -285,7 +290,7 @@
   }
 </script>
 
-{#if stage !== "idle" && available}
+{#if appUpdaterEnabled && stage !== "idle" && available}
   <div
     class="update-banner"
     class:downloading={stage === "downloading"}

@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest run --config vitest.config.ts",
-    "test:watch": "vitest --config vitest.config.ts"
+    "test:watch": "vitest --config vitest.config.ts",
+    "build:nexus": "vite build --mode nexus"
   },
   "devDependencies": {
     "@fontsource-variable/jetbrains-mono": "^5.2.8",

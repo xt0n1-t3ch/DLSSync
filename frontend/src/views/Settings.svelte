@@ -28,6 +28,8 @@
   import { t, locale, setLocale, translate, LOCALES, LOCALE_LABELS, type Locale } from "../lib/i18n/index";
   import { get } from "svelte/store";
   import type { BrandKey } from "../lib/brands";
+  import { appUpdaterEnabled, distributionLabel } from "../lib/distribution";
+  import { EXTERNAL_URLS } from "../lib/ux";
 
   let { onToggleTheme, currentTheme }: { onToggleTheme: () => void; currentTheme: string } = $props();
   let dlssOverlayLive = $state(false);
@@ -108,6 +110,10 @@
   });
 
   async function checkForUpdatesNow(): Promise<void> {
+    if (!appUpdaterEnabled) {
+      await openReleases();
+      return;
+    }
     if (updateChecking) return;
     updateChecking = true;
     try {
@@ -126,6 +132,16 @@
       showToast("danger", translate(get(locale), "view.settings.updates.toast.checkFailed", { error: String(err) }));
     } finally {
       updateChecking = false;
+    }
+  }
+
+  async function openReleases(): Promise<void> {
+    const url = appUpdaterEnabled ? EXTERNAL_URLS.releases : EXTERNAL_URLS.nexusMod;
+    try {
+      const { open } = await import("@tauri-apps/plugin-shell");
+      await open(url);
+    } catch {
+      window.open(url, "_blank");
     }
   }
 
@@ -693,10 +709,16 @@
           <div class="row">
             <div class="row-text">
               <div class="row-label">{$t("view.settings.updates.currentVersion.label")}</div>
-              <div class="row-sub mono">v{appVersion}{lastUpdateCheck ? `  ·  ${$t("view.settings.updates.lastCheck", { time: lastUpdateCheck })}` : ""}</div>
+              <div class="row-sub mono">
+                v{appVersion}{#if appUpdaterEnabled && lastUpdateCheck}  ·  {$t("view.settings.updates.lastCheck", { time: lastUpdateCheck })}{:else if !appUpdaterEnabled}  ·  {$t("view.settings.updates.manualOnly", { distribution: distributionLabel })}{/if}
+              </div>
             </div>
-            <button class="btn btn-primary" onclick={checkForUpdatesNow} disabled={updateChecking}>
-              {updateChecking ? $t("view.settings.updates.checking") : $t("view.settings.updates.checkNow")}
+            <button class="btn btn-primary" onclick={checkForUpdatesNow} disabled={appUpdaterEnabled && updateChecking}>
+              {#if appUpdaterEnabled}
+                {updateChecking ? $t("view.settings.updates.checking") : $t("view.settings.updates.checkNow")}
+              {:else}
+                {$t("view.settings.updates.openReleases")}
+              {/if}
             </button>
           </div>
         </div>
