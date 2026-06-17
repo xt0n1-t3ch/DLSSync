@@ -219,19 +219,22 @@ fn default_hash_algorithm() -> String {
     "sha256".to_string()
 }
 
-/// Live manifest URL (tracks `@main`) so the catalog auto-refreshes with new DLL
-/// versions within hours of upstream. Under armed enforcement this stays safe:
-/// a tampered manifest fails the Ed25519 check (attacker has no private key), and
-/// a brief CDN propagation-skew window after an hourly regen (new manifest served
-/// with the not-yet-propagated old signature, or vice versa) self-heals — the
-/// fetch falls back to the last re-verified on-disk cache, then to the embedded
-/// signed fallback, and recovers on the next refresh. Never bricks.
-pub const DEFAULT_MANIFEST_URL: &str =
-    "https://cdn.jsdelivr.net/gh/xt0n1-t3ch/dlssync-manifest@main/manifest.json";
-
 /// Commit the embedded `fallback/manifest.json` (+ `.sig`) was snapshotted from.
 /// Refreshed alongside the bundled fallback when a release re-bundles it.
 pub const FALLBACK_MANIFEST_COMMIT_SHA: &str = "afc77c0da20834b616375a66338e70e113d64686";
+
+/// Manifest URL used by the standard build. It tracks `@main` so the catalog can
+/// refresh with new upstream DLL versions between application releases.
+#[cfg(not(feature = "nexus"))]
+pub const DEFAULT_MANIFEST_URL: &str =
+    "https://cdn.jsdelivr.net/gh/xt0n1-t3ch/dlssync-manifest@main/manifest.json";
+
+/// Manifest URL used by the Nexus Mods build. It is pinned to the same immutable
+/// commit as the bundled fallback manifest so outbound DLL download destinations
+/// cannot change without a manual source change and a new application release.
+#[cfg(feature = "nexus")]
+pub const DEFAULT_MANIFEST_URL: &str =
+    "https://cdn.jsdelivr.net/gh/xt0n1-t3ch/dlssync-manifest@afc77c0da20834b616375a66338e70e113d64686/manifest.json";
 
 pub const MANIFEST_ENV_VAR: &str = "DLSSYNC_MANIFEST_URL";
 
@@ -711,6 +714,12 @@ mod tests {
         assert!(DEFAULT_MANIFEST_URL.contains("dlssync-manifest"));
         assert!(DEFAULT_MANIFEST_URL.starts_with("https://"));
         assert_eq!(FALLBACK_MANIFEST_COMMIT_SHA.len(), 40);
+        if cfg!(feature = "nexus") {
+            assert!(DEFAULT_MANIFEST_URL.contains(FALLBACK_MANIFEST_COMMIT_SHA));
+            assert!(!DEFAULT_MANIFEST_URL.contains("@main"));
+        } else {
+            assert!(DEFAULT_MANIFEST_URL.contains("@main"));
+        }
     }
 
     fn release_with(filename: &str, version: &str, packed: u64, sha: &str) -> Release {

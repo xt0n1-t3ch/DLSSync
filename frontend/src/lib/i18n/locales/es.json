@@ -586,7 +586,9 @@
           "available": "v{version} está disponible — consulta el aviso.",
           "latest": "Tienes la última versión (v{version}).",
           "checkFailed": "Error al buscar actualizaciones: {error}"
-        }
+        },
+        "manualOnly": "Build {distribution}: actualizaciones manuales de la app",
+        "openReleases": "Abrir releases"
       },
       "toast": {
         "overlayEnabled": "Superposición de depuración DLSS activada",
@@ -724,7 +726,8 @@
         "report": "Informar de un problema",
         "preparing": "Preparando",
         "checkUpdates": "Buscar actualizaciones",
-        "checking": "Buscando"
+        "checking": "Buscando",
+        "openReleases": "Abrir releases"
       },
       "tagline": "SINCRONIZAR · VERIFICAR · APLICAR",
       "pillar": {
@@ -816,6 +819,11 @@
         "shareCopied": "Enlace copiado: comparte DLSSync con un amigo",
         "shareFailed": "No se pudo copiar el enlace",
         "blankIssue": "Se abrió una incidencia en blanco: diagnóstico no disponible: {error}"
+      },
+      "nexus": {
+        "kicker": "Build compatible con {distribution}",
+        "title": "Actualizaciones manuales de la app para Nexus Mods",
+        "body": "Nexus Mods no permite que una aplicación se auto-actualice desde una página de mod. Este build mantiene intacto el core de sincronización DLSS/FSR/XeSS de DLSSync, pero desactiva el auto-updater de la app. Instala futuras versiones de DLSSync manualmente desde Nexus Mods o GitHub Releases."
       }
     }
   },

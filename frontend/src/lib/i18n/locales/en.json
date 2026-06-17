@@ -586,7 +586,9 @@
           "available": "v{version} is available — see the banner.",
           "latest": "You're on the latest version (v{version}).",
           "checkFailed": "Update check failed: {error}"
-        }
+        },
+        "manualOnly": "{distribution} build: manual app updates only",
+        "openReleases": "Open releases"
       },
       "toast": {
         "overlayEnabled": "DLSS Debug Overlay enabled",
@@ -724,7 +726,8 @@
         "report": "Report a problem",
         "preparing": "Preparing",
         "checkUpdates": "Check for updates",
-        "checking": "Checking"
+        "checking": "Checking",
+        "openReleases": "Open releases"
       },
       "tagline": "SYNC · VERIFY · APPLY",
       "pillar": {
@@ -816,6 +819,11 @@
         "shareCopied": "Link copied - share DLSSync with a friend",
         "shareFailed": "Could not copy the link",
         "blankIssue": "Opened a blank issue — diagnostics unavailable: {error}"
+      },
+      "nexus": {
+        "kicker": "{distribution} compliant build",
+        "title": "Manual app updates for Nexus Mods",
+        "body": "Nexus Mods does not allow applications to auto-update themselves from a hosted mod page. This build keeps DLSSync's DLSS/FSR/XeSS sync core intact, but disables the app self-updater. Install future DLSSync versions manually from Nexus Mods or GitHub Releases."
       }
     }
   },

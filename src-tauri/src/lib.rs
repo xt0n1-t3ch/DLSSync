@@ -266,15 +266,19 @@ pub fn run() {
     let _log_guard = logging::init();
     tracing::info!(version = env!("CARGO_PKG_VERSION"), "DLSSync starting");
 
-    tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _, _| {
+    let builder =
+        tauri::Builder::default().plugin(tauri_plugin_single_instance::init(|app, _, _| {
             use tauri::Manager;
             if let Some(w) = app.get_webview_window("main") {
                 let _ = w.set_focus();
                 let _ = w.show();
             }
-        }))
-        .plugin(tauri_plugin_updater::Builder::default().build())
+        }));
+
+    #[cfg(not(feature = "nexus"))]
+    let builder = builder.plugin(tauri_plugin_updater::Builder::default().build());
+
+    builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_notification::init())
