@@ -375,25 +375,32 @@ pub fn run() {
 
             *state.catalog_cache_path.write() = Some(app_paths.catalog_cache.clone());
             if app_paths.catalog_cache.exists() {
-                match std::fs::read(&app_paths.catalog_cache)
-                    .map_err(|e| e.to_string())
-                    .and_then(|bytes| {
-                        serde_json::from_slice::<dll_catalog::Catalog>(&bytes)
-                            .map_err(|e| e.to_string())
-                    }) {
-                    Ok(cat) => {
+                match dll_catalog::load_verified_cache(&app_paths.catalog_cache) {
+                    Some(cat) => {
                         *state.catalog.write() = Some(cat);
                         tracing::info!(
                             path = %app_paths.catalog_cache.display(),
                             "catalog loaded from cache",
                         );
                     }
-                    Err(e) => {
+                    None => {
                         tracing::warn!(
                             path = %app_paths.catalog_cache.display(),
-                            error = %e,
+                            error = "cache missing, invalid, or signature verification failed",
                             "catalog cache unreadable",
                         );
+                        match dll_catalog::embedded_fallback_catalog() {
+                            Ok(cat) => {
+                                *state.catalog.write() = Some(cat);
+                                tracing::info!("catalog loaded from embedded fallback");
+                            }
+                            Err(e) => {
+                                tracing::warn!(
+                                    error = %e,
+                                    "embedded fallback catalog unreadable",
+                                );
+                            }
+                        }
                     }
                 }
             }
