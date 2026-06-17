@@ -570,7 +570,9 @@
       "updates": {
         "autoUpdate": {
           "title": "Auto-update",
-          "help": "DLSSync polls GitHub Releases every 6 hours. Trigger a manual check below."
+          "help": "DLSSync polls GitHub Releases every 6 hours. Trigger a manual check below.",
+          "titleManual": "App updates",
+          "helpManual": "This {distribution} build does not auto-update. Install future versions manually from the Nexus Mods page."
         },
         "currentVersion": {
           "label": "Current version"
@@ -588,7 +590,7 @@
           "checkFailed": "Update check failed: {error}"
         },
         "manualOnly": "{distribution} build: manual app updates only",
-        "openReleases": "Open releases"
+        "openReleases": "Open Nexus Mods page"
       },
       "toast": {
         "overlayEnabled": "DLSS Debug Overlay enabled",
@@ -727,7 +729,7 @@
         "preparing": "Preparing",
         "checkUpdates": "Check for updates",
         "checking": "Checking",
-        "openReleases": "Open releases"
+        "openReleases": "Open Nexus Mods page"
       },
       "tagline": "SYNC · VERIFY · APPLY",
       "pillar": {
@@ -823,7 +825,7 @@
       "nexus": {
         "kicker": "{distribution} compliant build",
         "title": "Manual app updates for Nexus Mods",
-        "body": "Nexus Mods does not allow applications to auto-update themselves from a hosted mod page. This build keeps DLSSync's DLSS/FSR/XeSS sync core intact, but disables the app self-updater. Install future DLSSync versions manually from Nexus Mods or GitHub Releases."
+        "body": "Nexus Mods does not allow applications to auto-update themselves from a hosted mod page. This build keeps DLSSync's DLSS/FSR/XeSS sync core intact, but disables the app self-updater. Install future DLSSync versions manually from the Nexus Mods page."
       }
     }
   },

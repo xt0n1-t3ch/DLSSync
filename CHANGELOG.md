@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- In the Nexus build, the in-app "check for updates" and changelog actions open the Nexus Mods page instead of GitHub Releases, so the distributed package never routes users to an auto-updating download.
+- In the Nexus build, every in-app link that pointed at the DLSSync GitHub repository — the source/sponsor/report buttons, the author profile and star links, the support nudge, the apply-failure issue report, and the live star-count request — is hidden, and the "check for updates" and changelog actions open the Nexus Mods page. The distributed package surfaces no link to an auto-updating download or to the source repository, and makes no GitHub network request.
 
 ## [1.6.9] - 2026-06-12
 

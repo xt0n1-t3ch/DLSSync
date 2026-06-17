@@ -24,7 +24,7 @@
   } from "../lib/api";
   import { vendorLabel, vendorAccent } from "../lib/labels";
   import { EXTERNAL_URLS } from "../lib/ux";
-  import { appUpdaterEnabled, distributionLabel } from "../lib/distribution";
+  import { appUpdaterEnabled, distributionLabel, showSourceLinks } from "../lib/distribution";
   import { fetchStarCount, shareDlssync } from "../lib/community";
   import changelogRaw from "../../../CHANGELOG.md?raw";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
@@ -132,10 +132,12 @@
       systemInfo = null;
       systemInfoFailed = true;
     }
-    try {
-      starCount = await fetchStarCount();
-    } catch {
-      starCount = null;
+    if (showSourceLinks) {
+      try {
+        starCount = await fetchStarCount();
+      } catch {
+        starCount = null;
+      }
     }
   });
 
@@ -274,6 +276,7 @@
     <p class="view-subtitle">{$t("view.about.subtitle")}</p>
   </div>
   <div class="header-actions">
+    {#if showSourceLinks}
     <button class="btn btn-ghost" onclick={() => openExternal(REPO_URL)}>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.79 23.4c.6.11.82-.26.82-.58v-2c-3.34.73-4.04-1.61-4.04-1.61-.55-1.4-1.34-1.77-1.34-1.77-1.1-.75.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.84 2.81 1.31 3.5 1 .1-.78.42-1.31.76-1.61-2.66-.3-5.46-1.33-5.46-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.12-3.17 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.65.25 2.87.12 3.17.77.84 1.24 1.91 1.24 3.22 0 4.61-2.8 5.62-5.47 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12 12 0 0 0 12 .3Z"/></svg>
       GitHub
@@ -282,6 +285,7 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.27 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.77-3.4 6.86-8.55 11.53L12 21.35z"/></svg>
       Sponsor
     </button>
+    {/if}
     <button class="btn btn-ghost kofi-btn" onclick={() => openExternal(EXTERNAL_URLS.kofi)} title={$t("view.about.action.kofiTitle")}>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 8h1a4 4 0 0 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg>
       Ko-fi
@@ -290,6 +294,7 @@
       <NexusLogo size={15} />
       Nexus
     </button>
+    {#if showSourceLinks}
     <button class="btn btn-ghost" onclick={reportBug} disabled={reporting} title={$t("view.about.action.reportTitle")}>
       {#if reporting}
         <span class="spin"></span>
@@ -299,6 +304,7 @@
         {$t("view.about.action.report")}
       {/if}
     </button>
+    {/if}
     <button class="btn btn-primary" onclick={checkForUpdates} disabled={appUpdaterEnabled && updateChecking}>
       {#if appUpdaterEnabled && updateChecking}
         <span class="spin"></span>
@@ -355,7 +361,7 @@
   </section>
 {/if}
 
-{#if releaseHighlights && (releaseHighlights.summary || releaseHighlights.bullets.length > 0)}
+{#if showSourceLinks && releaseHighlights && (releaseHighlights.summary || releaseHighlights.bullets.length > 0)}
   <section class="whats-new" in:fly={{ y: 6, duration: 240, delay: 40 }}>
     <header class="wn-head">
       <span class="wn-tag">
@@ -589,10 +595,12 @@
       </div>
     </div>
     <div class="author-links">
+      {#if showSourceLinks}
       <button class="author-link" onclick={() => openExternal("https://github.com/xt0n1-t3ch")} title="GitHub @xt0n1-t3ch">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.79 23.4c.6.11.82-.26.82-.58v-2c-3.34.73-4.04-1.61-4.04-1.61-.55-1.4-1.34-1.77-1.34-1.77-1.1-.75.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.84 2.81 1.31 3.5 1 .1-.78.42-1.31.76-1.61-2.66-.3-5.46-1.33-5.46-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.12-3.17 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.65.25 2.87.12 3.17.77.84 1.24 1.91 1.24 3.22 0 4.61-2.8 5.62-5.47 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12 12 0 0 0 12 .3Z"/></svg>
         <span class="author-link-text">github.com/xt0n1-t3ch</span>
       </button>
+      {/if}
       <button class="author-link" onclick={() => openExternal("https://discord.com/users/211189703641268224")} title="Discord">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.317 4.369A19.79 19.79 0 0 0 16.558 3.2a.074.074 0 0 0-.079.038c-.342.61-.72 1.405-.987 2.027a18.27 18.27 0 0 0-5.484 0 12.65 12.65 0 0 0-1.001-2.027.077.077 0 0 0-.078-.038A19.736 19.736 0 0 0 5.171 4.369a.07.07 0 0 0-.032.027C1.533 9.79.583 14.95 1.05 20.04a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.029.077.077 0 0 0 .084-.027 14.24 14.24 0 0 0 1.226-1.994.075.075 0 0 0-.041-.104 13.1 13.1 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .078-.011c3.927 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .079.01c.12.1.246.198.373.292a.077.077 0 0 1-.006.128c-.598.349-1.22.645-1.873.892a.077.077 0 0 0-.041.105c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.84 19.84 0 0 0 6.002-3.03.077.077 0 0 0 .031-.055c.5-5.876-.838-10.998-3.548-15.644a.06.06 0 0 0-.031-.028zM8.02 16.937c-1.182 0-2.157-1.085-2.157-2.418 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.419 0 1.333-.956 2.418-2.157 2.418zm7.974 0c-1.182 0-2.157-1.085-2.157-2.418 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.419 0 1.333-.946 2.418-2.157 2.418z"/></svg>
         <span class="author-link-text">Discord</span>
@@ -611,11 +619,13 @@
     <p class="section-sub">{$t("view.about.support.sub")}</p>
   </header>
   <div class="support-grid">
+    {#if showSourceLinks}
     <button class="support-cta is-star" onclick={() => openExternal(EXTERNAL_URLS.homepage)} title={$t("view.about.support.starTitle")}>
       <Star size={16} fill="currentColor" />
       <span class="support-cta-label">{$t("view.about.support.star")}</span>
       {#if starCount !== null}<span class="support-cta-count mono">{starCount.toLocaleString()}</span>{/if}
     </button>
+    {/if}
     <button class="support-cta is-endorse" onclick={() => openExternal(EXTERNAL_URLS.nexusMod)} title={$t("view.about.support.endorseTitle")}>
       <NexusLogo size={18} />
       <span class="support-cta-label">{$t("view.about.support.endorse")}</span>

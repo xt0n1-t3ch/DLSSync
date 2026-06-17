@@ -570,7 +570,9 @@
       "updates": {
         "autoUpdate": {
           "title": "Actualización automática",
-          "help": "DLSSync consulta las versiones de GitHub cada 6 horas. Inicia una comprobación manual abajo."
+          "help": "DLSSync consulta las versiones de GitHub cada 6 horas. Inicia una comprobación manual abajo.",
+          "titleManual": "Actualizaciones de la app",
+          "helpManual": "Este build {distribution} no se auto-actualiza. Instala futuras versiones manualmente desde la página de Nexus Mods."
         },
         "currentVersion": {
           "label": "Versión actual"
@@ -588,7 +590,7 @@
           "checkFailed": "Error al buscar actualizaciones: {error}"
         },
         "manualOnly": "Build {distribution}: actualizaciones manuales de la app",
-        "openReleases": "Abrir releases"
+        "openReleases": "Abrir página de Nexus Mods"
       },
       "toast": {
         "overlayEnabled": "Superposición de depuración DLSS activada",
@@ -727,7 +729,7 @@
         "preparing": "Preparando",
         "checkUpdates": "Buscar actualizaciones",
         "checking": "Buscando",
-        "openReleases": "Abrir releases"
+        "openReleases": "Abrir página de Nexus Mods"
       },
       "tagline": "SINCRONIZAR · VERIFICAR · APLICAR",
       "pillar": {
@@ -823,7 +825,7 @@
       "nexus": {
         "kicker": "Build compatible con {distribution}",
         "title": "Actualizaciones manuales de la app para Nexus Mods",
-        "body": "Nexus Mods no permite que una aplicación se auto-actualice desde una página de mod. Este build mantiene intacto el core de sincronización DLSS/FSR/XeSS de DLSSync, pero desactiva el auto-updater de la app. Instala futuras versiones de DLSSync manualmente desde Nexus Mods o GitHub Releases."
+        "body": "Nexus Mods no permite que una aplicación se auto-actualice desde una página de mod. Este build mantiene intacto el core de sincronización DLSS/FSR/XeSS de DLSSync, pero desactiva el auto-updater de la app. Instala futuras versiones de DLSSync manualmente desde la página de Nexus Mods."
       }
     }
   },

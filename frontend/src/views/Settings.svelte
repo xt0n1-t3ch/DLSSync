@@ -702,8 +702,8 @@
     {:else if activeTab === "updates"}
       <section in:fly={{ y: 4, duration: 200 }}>
         <header class="section-head">
-          <h2 class="section-title-h">{$t("view.settings.updates.autoUpdate.title")}</h2>
-          <p class="section-help">{$t("view.settings.updates.autoUpdate.help")}</p>
+          <h2 class="section-title-h">{appUpdaterEnabled ? $t("view.settings.updates.autoUpdate.title") : $t("view.settings.updates.autoUpdate.titleManual")}</h2>
+          <p class="section-help">{appUpdaterEnabled ? $t("view.settings.updates.autoUpdate.help") : $t("view.settings.updates.autoUpdate.helpManual", { distribution: distributionLabel })}</p>
         </header>
         <div class="card">
           <div class="row">

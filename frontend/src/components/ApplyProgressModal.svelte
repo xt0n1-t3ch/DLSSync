@@ -22,6 +22,7 @@
     type ApplyErrorClass,
     type DllRecord,
   } from "../lib/api";
+  import { showSourceLinks } from "../lib/distribution";
   import {
     featureTitle,
     featureFromFamily,
@@ -915,7 +916,7 @@
           {$t("component.applyModal.action.copyReport")}
         </button>
       {/if}
-      {#if failedGroups > 0 && !anyRunning}
+      {#if showSourceLinks && failedGroups > 0 && !anyRunning}
         <button class="aura-pill aura-pill-ghost" onclick={reportIssue} disabled={reportingIssue} title={$t("component.applyModal.action.reportIssueTitle")}>
           {#if reportingIssue}
             <span class="spinner-tiny"></span>
