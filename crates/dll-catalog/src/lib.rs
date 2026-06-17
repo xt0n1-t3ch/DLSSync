@@ -603,14 +603,23 @@ fn write_catalog_cache(cache_path: &Path, raw: &[u8], sig: Option<&str>) {
     }
 }
 
+/// Load + parse an on-disk cache after requiring its detached signature to verify.
+pub fn load_verified_cache(cache_path: &Path) -> Option<Catalog> {
+    load_cached_catalog_with(cache_path, true)
+}
+
 /// Load + parse the on-disk cache. When enforcement is on, the cached raw bytes
 /// are re-verified against the sidecar `.sig`; a missing or invalid signature
 /// rejects the cache (the caller then falls back to the embedded manifest). A
 /// legacy re-serialized cache from before sidecar caching has no `.sig`, so it is
 /// correctly rejected under enforcement and accepted only when enforcement is off.
 fn load_cached_catalog(cache_path: &Path) -> Option<Catalog> {
+    load_cached_catalog_with(cache_path, signature_enforced())
+}
+
+fn load_cached_catalog_with(cache_path: &Path, require_signature: bool) -> Option<Catalog> {
     let raw = std::fs::read(cache_path).ok()?;
-    if signature_enforced() {
+    if require_signature {
         let sig = std::fs::read_to_string(cache_sig_path(cache_path)).ok()?;
         verify_manifest_signature(&raw, &sig).ok()?;
     }
@@ -806,6 +815,22 @@ mod tests {
 
     fn test_signing_key() -> ed25519_dalek::SigningKey {
         ed25519_dalek::SigningKey::from_bytes(&[7u8; 32])
+    }
+
+    #[test]
+    fn verified_cache_rejects_sidecar_from_wrong_key() {
+        use ed25519_dalek::Signer;
+        let dir = tempfile::tempdir().unwrap();
+        let cache_path = dir.path().join("manifest.json");
+        let catalog = catalog_with(
+            "dlss",
+            vec![release_with("nvngx_dlss.dll", "1.0.0", 1, "a")],
+        );
+        let raw = serde_json::to_vec(&catalog).unwrap();
+        let sig_hex = hex::encode(test_signing_key().sign(&raw).to_bytes());
+        std::fs::write(&cache_path, raw).unwrap();
+        std::fs::write(cache_sig_path(&cache_path), sig_hex).unwrap();
+        assert!(load_verified_cache(&cache_path).is_none());
     }
 
     #[test]
