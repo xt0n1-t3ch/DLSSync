@@ -9,6 +9,7 @@
   import X from "@lucide/svelte/icons/x";
   import { get } from "svelte/store";
   import { supportNudgeVisible, dismissNudge, dontShowAgain, shareDlssync } from "../lib/community";
+  import { showSourceLinks } from "../lib/distribution";
   import { EXTERNAL_URLS } from "../lib/ux";
   import { showToast, updateBannerActive } from "../lib/stores";
   import { t, locale, translate } from "../lib/i18n/index";
@@ -73,9 +74,11 @@
       </div>
     </div>
     <div class="actions">
+      {#if showSourceLinks}
       <button class="act is-star" onclick={star} title={$t("component.support.starTitle")}>
         <Star size={15} fill="currentColor" strokeWidth={2} /> {$t("component.support.star")}
       </button>
+      {/if}
       <button class="act is-endorse" onclick={endorse} title={$t("component.support.endorseTitle")}>
         <NexusLogo size={15} /> {$t("component.support.endorse")}
       </button>

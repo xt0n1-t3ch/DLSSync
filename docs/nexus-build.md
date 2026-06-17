@@ -63,4 +63,15 @@ Use this wording when explaining the release:
 
 > This is a Nexus Mods compliant build. DLSSync's core DLL synchronization remains intact, but application self-update is disabled because Nexus Mods does not allow auto-updating hosted utilities. Users install future DLSSync application versions manually from the Nexus Mods page.
 
-In the Nexus build the in-app "check for updates" and changelog actions open the Nexus Mods page, not GitHub Releases, so the distributed package never points users at an auto-updating download.
+## In-app source links
+
+The Nexus build hides every in-app link to the DLSSync GitHub repository so the package surfaces no path to an auto-updating download or to the source repo. The `showSourceLinks` flag (`frontend/src/lib/distribution.ts`, `false` for the nexus build) gates:
+
+- the About header GitHub, Sponsor, and Report buttons;
+- the About footer GitHub profile link and the "Star on GitHub" support action;
+- the support nudge "Star" action;
+- the apply-failure "Report issue" button (the clipboard "Copy report" stays);
+- the live GitHub star-count request (no network call to the GitHub API);
+- the share action, which targets the Nexus mod page instead of the repo.
+
+The "check for updates" and changelog actions open the Nexus Mods page. Upstream vendor SDK links (NVIDIA, Intel, AMD, Microsoft) and non-GitHub links (Ko-fi, Discord, the project website, the Nexus page) are unaffected. The signed DLL catalog (manifest) repository is still referenced for transparency — it is the audited DLL source Nexus asked to verify, not an application build.

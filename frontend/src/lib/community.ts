@@ -1,6 +1,7 @@
 import { get, writable } from "svelte/store";
 import { EXTERNAL_URLS } from "./ux";
 import { settings, persistSettings } from "./stores";
+import { isNexusBuild } from "./distribution";
 
 const STAR_CACHE_KEY = "dlssync.starCount.v1";
 const STAR_TTL_MS = 6 * 60 * 60 * 1000;
@@ -54,7 +55,8 @@ export function resetNudgeSession(): void {
 export type ShareResult = "shared" | "copied" | "failed";
 
 export async function shareDlssync(): Promise<ShareResult> {
-  const url = EXTERNAL_URLS.homepage;
+  // The Nexus build shares the Nexus mod page, never the GitHub repo.
+  const url = isNexusBuild ? EXTERNAL_URLS.nexusMod : EXTERNAL_URLS.homepage;
   const message = `${SHARE_TEXT} ${url}`;
   const nav = navigator as Navigator & {
     share?: (data: { title: string; text: string; url: string }) => Promise<void>;
@@ -83,6 +85,8 @@ interface StarCache {
 /** Live GitHub star count for social proof. Cached in localStorage for STAR_TTL_MS
  * (GitHub allows 60 unauthenticated req/h per IP). Returns null on any failure. */
 export async function fetchStarCount(now: number = Date.now()): Promise<number | null> {
+  // The Nexus build never calls the GitHub API.
+  if (isNexusBuild) return null;
   try {
     const raw = localStorage.getItem(STAR_CACHE_KEY);
     if (raw) {
