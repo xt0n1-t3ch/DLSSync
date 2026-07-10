@@ -155,12 +155,13 @@ jobs:
           When a new version is released, DLSSync opens the GitHub release page
           and you replace DLSSync.exe manually.
 
-          Settings are stored under %APPDATA%/DLSSync (per-user).
+          Settings, catalog, backups, and journal are stored under .\data.
 
           For unattended updates and tray integration, use the installer instead:
             https://github.com/xt0n1-t3ch/DLSSync/releases/latest
           "@
           Set-Content -Path (Join-Path $portableDir "portable.txt") -Value $marker -Encoding UTF8
+          Set-Content -Path (Join-Path $portableDir "portable.flag") -Value "DLSSync portable data boundary" -Encoding ASCII
           $zipPath = "target/release/bundle/nsis/DLSSync_${env:VERSION}_x64-portable.zip"
           New-Item -ItemType Directory -Force -Path (Split-Path $zipPath -Parent) | Out-Null
           Compress-Archive -Path "$portableDir/*" -DestinationPath $zipPath -Force

@@ -7,6 +7,7 @@ import type {
   DllFamily,
 } from "./api";
 import { FAMILY_META, type VendorKey } from "./familyMeta";
+import { PRODUCT } from "../generated/product";
 
 export const LIBRARY_VIEW_MODES: readonly LibraryViewMode[] = ["grid", "list"];
 export const LIBRARY_DENSITIES: readonly LibraryDensity[] = ["compact", "comfy"];
@@ -216,14 +217,17 @@ function subsequenceScore(needle: string, haystack: string): number | null {
   return haystack.length - needle.length + 50;
 }
 
+// Product identity/URLs are owned by product.toml → generated/product.ts. This is
+// the single frontend consumer alias; `homepage` is the source repository (used to
+// build release-tag URLs), distinct from PRODUCT.homepage (the Pages site).
 export const EXTERNAL_URLS = {
-  anticheatFaq: "https://www.pcgamingwiki.com/wiki/Glossary:Anti-cheat",
-  homepage: "https://github.com/xt0n1-t3ch/DLSSync",
-  releases: "https://github.com/xt0n1-t3ch/DLSSync/releases",
-  releasesLatest: "https://github.com/xt0n1-t3ch/DLSSync/releases/latest",
-  nexusMod: "https://www.nexusmods.com/site/mods/1922",
-  sponsor: "https://github.com/sponsors/xt0n1-t3ch",
-  kofi: "https://ko-fi.com/xt0n1",
+  anticheatFaq: PRODUCT.anticheatFaq,
+  homepage: PRODUCT.repository,
+  releases: PRODUCT.releases,
+  releasesLatest: PRODUCT.releasesLatest,
+  nexusMod: PRODUCT.nexus,
+  sponsor: PRODUCT.sponsor,
+  kofi: PRODUCT.kofi,
 } as const;
 
 export function githubReleaseTagUrl(version: string): string {

@@ -7,7 +7,10 @@ use tokio_util::sync::CancellationToken;
 
 use backup_store::BackupStore;
 use dll_catalog::{Catalog, DownloadCache};
+use dlssync_application::{product_config, DistributionPolicy};
+use dlssync_contracts::{CatalogProvenance, DistributionChannel, InstallMode};
 use notifications_store::NotificationsStore;
+use operation_journal::JournalStore;
 
 use crate::commands::settings::AppSettings;
 use crate::paths::AppPaths;
@@ -65,9 +68,12 @@ impl ApplyRegistry {
 
 pub struct AppState {
     pub catalog: Arc<RwLock<Option<Catalog>>>,
+    pub catalog_provenance: Arc<RwLock<Option<CatalogProvenance>>>,
     pub catalog_cache_path: Arc<RwLock<Option<PathBuf>>>,
     pub backups: Arc<RwLock<Option<BackupStore>>>,
     pub notifications: Arc<RwLock<Option<NotificationsStore>>>,
+    pub journal: Arc<RwLock<Option<JournalStore>>>,
+    pub distribution_policy: Arc<RwLock<DistributionPolicy>>,
     pub settings: Arc<RwLock<AppSettings>>,
     pub paths: Arc<RwLock<Option<AppPaths>>>,
     pub system_info: Arc<RwLock<Option<SystemInfo>>>,
@@ -85,6 +91,14 @@ pub struct AppState {
 
 impl AppState {
     pub fn new() -> Self {
+        let config = product_config().expect("embedded product.toml must be valid");
+        let channel = if cfg!(feature = "nexus") {
+            DistributionChannel::Nexus
+        } else {
+            DistributionChannel::Standard
+        };
+        let distribution_policy =
+            DistributionPolicy::resolve(&config, channel, InstallMode::Installed);
         let http_catalog = reqwest::Client::builder()
             .user_agent(UA)
             .timeout(Duration::from_secs(HTTP_CATALOG_TIMEOUT_SECS))
@@ -107,9 +121,12 @@ impl AppState {
             .expect("reqwest art client");
         Self {
             catalog: Arc::new(RwLock::new(None)),
+            catalog_provenance: Arc::new(RwLock::new(None)),
             catalog_cache_path: Arc::new(RwLock::new(None)),
             backups: Arc::new(RwLock::new(None)),
             notifications: Arc::new(RwLock::new(None)),
+            journal: Arc::new(RwLock::new(None)),
+            distribution_policy: Arc::new(RwLock::new(distribution_policy)),
             settings: Arc::new(RwLock::new(AppSettings::default())),
             paths: Arc::new(RwLock::new(None)),
             system_info: Arc::new(RwLock::new(None)),

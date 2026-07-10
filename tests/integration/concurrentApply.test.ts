@@ -14,6 +14,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>();
   return {
     ...actual,
+    getCatalogStatus: vi.fn(async () => ({ provenance: { generated_at: "2026-07-10T00:00:00Z" } })),
     applyUpdateBatch: (...a: unknown[]) =>
       (applyUpdateBatch as unknown as (...x: unknown[]) => Promise<ApplyBatchResult>)(...a),
   };
@@ -23,6 +24,11 @@ vi.mock("@/lib/community", () => ({ notifyApplySuccess: vi.fn() }));
 
 import { dispatchApply, type ApplyTarget } from "@/lib/applyController";
 import { activeApplies, toasts } from "@/lib/stores";
+
+const reviewPlan = async (targets: ApplyTarget[]) => ({
+  targets,
+  catalogGeneratedAt: "2026-07-10T00:00:00Z",
+});
 
 function target(gameId: string, family: DllRecord["family"] = "dlss_sr"): ApplyTarget {
   return {
@@ -48,12 +54,14 @@ beforeEach(() => {
 
 describe("dispatchApply — concurrent dispatch never wipes an in-flight batch", () => {
   it("a second dispatch while the first is in flight preserves the first batch's trackers", async () => {
-    const first = dispatchApply([target("alpha"), target("beta")]);
+    const first = dispatchApply([target("alpha"), target("beta")], { reviewPlan });
+    await Promise.resolve();
+    await Promise.resolve();
     const afterFirst = get(activeApplies);
     expect(Object.keys(afterFirst)).toHaveLength(2);
     const firstIds = Object.keys(afterFirst);
 
-    const second = await dispatchApply([target("gamma")]);
+    const second = await dispatchApply([target("gamma")], { reviewPlan });
     expect(second).toBeNull();
     expect(applyUpdateBatch).toHaveBeenCalledTimes(1);
 
@@ -69,7 +77,9 @@ describe("dispatchApply — concurrent dispatch never wipes an in-flight batch",
   });
 
   it("merges a fresh batch into recently-finished trackers rather than replacing them", async () => {
-    const done = dispatchApply([target("alpha")]);
+    const done = dispatchApply([target("alpha")], { reviewPlan });
+    await Promise.resolve();
+    await Promise.resolve();
     pendingResolve?.({ outcomes: [] });
     await done;
     // In the real app the apply-progress event listener stamps `ended_at`; the
@@ -84,7 +94,9 @@ describe("dispatchApply — concurrent dispatch never wipes an in-flight batch",
     expect(Object.keys(resolved)).toHaveLength(1);
     const oldId = Object.keys(resolved)[0];
 
-    dispatchApply([target("beta")]);
+    dispatchApply([target("beta")], { reviewPlan });
+    await Promise.resolve();
+    await Promise.resolve();
     const merged = get(activeApplies);
     expect(Object.keys(merged)).toHaveLength(2);
     expect(merged[oldId]).toEqual(resolved[oldId]);
@@ -93,7 +105,9 @@ describe("dispatchApply — concurrent dispatch never wipes an in-flight batch",
   });
 
   it("prunes stale finished trackers when a fresh batch dispatches", async () => {
-    const done = dispatchApply([target("alpha")]);
+    const done = dispatchApply([target("alpha")], { reviewPlan });
+    await Promise.resolve();
+    await Promise.resolve();
     pendingResolve?.({ outcomes: [] });
     await done;
     activeApplies.update((m) => {
@@ -103,7 +117,9 @@ describe("dispatchApply — concurrent dispatch never wipes an in-flight batch",
     });
     const staleId = Object.keys(get(activeApplies))[0];
 
-    dispatchApply([target("beta")]);
+    dispatchApply([target("beta")], { reviewPlan });
+    await Promise.resolve();
+    await Promise.resolve();
     const merged = get(activeApplies);
     expect(Object.keys(merged)).toHaveLength(1);
     expect(merged[staleId]).toBeUndefined();

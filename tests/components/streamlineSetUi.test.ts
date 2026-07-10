@@ -24,7 +24,7 @@ describe("api — applyStreamlineSet binding", () => {
 
   it("invokes the apply_streamline_set command with items", () => {
     expect(api).toMatch(/export async function applyStreamlineSet/);
-    expect(api).toMatch(/invoke\("apply_streamline_set", \{ items \}\)/);
+    expect(api).toMatch(/transport\(COMMANDS\.apply_streamline_set, \{ items \}\)/);
   });
 });
 

@@ -34,26 +34,60 @@ function killStaleInstances(): void {
 }
 
 const FIXTURE_EXE_BYTES = 5 * 1024 * 1024 + 1024;
-export const E2E_PROTECTED_GAME_NAME = "E2E Anti-Cheat Fixture";
+export const E2E_PROTECTED_GAME_NAME = "Aurora Protocol";
+
+interface FixtureGame {
+  readonly name: string;
+  readonly dlls: readonly string[];
+  readonly antiCheat?: string;
+}
+
+const FIXTURE_GAMES: readonly FixtureGame[] = [
+  {
+    name: E2E_PROTECTED_GAME_NAME,
+    dlls: ["nvngx_dlss.dll", "nvngx_dlssg.dll"],
+    antiCheat: "EasyAntiCheat_x64.dll",
+  },
+  { name: "Neon Divide", dlls: ["nvngx_dlss.dll", "dstorage.dll"] },
+  { name: "Atlas Frontier", dlls: ["libxess.dll", "libxess_fg.dll"] },
+  {
+    name: "Midnight Circuit",
+    dlls: ["amd_fidelityfx_dx12.dll", "amd_fidelityfx_framegeneration_dx12.dll"],
+  },
+];
+
+function seedFixtureGame(gamesRoot: string, game: FixtureGame): void {
+  const gameDir = join(gamesRoot, game.name);
+  mkdirSync(gameDir, { recursive: true });
+  writeFileSync(join(gameDir, `${game.name.replaceAll(" ", "")}.exe`), Buffer.alloc(FIXTURE_EXE_BYTES));
+  if (game.antiCheat) writeFileSync(join(gameDir, game.antiCheat), "fixture");
+  for (const dll of game.dlls) {
+    const dllPath = join(gameDir, dll);
+    if (existsSync(appBinaryPath)) copyFileSync(appBinaryPath, dllPath);
+    else writeFileSync(dllPath, "fixture");
+  }
+}
 
 /** Hermetic per-worker data root: the debug app honors DLSSYNC_DATA_DIR, so the
  *  suite never reads or mutates the host's real `~/DLSSync` settings, backups,
- *  or notifications. A seeded custom-folder game (≥5 MB exe passes the
- *  is_likely_game marker) gives library specs at least one card on a clean
- *  runner with no launchers installed. */
+ *  or notifications. Seeded fictional games (each with a >=5 MB executable)
+ *  make every library state deterministic without exposing host libraries or
+ *  relying on copyrighted game artwork. */
 function seedHermeticDataDir(): string {
-  const dataDir = mkdtempSync(join(tmpdir(), "dlssync-e2e-"));
-  const gamesRoot = join(dataDir, "FixtureGames");
-  const gameDir = join(gamesRoot, E2E_PROTECTED_GAME_NAME);
-  mkdirSync(gameDir, { recursive: true });
-  writeFileSync(join(gameDir, "FixtureGame.exe"), Buffer.alloc(FIXTURE_EXE_BYTES));
-  writeFileSync(join(gameDir, "EasyAntiCheat_x64.dll"), "fixture");
-  const dlssDllPath = join(gameDir, "nvngx_dlss.dll");
-  if (existsSync(appBinaryPath)) {
-    copyFileSync(appBinaryPath, dlssDllPath);
+  // The marketing capture publishes these surfaces (About "Data & logs", Settings
+  // path, game-detail install path, update-plan file rows), so it uses a clean,
+  // generic data root — no developer username or e2e temp-dir name leaks into the
+  // public gallery. Regular E2E runs stay fully hermetic under the OS temp dir.
+  let dataDir: string;
+  if (process.env.DLSSYNC_CAPTURE_MARKETING === "1") {
+    dataDir = join(process.env.PUBLIC ?? "C:\\Users\\Public", "DLSSync");
+    rmSync(dataDir, { recursive: true, force: true });
+    mkdirSync(dataDir, { recursive: true });
   } else {
-    writeFileSync(dlssDllPath, "fixture");
+    dataDir = mkdtempSync(join(tmpdir(), "dlssync-e2e-"));
   }
+  const gamesRoot = join(dataDir, "FixtureGames");
+  for (const game of FIXTURE_GAMES) seedFixtureGame(gamesRoot, game);
   const settingsDir = join(dataDir, "Settings");
   mkdirSync(settingsDir, { recursive: true });
   writeFileSync(
@@ -68,7 +102,13 @@ function spawnApp(dataDir: string): ChildProcess {
     cwd: repoRoot,
     stdio: "ignore",
     windowsHide: false,
-    env: { ...process.env, DLSSYNC_DATA_DIR: dataDir, DLSSYNC_E2E_GPU_FIXTURE: "1" },
+    env: {
+      ...process.env,
+      DLSSYNC_DATA_DIR: dataDir,
+      DLSSYNC_E2E: "1",
+      DLSSYNC_E2E_GPU_FIXTURE: "1",
+      WEBVIEW2_USER_DATA_FOLDER: join(dataDir, "WebView2"),
+    },
   });
 }
 

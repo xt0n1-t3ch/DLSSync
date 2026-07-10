@@ -24,6 +24,7 @@
   } from "../lib/api";
   import { vendorLabel, vendorAccent } from "../lib/labels";
   import { EXTERNAL_URLS } from "../lib/ux";
+  import { PRODUCT } from "../generated/product";
   import { appUpdaterEnabled, distributionLabel, showSourceLinks } from "../lib/distribution";
   import { fetchStarCount, shareDlssync } from "../lib/community";
   import changelogRaw from "../../../CHANGELOG.md?raw";
@@ -186,8 +187,11 @@
     { vendor: "Microsoft", url: "https://github.com/microsoft/DirectStorage", label: "DirectStorage", accent: vendorAccent("microsoft") },
   ];
 
-  const REPO_URL = "https://github.com/xt0n1-t3ch/DLSSync";
-  const ISSUES_URL = "https://github.com/xt0n1-t3ch/DLSSync/issues";
+  const REPO_URL = PRODUCT.repository;
+  const MANIFEST_REPO_URL = PRODUCT.manifestRepository;
+  const ISSUES_URL = PRODUCT.issues;
+  const AUTHOR_URL = PRODUCT.author;
+  const AUTHOR_LABEL = PRODUCT.author.replace(/^https?:\/\//, "");
 
   async function openExternal(url: string): Promise<void> {
     try {
@@ -277,9 +281,13 @@
   </div>
   <div class="header-actions">
     {#if showSourceLinks}
-    <button class="btn btn-ghost" onclick={() => openExternal(REPO_URL)}>
+    <button class="btn btn-primary github-btn" onclick={() => openExternal(REPO_URL)} title={$t("view.about.action.sourceTitle")}>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.79 23.4c.6.11.82-.26.82-.58v-2c-3.34.73-4.04-1.61-4.04-1.61-.55-1.4-1.34-1.77-1.34-1.77-1.1-.75.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.84 2.81 1.31 3.5 1 .1-.78.42-1.31.76-1.61-2.66-.3-5.46-1.33-5.46-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.12-3.17 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.65.25 2.87.12 3.17.77.84 1.24 1.91 1.24 3.22 0 4.61-2.8 5.62-5.47 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12 12 0 0 0 12 .3Z"/></svg>
       GitHub
+    </button>
+    <button class="btn btn-ghost manifest-btn" onclick={() => openExternal(MANIFEST_REPO_URL)} title={$t("view.about.action.manifestTitle")}>
+      <Signature size={14} />
+      {$t("view.about.action.manifest")}
     </button>
     <button class="btn btn-ghost sponsor-btn" onclick={() => openExternal(EXTERNAL_URLS.sponsor)} title={$t("view.about.action.sponsorTitle")}>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.27 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.77-3.4 6.86-8.55 11.53L12 21.35z"/></svg>
@@ -305,7 +313,7 @@
       {/if}
     </button>
     {/if}
-    <button class="btn btn-primary" onclick={checkForUpdates} disabled={appUpdaterEnabled && updateChecking}>
+    <button class="btn btn-ghost update-action" onclick={checkForUpdates} disabled={appUpdaterEnabled && updateChecking}>
       {#if appUpdaterEnabled && updateChecking}
         <span class="spin"></span>
         {$t("view.about.action.checking")}
@@ -354,7 +362,7 @@
 </section>
 
 {#if !appUpdaterEnabled}
-  <section class="nexus-notice" in:fly={{ y: 6, duration: 220, delay: 20 }}>
+  <section class="nexus-notice" in:fly={{ y: 6, duration: 220, delay: 0 }}>
     <div class="nexus-notice-kicker">{$t("view.about.nexus.kicker", { distribution: distributionLabel })}</div>
     <h3>{$t("view.about.nexus.title")}</h3>
     <p>{$t("view.about.nexus.body")}</p>
@@ -362,7 +370,7 @@
 {/if}
 
 {#if showSourceLinks && releaseHighlights && (releaseHighlights.summary || releaseHighlights.bullets.length > 0)}
-  <section class="whats-new" in:fly={{ y: 6, duration: 240, delay: 40 }}>
+  <section class="whats-new" in:fly={{ y: 6, duration: 240, delay: 0 }}>
     <header class="wn-head">
       <span class="wn-tag">
         <span class="wn-eyebrow">{$t("view.about.whatsNew.eyebrow")}</span>
@@ -399,7 +407,7 @@
   </div>
 {/if}
 
-<section class="about-kpis" in:fly={{ y: 6, duration: 280, delay: 60 }}>
+<section class="about-kpis" in:fly={{ y: 6, duration: 280, delay: 0 }}>
   <div class="about-kpi">
     <span class="kpi-label">{$t("view.about.kpi.familiesTracked")}</span>
     <span class="kpi-value">{Math.round(familyTween.current)}</span>
@@ -426,7 +434,7 @@
   </div>
 </section>
 
-<div class="info-grid" in:fade={{ duration: 240, delay: 120 }}>
+<div class="info-grid" in:fade={{ duration: 240, delay: 0 }}>
   <section class="surface">
     <header class="surface-head">
       <Database size={16} />
@@ -476,7 +484,7 @@
   </section>
 </div>
 
-<section class="surface system-surface" in:fade={{ duration: 260, delay: 180 }}>
+<section class="surface system-surface" in:fade={{ duration: 260, delay: 0 }}>
   <header class="surface-head">
     <Cpu size={16} />
     <h3 class="surface-title">{$t("view.about.system.title")}</h3>
@@ -557,7 +565,7 @@
   {/if}
 </section>
 
-<section class="sources-section" in:fade={{ duration: 240, delay: 220 }}>
+<section class="sources-section" in:fade={{ duration: 240, delay: 0 }}>
   <header class="section-head-row">
     <h3 class="section-heading-h">{$t("view.about.sources.title")}</h3>
     <p class="section-sub">{$t("view.about.sources.sub")}</p>
@@ -568,7 +576,7 @@
         class="source-card"
         style:--src-accent={s.accent}
         onclick={() => openExternal(s.url)}
-        in:fly={{ y: 4, duration: 220, delay: 240 + i * 30 }}
+        in:fly={{ y: 4, duration: 220, delay: i * 12 }}
       >
         <span class="source-stripe"></span>
         <span class="source-vendor"><BrandMark key={s.vendor} tone="mono" size={12} /></span>
@@ -579,7 +587,7 @@
   </div>
 </section>
 
-<section class="author-section" in:fade={{ duration: 240, delay: 280 }}>
+<section class="author-section" in:fade={{ duration: 240, delay: 0 }}>
   <header class="section-head-row">
     <h3 class="section-heading-h">{$t("view.about.author.title")}</h3>
     <p class="section-sub">{$t("view.about.author.sub")}</p>
@@ -596,9 +604,9 @@
     </div>
     <div class="author-links">
       {#if showSourceLinks}
-      <button class="author-link" onclick={() => openExternal("https://github.com/xt0n1-t3ch")} title="GitHub @xt0n1-t3ch">
+      <button class="author-link" onclick={() => openExternal(AUTHOR_URL)} title={`GitHub @${AUTHOR_LABEL.split("/").pop()}`}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.79 23.4c.6.11.82-.26.82-.58v-2c-3.34.73-4.04-1.61-4.04-1.61-.55-1.4-1.34-1.77-1.34-1.77-1.1-.75.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.84 2.81 1.31 3.5 1 .1-.78.42-1.31.76-1.61-2.66-.3-5.46-1.33-5.46-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.12-3.17 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.65.25 2.87.12 3.17.77.84 1.24 1.91 1.24 3.22 0 4.61-2.8 5.62-5.47 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12 12 0 0 0 12 .3Z"/></svg>
-        <span class="author-link-text">github.com/xt0n1-t3ch</span>
+        <span class="author-link-text">{AUTHOR_LABEL}</span>
       </button>
       {/if}
       <button class="author-link" onclick={() => openExternal("https://discord.com/users/211189703641268224")} title="Discord">
@@ -613,7 +621,7 @@
   </div>
 </section>
 
-<section class="support-section" in:fade={{ duration: 240, delay: 300 }}>
+<section class="support-section" in:fade={{ duration: 240, delay: 0 }}>
   <header class="section-head-row">
     <h3 class="section-heading-h">{$t("view.about.support.title")}</h3>
     <p class="section-sub">{$t("view.about.support.sub")}</p>
@@ -637,7 +645,7 @@
   </div>
 </section>
 
-<footer class="about-foot" in:fade={{ duration: 220, delay: 340 }}>
+<footer class="about-foot" in:fade={{ duration: 220, delay: 0 }}>
   <p>{$t("view.about.foot.trademarks")}</p>
   <p class="foot-disclaimer">{$t("view.about.foot.disclaimer")}</p>
   <p class="foot-license">{$t("view.about.foot.licensedUnder")} <button class="foot-link" onclick={() => openExternal("https://www.apache.org/licenses/LICENSE-2.0")}>Apache 2.0</button> · {$t("view.about.foot.copyright")}</p>
@@ -678,6 +686,12 @@
   .sponsor-btn:hover svg { color: #f0707f; }
   .kofi-btn svg { color: #ff5e5b; }
   .kofi-btn:hover svg { color: #ff7674; }
+  .github-btn { background: var(--text-primary); color: var(--bg-base); border-color: transparent; }
+  .github-btn:hover { background: color-mix(in oklab, var(--text-primary) 88%, var(--accent)); }
+  .manifest-btn :global(svg) { color: var(--success); }
+  .view-header { align-items: flex-start; gap: 20px; }
+  .header-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; max-width: 720px; }
+  @media (max-width: 980px) { .view-header { flex-direction: column; } .header-actions { justify-content: flex-start; max-width: none; } }
   .brand-hero {
     position: relative;
     display: flex;

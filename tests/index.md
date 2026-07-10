@@ -12,6 +12,10 @@ backend runs on `cargo test`. Run both before shipping.
 | Frontend (watch) | `pnpm --filter dlssync-frontend test:watch` | Same, watch mode |
 | Backend | `cargo test --workspace` | Every Rust crate + Tauri command surface |
 | Types | `pnpm --filter dlssync-frontend check` | svelte-check, 0 errors / 0 warnings |
+| Frontend lint | `pnpm --filter dlssync-frontend lint` | TypeScript/Svelte quality plus feature-boundary import rules |
+| Generated IPC | `cargo xtask check-bindings` | Rust contract bindings are committed and deterministic |
+| Architecture | `cargo xtask check-architecture` | No raw Tauri transport calls outside generated bindings |
+| CLI smoke | `cargo run -p dlssync-cli -- --json doctor` | Data root, signed fallback catalog, journal, and portable boundary |
 | End-to-end | `pnpm test:e2e` | Playwright over CDP drives the real WebView2 app (`tests/e2e`) |
 
 Vitest config: [frontend/vitest.config.ts](../frontend/vitest.config.ts). Tauri APIs are mocked in
@@ -43,6 +47,8 @@ App version is read from `package.json` at runtime — never hardcoded. Config:
 | [launcherLogos.test.ts](unit/launcherLogos.test.ts) | `lib/launcherLogos` | 7 brands present, valid hex bg, non-empty SVG path, order-list integrity |
 | [dlssPresets.test.ts](unit/dlssPresets.test.ts) | `lib/dlss` | SR preset / FG-mode / FG-count option tables, preset labels, per-option description + source URL, driver-version gating (≥572.16 DLSS 4, ≥595.97 Dynamic MFG), active-override detection |
 | [anticheat.test.ts](unit/anticheat.test.ts) | `lib/anticheat` | detection flag (type-guard), joined names, dataset status note, ban-risk warning copy names the anti-cheats |
+| [favorites.test.ts](unit/favorites.test.ts) | `lib/favorites` | pure favorite-id ops: `isFavorite` membership, `toggleFavorite` append/remove/dedupe/empty-id/no-mutation, `filterFavorites` order-preserving |
+| [libraryFilters.test.ts](unit/libraryFilters.test.ts) | `lib/libraryFilters` | `gameTechnologies` dedupe, `matchesTechnology` per family-group (dlss/fsr/xess/advanced), `matchesAntiCheat` all/flagged/clear |
 | [catalogReleases.test.ts](unit/catalogReleases.test.ts) | `lib/catalogReleases` | `mergeFamilyReleases` across feature families: dedupe by version+sha, newest-first sort, distinct same-version files kept, empty input |
 | [driversActions.test.ts](unit/driversActions.test.ts) | `lib/drivers` | per-vendor action routing: `canInstall` (direct download only), `isOpenPageOnly` (AMD: update + no download + has page), mutual exclusivity, `driverPageUrl` notes→PDF→null fallback, `vendorHelpUrl` per-vendor finder + Windows fallback |
 | [brands.test.ts](unit/brands.test.ts) | `lib/brands` | `BRANDS` registry (4 core vendors + realtek/dell/msi/asus/gigabyte/qualcomm/logitech/razer; non-empty label + real svg path + viewBox + `--vendor-*`/token accent), `resolveBrandKey` (messy WUA provider strings → key; AMD/ATI, Nahimic/A-Volute→realtek, MSI/Micro-Star, ROG→asus, AORUS→gigabyte, Snapdragon→qualcomm; unknown/empty/null→null), `brandLabel` (clean label or echo raw), `brandFor` |

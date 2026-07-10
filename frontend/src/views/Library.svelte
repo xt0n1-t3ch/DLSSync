@@ -19,6 +19,10 @@
     activeApplies,
     applyModalOpen,
     hiddenIds,
+    favoriteIds,
+    toggleFavorite,
+    technologyFilter,
+    antiCheatFilter,
     rescanGame,
     manifestUpdatedAt,
     requestApplyAllOutdated,
@@ -37,7 +41,8 @@
     LIBRARY_DENSITY_DEFAULT,
     LIBRARY_SORT_DEFAULT,
   } from "../lib/ux";
-  import { launcherLabel, familyGroup, GROUP_VENDOR, type FamilyGroup } from "../lib/labels";
+  import { launcherLabel, familyGroup, GROUP_VENDOR, GROUP_LABELS, GROUP_ORDER, type FamilyGroup } from "../lib/labels";
+  import type { TechnologyFilter, AntiCheatFilter } from "../lib/libraryFilters";
   import GameCard from "../components/GameCard.svelte";
   import GameListRow from "../components/GameListRow.svelte";
   import FilterMenu from "../components/FilterMenu.svelte";
@@ -139,6 +144,7 @@
 
   const statusFilters: { id: StatusFilter; labelKey: string }[] = [
     { id: "all", labelKey: "view.library.statusFilter.all" },
+    { id: "favorite", labelKey: "view.library.statusFilter.favorite" },
     { id: "outdated", labelKey: "status.outdated" },
     { id: "up_to_date", labelKey: "status.up_to_date" },
     { id: "no_dlls", labelKey: "status.no_dlls" },
@@ -147,6 +153,21 @@
   ];
 
   let hiddenCount = $derived($hiddenIds.size);
+  let favoriteCount = $derived($favoriteIds.size);
+
+  function onToggleFav(game: DetectedGame): void {
+    void toggleFavorite(game.id);
+  }
+
+  let technologyOptions = $derived([
+    { id: "all", label: translate($locale, "view.library.launcherFilter.all") },
+    ...GROUP_ORDER.map((g) => ({ id: g as string, label: GROUP_LABELS[g] })),
+  ]);
+  let antiCheatOptions = $derived([
+    { id: "all", label: translate($locale, "view.library.launcherFilter.all") },
+    { id: "flagged", label: translate($locale, "view.library.filter.antiCheatFlagged"), tone: "danger" as const },
+    { id: "clear", label: translate($locale, "view.library.filter.antiCheatClear") },
+  ]);
 
   let launcherOptions = $derived.by(() =>
     launcherFilters
@@ -160,11 +181,11 @@
 
   let statusOptions = $derived.by(() =>
     statusFilters
-      .filter((f) => f.id !== "hidden" || hiddenCount > 0)
+      .filter((f) => (f.id !== "hidden" || hiddenCount > 0) && (f.id !== "favorite" || favoriteCount > 0))
       .map((f) => ({
         id: f.id,
         label: translate($locale, f.labelKey),
-        count: f.id === "hidden" ? hiddenCount : undefined,
+        count: f.id === "hidden" ? hiddenCount : f.id === "favorite" ? favoriteCount : undefined,
         tone: f.id === "hidden" ? ("danger" as const) : null,
       })),
   );
@@ -216,11 +237,12 @@
   let contextMenuItems = $derived.by<ContextMenuItem[]>(() => {
     if (!contextMenu) return [];
     const isHidden = $hiddenIds.has(contextMenu.game.id);
+    const isFav = $favoriteIds.has(contextMenu.game.id);
     const tr = (key: string): string => translate(get(locale), key);
     return [
       { action: "open_folder", label: tr("view.library.menu.openFolder") },
       { action: "scan", label: tr("view.library.menu.scan") },
-      { action: "pin", label: tr("view.library.menu.pin") },
+      { action: "favorite", label: tr(isFav ? "component.card.unfavorite" : "component.card.favorite") },
       { action: "hide", label: tr(isHidden ? "view.library.menu.unhide" : "view.library.menu.hide") },
     ];
   });
@@ -243,8 +265,8 @@
           translate(get(locale), "view.library.toast.rescanning", { name: game.name }),
         );
         break;
-      case "pin":
-        drawerGameId.set(game.id);
+      case "favorite":
+        await toggleFavorite(game.id);
         break;
       case "hide":
         await onHideToggle(game);
@@ -493,6 +515,20 @@
     onSelect={(id) => statusFilter.set(id as StatusFilter)}
   />
 
+  <FilterMenu
+    label={$t("view.library.filter.technology")}
+    options={technologyOptions}
+    selectedId={$technologyFilter}
+    onSelect={(id) => technologyFilter.set(id as TechnologyFilter)}
+  />
+
+  <FilterMenu
+    label={$t("view.library.filter.antiCheat")}
+    options={antiCheatOptions}
+    selectedId={$antiCheatFilter}
+    onSelect={(id) => antiCheatFilter.set(id as AntiCheatFilter)}
+  />
+
   <div class="filter-controls">
     <select class="sort-select" value={sortKey} onchange={(e) => void setSort((e.currentTarget as HTMLSelectElement).value as LibrarySort)} aria-label={$t("view.library.filter.sortAria")} title={$t("view.library.filter.sort")}>
       {#each LIBRARY_SORT_LABELS as opt (opt.id)}
@@ -546,7 +582,7 @@
   <div class="empty">
     <h3 class="empty-title">{$t("view.library.empty.noMatch.title")}</h3>
     <p class="section-sub">{$t("view.library.empty.noMatch.detail")}</p>
-    <button class="btn btn-accent" onclick={() => { searchQuery.set(""); launcherFilter.set("all"); statusFilter.set("all"); }}>{$t("view.library.empty.noMatch.reset")}</button>
+    <button class="btn btn-accent" onclick={() => { searchQuery.set(""); launcherFilter.set("all"); statusFilter.set("all"); technologyFilter.set("all"); antiCheatFilter.set("all"); }}>{$t("view.library.empty.noMatch.reset")}</button>
   </div>
 {:else}
   {#snippet gameSection(title: string, list: DetectedGame[], viewAll: StatusFilter)}
@@ -561,32 +597,36 @@
         </div>
         {#if viewMode === "grid"}
           <div class="grid media-deck" data-density={density}>
-            {#each list as g, i (g.id)}
+            {#each list as g, i (g.install_dir)}
               <div class="grid-cell media-card" style:--stagger="{Math.min(i, 20) * 24}ms">
                 <GameCard
                   game={g}
                   hidden={$hiddenIds.has(g.id)}
+                  favorite={$favoriteIds.has(g.id)}
                   {onApply}
                   {onOpenFolder}
                   onBlacklist={onHideToggle}
                   onClick={onCardClick}
                   onContextMenu={openContextMenu}
+                  onToggleFavorite={onToggleFav}
                 />
               </div>
             {/each}
           </div>
         {:else}
           <div class="list">
-            {#each list as g, i (g.id)}
+            {#each list as g, i (g.install_dir)}
               <div class="list-cell" style:--stagger="{Math.min(i, 20) * 12}ms">
                 <GameListRow
                   game={g}
                   hidden={$hiddenIds.has(g.id)}
+                  favorite={$favoriteIds.has(g.id)}
                   {onApply}
                   {onOpenFolder}
                   onBlacklist={onHideToggle}
                   onClick={onCardClick}
                   onContextMenu={openContextMenu}
+                  onToggleFavorite={onToggleFav}
                 />
               </div>
             {/each}
@@ -615,16 +655,18 @@
       </button>
       {#if noDllsRevealed}
         <div class="grid grid-dimmed stagger" data-density={density}>
-          {#each $libraryZones.noDlls as g (g.id)}
+          {#each $libraryZones.noDlls as g (g.install_dir)}
             <div>
               <GameCard
                 game={g}
                 hidden={$hiddenIds.has(g.id)}
+                favorite={$favoriteIds.has(g.id)}
                 {onApply}
                 {onOpenFolder}
                 onBlacklist={onHideToggle}
                 onClick={onCardClick}
                 onContextMenu={openContextMenu}
+                onToggleFavorite={onToggleFav}
               />
             </div>
           {/each}
@@ -686,7 +728,7 @@
   }
   .filter-toolbar {
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--space-2);
     padding: var(--space-2) var(--space-3);
@@ -696,6 +738,7 @@
   .filter-controls {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: var(--space-2);
     margin-inline-start: auto;
     flex-shrink: 1;
@@ -703,8 +746,9 @@
   }
   .filter-controls .seg { flex-shrink: 0; }
   .seg-text { display: none; }
-  @container (max-width: 640px) {
-    .filter-toolbar { flex-wrap: wrap; row-gap: var(--space-2); }
+  /* Once the four filters + the controls can no longer share one row, drop the
+     controls to their own full-width row (left-aligned) instead of overflowing. */
+  @container (max-width: 900px) {
     .filter-controls { margin-inline-start: 0; width: 100%; justify-content: flex-start; }
   }
   @container (max-width: 460px) {

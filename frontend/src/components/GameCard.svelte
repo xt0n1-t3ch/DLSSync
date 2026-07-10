@@ -20,14 +20,16 @@
   import { t } from "../lib/i18n/index";
   import FeatureIcon from "./FeatureIcon.svelte";
 
-  let { game, hidden = false, onApply, onOpenFolder, onBlacklist, onClick, onContextMenu }: {
+  let { game, hidden = false, favorite = false, onApply, onOpenFolder, onBlacklist, onClick, onContextMenu, onToggleFavorite }: {
     game: DetectedGame;
     hidden?: boolean;
+    favorite?: boolean;
     onApply: (g: DetectedGame) => void;
     onOpenFolder: (g: DetectedGame) => void;
     onBlacklist: (g: DetectedGame) => void;
     onClick: (g: DetectedGame) => void;
     onContextMenu?: (g: DetectedGame, e: MouseEvent) => void;
+    onToggleFavorite?: (g: DetectedGame) => void;
   } = $props();
 
   let imgErrored = $state(false);
@@ -127,15 +129,29 @@
         </svg>
         <span class="launcher-text">{launcherLabel(game.launcher)}</span>
       </span>
-      {#if status === "scan_failed"}
-        <span class="status-pill is-danger" title={$t("component.card.scanFailedTitle")} aria-label={$t("status.scan_failed")}>
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        </span>
-      {:else if outdatedCount > 0}
-        <span class="status-count" aria-label={$t("component.card.updatesAvailable", { count: outdatedCount })}>
-          {outdatedCount}
-        </span>
-      {/if}
+      <div class="art-top-end">
+        {#if onToggleFavorite}
+          <button
+            class="fav-btn"
+            class:is-fav={favorite}
+            aria-pressed={favorite}
+            aria-label={favorite ? $t("component.card.unfavorite") : $t("component.card.favorite")}
+            title={favorite ? $t("component.card.unfavorite") : $t("component.card.favorite")}
+            onclick={(e) => { e.stopPropagation(); onToggleFavorite?.(game); }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill={favorite ? "currentColor" : "none"} stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          </button>
+        {/if}
+        {#if status === "scan_failed"}
+          <span class="status-pill is-danger" title={$t("component.card.scanFailedTitle")} aria-label={$t("status.scan_failed")}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </span>
+        {:else if outdatedCount > 0}
+          <span class="status-count" aria-label={$t("component.card.updatesAvailable", { count: outdatedCount })}>
+            {outdatedCount}
+          </span>
+        {/if}
+      </div>
     </div>
     {#if hidden}
       <div class="hidden-ribbon" aria-label={$t("component.card.hidden")}>{$t("component.card.hidden")}</div>
@@ -197,6 +213,18 @@
         {/each}
         {#if hiddenChipCount > 0}
           <span class="feature-chip overflow" title={$t("component.card.moreCount", { count: hiddenChipCount })}>+{hiddenChipCount}</span>
+        {/if}
+      </div>
+      <div class="card-status">
+        {#if status === "outdated"}
+          <span class="state-dot" data-state="outdated"></span>
+          <span class="card-status-text is-outdated">{$t("component.card.updatesShort", { count: outdatedCount })}</span>
+        {:else if status === "scan_failed"}
+          <span class="state-dot" data-state="failed"></span>
+          <span class="card-status-text is-danger">{$t("status.scan_failed")}</span>
+        {:else}
+          <span class="state-dot" data-state="current"></span>
+          <span class="card-status-text">{$t("status.up_to_date")}</span>
         {/if}
       </div>
     {/if}
@@ -325,6 +353,27 @@
     gap: 8px;
     z-index: 2;
   }
+  .art-top-end { display: inline-flex; align-items: center; gap: 6px; }
+  .fav-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-full);
+    color: rgba(255, 255, 255, 0.82);
+    background: rgba(7, 9, 13, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), transform var(--dur-instant) var(--ease);
+  }
+  .fav-btn:hover { color: var(--gh-star); background: rgba(7, 9, 13, 0.78); }
+  .fav-btn:active { transform: scale(0.92); }
+  .fav-btn:focus-visible { outline: none; box-shadow: var(--shadow-ring); }
+  .fav-btn.is-fav { color: var(--gh-star); border-color: color-mix(in oklab, var(--gh-star) 46%, transparent); }
+  :global([data-theme="light"]) .fav-btn { background: rgba(255, 255, 255, 0.86); color: rgba(15, 23, 42, 0.7); border-color: rgba(15, 23, 42, 0.16); }
+  :global([data-theme="light"]) .fav-btn.is-fav { color: #b9860b; border-color: color-mix(in oklab, #b9860b 46%, transparent); }
   .launcher-chip {
     display: inline-flex;
     align-items: center;
@@ -505,6 +554,17 @@
     color: var(--chip-ink, var(--chip-accent, var(--accent)));
   }
   .feature-chip-name { line-height: 1; }
+
+  .card-status { display: flex; align-items: center; gap: 6px; margin-top: 1px; }
+  .card-status-text {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.01em;
+  }
+  .card-status-text.is-outdated { color: var(--warning); }
+  .card-status-text.is-danger { color: var(--danger); }
 
   .loading-row, .meta-row {
     display: flex;

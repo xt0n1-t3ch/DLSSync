@@ -1,0 +1,40 @@
+{
+  "as_of": "2026-07-10",
+  "corrections": "Open a sourced issue when a capability or trust claim changes.",
+  "features": [
+    { "label": "DLSS / FSR / XeSS / DirectStorage", "dlssync": "yes", "renderpilot": "yes" },
+    { "label": "CLI", "dlssync": "yes", "renderpilot": "yes" },
+    { "label": "Operation journal", "dlssync": "yes", "renderpilot": "yes" },
+    { "label": "GPU driver updates", "dlssync": "yes", "renderpilot": "no" },
+    { "label": "Windows device drivers", "dlssync": "yes", "renderpilot": "no" },
+    { "label": "Detached cryptographic catalog signature", "dlssync": "yes", "renderpilot": "no" },
+    { "label": "Authenticode publisher enforcement", "dlssync": "yes", "renderpilot": "no" },
+    { "label": "No binary hosting in catalog repository", "dlssync": "yes", "renderpilot": "no" },
+    { "label": "RenoDX / Luma installation", "dlssync": "no", "renderpilot": "yes" },
+    { "label": "Nexus Mods distribution", "dlssync": "yes", "renderpilot": "no" },
+    { "label": "GUI update plan with provenance", "dlssync": "yes", "renderpilot": "no" }
+  ],
+  "products": [
+    {
+      "name": "DLSSync",
+      "release": "1.7.0",
+      "repository": "https://github.com/xt0n1-t3ch/DLSSync",
+      "sources": [
+        "https://github.com/xt0n1-t3ch/DLSSync",
+        "https://github.com/xt0n1-t3ch/DLSSync-Manifest",
+        "https://www.nexusmods.com/site/mods/1922"
+      ]
+    },
+    {
+      "name": "RenderPilot",
+      "release": "1.4.1",
+      "repository": "https://github.com/osyka-yuri/renderpilot",
+      "sources": [
+        "https://github.com/osyka-yuri/renderpilot",
+        "https://github.com/osyka-yuri/renderpilot/releases/tag/v1.4.1",
+        "https://github.com/osyka-yuri/renderpilot/blob/main/crates/renderpilot-orchestration/src/libraries/manifest.rs",
+        "https://github.com/osyka-yuri/renderpilot/blob/main/crates/renderpilot-orchestration/src/libraries/validate.rs"
+      ]
+    }
+  ]
+}

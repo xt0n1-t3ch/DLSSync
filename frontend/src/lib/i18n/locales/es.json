@@ -33,6 +33,34 @@
     "scan_failed": "Error al analizar"
   },
   "view": {
+    "journal": {
+      "title": "Historial de operaciones",
+      "subtitle": "Un registro duradero de análisis, catálogo, planes, aplicaciones, restauraciones y controladores.",
+      "export": "Copiar JSON redactado",
+      "filters": "Filtros del historial",
+      "kind": "Operación",
+      "result": "Resultado",
+      "all": "Todas",
+      "started": "Iniciada",
+      "succeeded": "Correcta",
+      "failed": "Fallida",
+      "cancelled": "Cancelada",
+      "loading": "Cargando historial…",
+      "empty": "Ninguna operación coincide con estos filtros.",
+      "kinds": {
+        "scan": "Análisis",
+        "catalog_refresh": "Catálogo",
+        "plan": "Plan",
+        "dll_apply": "Aplicación",
+        "rollback": "Restauración",
+        "driver_install": "Controlador"
+      },
+      "actors": {
+        "gui": "App",
+        "cli": "CLI",
+        "background": "Segundo plano"
+      }
+    },
     "library": {
       "title": "Biblioteca",
       "subtitle": "{detected} juegos detectados — {shown} mostrados",
@@ -66,6 +94,10 @@
         "launcher": "Lanzador",
         "status": "Estado",
         "sort": "Ordenar",
+        "technology": "Tecnología",
+        "antiCheat": "Anti-trampas",
+        "antiCheatFlagged": "Con anti-trampas",
+        "antiCheatClear": "Sin anti-trampas",
         "sortAria": "Ordenar biblioteca",
         "view": "Vista",
         "density": "Densidad"
@@ -75,6 +107,7 @@
         "custom": "Personalizado"
       },
       "statusFilter": {
+        "favorite": "Favoritos",
         "all": "Todos los juegos",
         "hidden": "Ocultos"
       },
@@ -185,8 +218,22 @@
         "status": "Catálogo {status}",
         "updated": "actualizado {ago}",
         "autoRefresh": "actualización automática cada 6 h",
+        "nexusManual": "las actualizaciones automáticas del catálogo están desactivadas en la edición de Nexus",
         "refreshTitle": "Descargar el manifiesto desde la fuente ahora",
         "refreshNow": "Actualizar ahora"
+      },
+      "trust": {
+        "eyebrow": "Prueba de cadena de suministro",
+        "title": "Centro de confianza",
+        "verified": "Firma verificada",
+        "unverified": "Sin verificar",
+        "signature": "Firma del catálogo",
+        "generated": "Generado",
+        "method": "Última comprobación",
+        "manual": "Actualización manual",
+        "automatic": "Actualización automática",
+        "distribution": "Distribución",
+        "source": "Abrir el manifiesto público y su verificación"
       },
       "freshness": {
         "justNow": "ahora mismo",
@@ -266,6 +313,7 @@
     "backups": {
       "title": "Copias de seguridad",
       "subtitle": "Cada DLL que DLSSync reemplaza se respalda primero. Restaura cuando quieras, con un clic.",
+      "activityTab": "Actividad",
       "expandAll": "Expandir todo",
       "collapseAll": "Contraer todo",
       "emptyTitle": "Aún no hay copias de seguridad",
@@ -721,6 +769,9 @@
       "title": "Acerca de",
       "subtitle": "DLSSync mantiene las tecnologías DLSS, FSR y XeSS sincronizadas con las versiones del fabricante: verificadas por hash, firmadas por el fabricante y totalmente reversibles.",
       "action": {
+        "sourceTitle": "Abrir el código fuente de DLSSync en GitHub",
+        "manifestTitle": "Abrir el repositorio público del catálogo firmado",
+        "manifest": "Manifiesto",
         "sponsorTitle": "GitHub Sponsors: apoyo recurrente o puntual",
         "kofiTitle": "Ko-fi: propina rápida y puntual",
         "nexusTitle": "DLSSync en Nexus Mods: recomiéndalo para aumentar su visibilidad",
@@ -786,7 +837,7 @@
       },
       "sources": {
         "title": "Fuentes del manifiesto",
-        "sub": "Las versiones, fechas, hashes y datos de firma provienen exclusivamente de estos proyectos de origen."
+        "sub": "Las versiones, fechas, hashes y firmas se verifican contra estos proyectos de origen, y las compilaciones más antiguas de DLSS, FSR y XeSS se completan con el archivo comunitario de DLSS Swapper."
       },
       "author": {
         "title": "Creado por",
@@ -1233,6 +1284,16 @@
     "streamlineOverride": "Actualizar Streamline reemplaza el conjunto compartido de complementos sl.*. Los overrides de DLSS por juego siguen funcionando; puede que tengas que volver a definir los overrides globales de preset y ratio de NVIDIA App. Si un juego falla, restaura el conjunto anterior desde Copias de seguridad."
   },
   "component": {
+    "updatePlan": {
+      "eyebrow": "Simulación con procedencia",
+      "title": "Revisar plan de actualización",
+      "subtitle": "Nada cambia hasta confirmar este plan firmado exacto.",
+      "loading": "Cargando pruebas de confianza…",
+      "files": "archivos",
+      "signerPending": "Comprobando editor…",
+      "export": "Copiar JSON del plan",
+      "apply": "Aplicar seleccionados"
+    },
     "applyModal": {
       "eyebrow": {
         "completedWithFailures": "Aplicación completada con errores",
@@ -1398,6 +1459,8 @@
       "chipUpdateSuffix": " · actualización disponible",
       "moreCount_one": "{count} más",
       "moreCount_other": "{count} más",
+      "favorite": "Añadir a favoritos",
+      "unfavorite": "Quitar de favoritos",
       "noSupportedDlls": "No hay DLL compatibles",
       "rowAria": "{name}, {status}",
       "updatesShort_one": "{count} actualización",
@@ -1760,6 +1823,7 @@
     "settingsSaveFailed": "No se pudo guardar la configuración: {msg}",
     "saveFailed": "No se pudo guardar: {msg}",
     "nothingSelected": "Nada seleccionado",
+    "updatePlanStale": "El catálogo cambió mientras el plan estaba abierto. Revisa un plan nuevo antes de aplicar.",
     "applyInProgress": "Ya hay una aplicación en curso; espera a que termine antes de iniciar otra",
     "cancelFailed": "No se pudo cancelar: {msg}",
     "queuedAcross": "{updates} en cola {games}",

@@ -1,6 +1,6 @@
-use crate::constants::GITHUB_NEW_ISSUE_URL;
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
+use dlssync_application::product_config;
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 use tauri::State;
@@ -147,8 +147,10 @@ pub fn build_issue_report(
         None => format!("[bug] Problem report from DLSSync v{APP_VERSION}"),
     };
 
+    let config = product_config().expect("embedded product.toml must be valid");
     let url = format!(
-        "{GITHUB_NEW_ISSUE_URL}?labels=bug&title={}&body={}",
+        "{}?labels=bug&title={}&body={}",
+        config.links.new_issue,
         percent_encode(&truncate_chars(&title, 120)),
         percent_encode(&body),
     );

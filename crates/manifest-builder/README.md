@@ -21,23 +21,27 @@ cargo run -p manifest-builder -- --dry-run
 | `reflex` | NVIDIA Reflex SDK + `sl.reflex.dll` | `https://api.github.com/repos/NVIDIA-RTX/REFLEX/releases` |
 | `directstorage` | `dstorage.dll`, `dstoragecore.dll` | NuGet feed `Microsoft.Direct3D.DirectStorage` |
 
-## Status (2026-05-20)
+## Status (2026-07-10)
 
-- `dlss_swapper` ingest: working end-to-end (DLSS SR / FG / RR).
-- `streamline` / `xess` / `fsr` / `reflex` / `directstorage`: scaffold present, ingest logic stub (warning logged). Implementations land per FR-040 in `specs/003-version-picker-uiux/spec.md`.
+- `dlss_swapper`: ingests DLSS SR, Frame Generation, and Ray Reconstruction history.
+- `streamline`: ingests production runtime plug-ins from NVIDIA's release archives and rejects development/build-artifact copies when a production entry exists.
+- `xess`: ingests XeSS SR, XeSS DX11, XeSS Frame Generation, and XeLL from Intel release archives.
+- `fsr`: ingests FidelityFX upscaler, frame generation, loader, Vulkan, and denoiser families from AMD release archives.
+- `reflex`: ingests the NVIDIA Reflex release source when published independently of Streamline.
+- `directstorage`: ingests `dstorage.dll` and `dstoragecore.dll` directly from Microsoft's NuGet package.
+- `anticheat`: emits the normalized app-id/name snapshot consumed by local anti-cheat detection.
 
 ## Authenticity
 
-Each release record carries `signed: bool`. Once GitHub-release ingest is wired
-up, the builder will:
+The builder downloads vendor release archives, selects the canonical runtime
+entry, computes SHA-256, records the exact archive URL and entry path, and stores
+the expected publisher for each vendor. DLSSync then performs the actual
+Authenticode verification at download/apply time; catalog metadata alone is not
+treated as proof of a valid signature.
 
-1. Download the release zip.
-2. Locate each canonical `.dll` inside.
-3. Compute SHA-256.
-4. Read Authenticode subject CN via `wintrust::WinVerifyTrust` (Windows).
-5. Reject the release if the subject does not match the family's expected CN
-   (`NVIDIA Corporation`, `Intel Corporation`, `Advanced Micro Devices, Inc.`,
-   `Microsoft Corporation`).
+The published catalog itself is covered by the repository's detached Ed25519
+signature. Runtime acceptance therefore requires both a trusted catalog and the
+downloaded file's matching hash and Authenticode publisher.
 
 ## Output schema
 

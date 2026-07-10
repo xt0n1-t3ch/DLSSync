@@ -6,9 +6,12 @@ node_modules/
 dist/
 tests/e2e/.report/
 tests/e2e/.results/
+.stealth-output/
 .svelte-kit/
 .pnpm-store/
 .pnpm-debug.log
+__pycache__/
+*.pyc
 
 src-tauri/gen/
 src-tauri/target/

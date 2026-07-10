@@ -1,0 +1,36 @@
+[product]
+name = "DLSSync"
+repository = "https://github.com/xt0n1-t3ch/DLSSync"
+manifest_repository = "https://github.com/xt0n1-t3ch/DLSSync-Manifest"
+nexus = "https://www.nexusmods.com/site/mods/1922"
+homepage = "https://xt0n1-t3ch.github.io/DLSSync/"
+
+[links]
+releases = "https://github.com/xt0n1-t3ch/DLSSync/releases"
+releases_latest = "https://github.com/xt0n1-t3ch/DLSSync/releases/latest"
+issues = "https://github.com/xt0n1-t3ch/DLSSync/issues"
+new_issue = "https://github.com/xt0n1-t3ch/DLSSync/issues/new"
+author = "https://github.com/xt0n1-t3ch"
+sponsor = "https://github.com/sponsors/xt0n1-t3ch"
+kofi = "https://ko-fi.com/xt0n1"
+anticheat_faq = "https://www.pcgamingwiki.com/wiki/Glossary:Anti-cheat"
+
+[catalog]
+canonical_manifest = "https://cdn.jsdelivr.net/gh/xt0n1-t3ch/dlssync-manifest@main/manifest.json"
+signature_suffix = ".sig"
+
+[distribution.standard]
+app_updates = true
+automatic_catalog_refresh = true
+manual_catalog_refresh = true
+
+[distribution.nexus]
+app_updates = false
+automatic_catalog_refresh = false
+manual_catalog_refresh = true
+
+[distribution.portable]
+app_updates = false
+automatic_catalog_refresh = true
+manual_catalog_refresh = true
+data_marker = "portable.flag"

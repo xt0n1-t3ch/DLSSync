@@ -1,0 +1,25 @@
+[package]
+name = "dlssync-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "dlssync-cli"
+path = "src/main.rs"
+
+[dependencies]
+backup-store = { path = "../backup-store" }
+dll-catalog = { path = "../dll-catalog" }
+dlssync-application = { path = "../dlssync-application" }
+dlssync-contracts = { path = "../dlssync-contracts" }
+operation-journal = { path = "../operation-journal" }
+chrono.workspace = true
+clap.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+uuid.workspace = true

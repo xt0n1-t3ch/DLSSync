@@ -25,6 +25,32 @@ function loadLocaleKeys(file: string): Set<string> {
   return keys;
 }
 
+function flattenMessages(
+  node: unknown,
+  prefix: string,
+  out: Map<string, string>,
+): void {
+  if (typeof node === "string") {
+    out.set(prefix, node);
+    return;
+  }
+  if (node !== null && typeof node === "object") {
+    for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
+      flattenMessages(value, prefix ? `${prefix}.${key}` : key, out);
+    }
+  }
+}
+
+function loadLocaleMessages(file: string): Map<string, string> {
+  const messages = new Map<string, string>();
+  flattenMessages(JSON.parse(readFileSync(join(LOCALES_DIR, file), "utf8")), "", messages);
+  return messages;
+}
+
+function placeholders(value: string): string[] {
+  return [...value.matchAll(/\{([a-zA-Z_][\w]*)\}/g)].map((match) => match[1]).sort();
+}
+
 function sourceFiles(): string[] {
   return readdirSync(SRC_ROOT, { recursive: true, encoding: "utf8" })
     .filter((rel) => /\.(svelte|ts)$/.test(rel) && !rel.includes("locales"))
@@ -52,8 +78,11 @@ function resolves(key: string, catalog: Set<string>): boolean {
   return catalog.has(key) || PLURAL_SUFFIXES.some((suffix) => catalog.has(`${key}${suffix}`));
 }
 
-const enKeys = loadLocaleKeys("en.json");
-const esKeys = loadLocaleKeys("es.json");
+const localeFiles = ["en.json", "es.json", "pt-BR.json", "de.json", "fr.json", "ja.json", "ru.json", "zh-CN.json"];
+const catalogs = new Map(localeFiles.map((file) => [file, loadLocaleKeys(file)]));
+const messages = new Map(localeFiles.map((file) => [file, loadLocaleMessages(file)]));
+const enKeys = catalogs.get("en.json")!;
+const enMessages = messages.get("en.json")!;
 const refs = referencedKeys();
 
 describe("i18n key parity contract", () => {
@@ -62,15 +91,23 @@ describe("i18n key parity contract", () => {
     expect(missing).toEqual([]);
   });
 
-  it("resolves every statically referenced key in es.json", () => {
-    const missing = [...refs.keys()].filter((key) => !resolves(key, esKeys)).sort();
-    expect(missing).toEqual([]);
+  it.each(localeFiles.slice(1))("resolves every key and preserves parity in %s", (file) => {
+    const catalog = catalogs.get(file)!;
+    const missing = [...refs.keys()].filter((key) => !resolves(key, catalog)).sort();
+    const onlyEn = [...enKeys].filter((key) => !catalog.has(key)).sort();
+    const onlyLocale = [...catalog].filter((key) => !enKeys.has(key)).sort();
+    expect({ missing, onlyEn, onlyLocale }).toEqual({ missing: [], onlyEn: [], onlyLocale: [] });
   });
 
-  it("defines the exact same key set in en.json and es.json", () => {
-    const onlyEn = [...enKeys].filter((key) => !esKeys.has(key)).sort();
-    const onlyEs = [...esKeys].filter((key) => !enKeys.has(key)).sort();
-    expect({ onlyEn, onlyEs }).toEqual({ onlyEn: [], onlyEs: [] });
+  it.each(localeFiles.slice(1))("preserves interpolation placeholders in %s", (file) => {
+    const localeMessages = messages.get(file)!;
+    const mismatches = [...enMessages.entries()]
+      .filter(([key, value]) => {
+        const localized = localeMessages.get(key);
+        return localized === undefined || placeholders(value).join("\0") !== placeholders(localized).join("\0");
+      })
+      .map(([key]) => key);
+    expect(mismatches).toEqual([]);
   });
 
   it("scans a non-trivial reference surface", () => {

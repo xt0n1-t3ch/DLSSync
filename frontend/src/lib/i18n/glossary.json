@@ -1,0 +1,15 @@
+{
+  "DLSSync": "DLSSync",
+  "DLSS": "DLSS",
+  "FSR": "FSR",
+  "XeSS": "XeSS",
+  "DirectStorage": "DirectStorage",
+  "Streamline": "Streamline",
+  "Reflex": "Reflex",
+  "Ed25519": "Ed25519",
+  "SHA-256": "SHA-256",
+  "Authenticode": "Authenticode",
+  "Nexus Mods": "Nexus Mods",
+  "GitHub": "GitHub",
+  "CLI": "CLI"
+}

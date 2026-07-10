@@ -29,6 +29,9 @@ pub enum AppError {
     #[error("notifications error: {0}")]
     Notifications(#[from] notifications_store::NotificationsError),
 
+    #[error("operation journal error: {0}")]
+    Journal(#[from] operation_journal::JournalError),
+
     /// Input failed a security or integrity check (path traversal, URL allowlist,
     /// update-ID format, etc.). `kind = "validation"` on the wire — the frontend
     /// surfaces a calm hint instead of a generic error modal.
@@ -49,6 +52,7 @@ impl Serialize for AppError {
             AppError::PeVersion(_) => "pe_version",
             AppError::Backup(_) => "backup",
             AppError::Notifications(_) => "notifications",
+            AppError::Journal(_) => "journal",
             AppError::Validation(_) => "validation",
             AppError::Other(_) => "other",
         };

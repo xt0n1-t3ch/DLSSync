@@ -1,13 +1,16 @@
 use crate::constants::{
-    ART_HTTP_TIMEOUT_SECS, SGDB_API_BASE, SGDB_GRID_DIMS, SGDB_HERO_DIMS, SGDB_USER_AGENT,
-    STEAM_CAPSULE_PATH, STEAM_CDN_BASE, STEAM_HEADER_PATH, STEAM_HERO_PATH, STEAM_STORESEARCH,
+    ART_HTTP_TIMEOUT_SECS, SGDB_API_BASE, SGDB_GRID_DIMS, SGDB_HERO_DIMS, STEAM_CAPSULE_PATH,
+    STEAM_CDN_BASE, STEAM_HEADER_PATH, STEAM_HERO_PATH, STEAM_STORESEARCH,
 };
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
+use dlssync_contracts::{OperationActor, OperationKind, OperationRecord, OperationStatus};
 use launcher_scan::{DetectedGame, LauncherKind};
 use once_cell::sync::Lazy;
-use std::collections::HashSet;
+use operation_journal::{JournalError, JournalStore};
+use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 use tauri::State;
 
 #[tauri::command]
@@ -15,6 +18,8 @@ pub async fn scan_libraries(
     state: State<'_, AppState>,
     launchers: Vec<LauncherKind>,
 ) -> AppResult<Vec<DetectedGame>> {
+    let launchers = effective_launchers(launchers, e2e_mode_enabled());
+    let launcher_count = launchers.len();
     let (overrides, custom_folders) = {
         let s = state.settings.read();
         (
@@ -23,7 +28,8 @@ pub async fn scan_libraries(
         )
     };
 
-    let games = tokio::task::spawn_blocking(move || {
+    let started = Instant::now();
+    let result = tokio::task::spawn_blocking(move || {
         let mut all = launcher_scan::scan_all(&launchers).unwrap_or_default();
 
         for folder in custom_folders {
@@ -45,9 +51,81 @@ pub async fn scan_libraries(
         deduplicate(all)
     })
     .await
-    .map_err(|e| AppError::Other(e.to_string()))?;
+    .map_err(|e| AppError::Other(e.to_string()));
 
-    Ok(games)
+    let duration_ms = started.elapsed().as_millis().min(u128::from(u32::MAX)) as u32;
+    let outcome = match &result {
+        Ok(games) => Ok(games.len()),
+        Err(err) => Err(err.to_string()),
+    };
+    if let Some(journal) = state.journal.read().as_ref() {
+        if let Err(err) = record_scan(journal, launcher_count, duration_ms, outcome) {
+            tracing::warn!(error = %err, "failed to journal library scan");
+        }
+    }
+
+    result
+}
+
+/// Write one `OperationKind::Scan` journal record for a library scan. Success
+/// carries the detected-game count; failure carries an actionable message. The
+/// target is always `None` — a scan's journal entry never records Tony's paths or
+/// private library names (the app-wide redaction guard handles any stray detail).
+fn record_scan(
+    journal: &JournalStore,
+    launcher_count: usize,
+    duration_ms: u32,
+    outcome: Result<usize, String>,
+) -> Result<(), JournalError> {
+    let (status, summary, games_detected, error) = match outcome {
+        Ok(count) => (
+            OperationStatus::Succeeded,
+            "Library scan completed",
+            count,
+            None,
+        ),
+        Err(message) => (
+            OperationStatus::Failed,
+            "Library scan failed",
+            0,
+            Some(message),
+        ),
+    };
+    let details = BTreeMap::from([
+        ("games_detected".to_string(), games_detected.to_string()),
+        ("launchers_scanned".to_string(), launcher_count.to_string()),
+    ]);
+    journal.append(&OperationRecord {
+        id: uuid::Uuid::new_v4().to_string(),
+        created_at: chrono::Utc::now().to_rfc3339(),
+        actor: OperationActor::Gui,
+        kind: OperationKind::Scan,
+        status,
+        target: None,
+        summary: summary.to_string(),
+        details,
+        duration_ms: Some(duration_ms),
+        backup_id: None,
+        error,
+    })
+}
+
+fn effective_launchers(launchers: Vec<LauncherKind>, e2e_mode: bool) -> Vec<LauncherKind> {
+    if e2e_mode {
+        Vec::new()
+    } else {
+        launchers
+    }
+}
+
+#[cfg(debug_assertions)]
+fn e2e_mode_enabled() -> bool {
+    std::env::var_os("DLSSYNC_E2E").as_deref() == Some(std::ffi::OsStr::new("1"))
+}
+
+#[cfg(not(debug_assertions))]
+fn e2e_mode_enabled() -> bool {
+    false
 }
 
 #[tauri::command]
@@ -87,6 +165,118 @@ fn deduplicate(games: Vec<DetectedGame>) -> Vec<DetectedGame> {
     out
 }
 
+#[cfg(test)]
+mod e2e_isolation_tests {
+    use super::*;
+    use dlssync_contracts::JournalFilter;
+
+    #[test]
+    fn e2e_mode_disables_host_launcher_discovery() {
+        let launchers = vec![LauncherKind::Steam, LauncherKind::Epic];
+
+        assert!(effective_launchers(launchers, true).is_empty());
+    }
+
+    #[test]
+    fn normal_mode_preserves_requested_launchers() {
+        let launchers = vec![LauncherKind::Steam, LauncherKind::Epic];
+
+        assert_eq!(effective_launchers(launchers.clone(), false), launchers);
+    }
+
+    #[test]
+    fn custom_game_ids_are_distinct_under_a_long_common_root() {
+        let root = Path::new(
+            r"C:\Users\someone\AppData\Local\Temp\dlssync-e2e-abcdef1234567890\FixtureGames",
+        );
+        let a = custom_game_id(&root.join("Aurora Protocol"), "Aurora Protocol");
+        let b = custom_game_id(&root.join("Neon Divide"), "Neon Divide");
+        assert_ne!(
+            a, b,
+            "distinct games under a long common root must get distinct ids (both were {a})"
+        );
+    }
+
+    #[test]
+    fn custom_game_id_is_stable_and_deterministic() {
+        let dir = Path::new(r"C:\Games\Neon Divide");
+        assert_eq!(
+            custom_game_id(dir, "Neon Divide"),
+            custom_game_id(dir, "Neon Divide")
+        );
+    }
+
+    #[test]
+    fn custom_game_id_is_readable_and_path_sensitive() {
+        let id = custom_game_id(Path::new(r"C:\Games\Neon Divide"), "Neon Divide");
+        assert!(
+            id.starts_with("custom-"),
+            "id must keep the custom- prefix: {id}"
+        );
+        assert!(
+            id.to_lowercase().contains("neon"),
+            "id must carry a readable name slug: {id}"
+        );
+        // Same name in a different folder is a different game -> different id.
+        let other = custom_game_id(Path::new(r"D:\Library\Neon Divide"), "Neon Divide");
+        assert_ne!(id, other);
+    }
+
+    #[test]
+    fn custom_game_id_normalizes_windows_path_identity() {
+        // Case + separator differences describe the same Windows path -> same id.
+        let a = custom_game_id(Path::new(r"C:\Games\Neon Divide"), "Neon Divide");
+        let b = custom_game_id(Path::new("c:/games/neon divide"), "Neon Divide");
+        if cfg!(windows) {
+            assert_eq!(
+                a, b,
+                "windows path identity must be case/separator-insensitive"
+            );
+        }
+    }
+
+    #[test]
+    fn successful_scan_writes_one_gui_scan_journal_record() {
+        let dir = tempfile::tempdir().unwrap();
+        let journal = JournalStore::open(dir.path().join("journal.db")).unwrap();
+        record_scan(&journal, 2, 123, Ok(4)).unwrap();
+        let rows = journal.list(&JournalFilter::default()).unwrap();
+        assert_eq!(rows.len(), 1);
+        let rec = &rows[0];
+        assert_eq!(rec.kind, OperationKind::Scan);
+        assert_eq!(rec.actor, OperationActor::Gui);
+        assert_eq!(rec.status, OperationStatus::Succeeded);
+        assert_eq!(rec.duration_ms, Some(123));
+        assert_eq!(
+            rec.details.get("games_detected").map(String::as_str),
+            Some("4")
+        );
+        assert!(
+            rec.target.is_none(),
+            "scan journal must never carry a path or library-name target"
+        );
+    }
+
+    #[test]
+    fn failed_scan_records_failure_without_leaking_paths() {
+        let dir = tempfile::tempdir().unwrap();
+        let journal = JournalStore::open(dir.path().join("journal.db")).unwrap();
+        record_scan(&journal, 1, 5, Err("scan worker crashed".to_string())).unwrap();
+        let rows = journal.list(&JournalFilter::default()).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].status, OperationStatus::Failed);
+        assert_eq!(rows[0].error.as_deref(), Some("scan worker crashed"));
+        assert!(rows[0].target.is_none());
+        let export = journal
+            .export_redacted_json(&JournalFilter::default())
+            .unwrap();
+        assert!(
+            !export.contains(":\\"),
+            "redacted export must not leak windows paths"
+        );
+    }
+}
+
 fn scan_custom_folder(root: &Path) -> Option<Vec<DetectedGame>> {
     if !root.exists() {
         return None;
@@ -113,10 +303,7 @@ fn scan_custom_folder(root: &Path) -> Option<Vec<DetectedGame>> {
             tracing::debug!(folder = %name, "skipped custom folder — not a game");
             continue;
         }
-        let id = format!(
-            "custom-{}",
-            sanitize_id(&format!("{}|{}", root.to_string_lossy(), name))
-        );
+        let id = custom_game_id(&path, &name);
         games.push(DetectedGame {
             id,
             name,
@@ -130,11 +317,62 @@ fn scan_custom_folder(root: &Path) -> Option<Vec<DetectedGame>> {
     Some(games)
 }
 
-fn sanitize_id(raw: &str) -> String {
-    raw.chars()
-        .filter(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '_')
-        .take(48)
-        .collect()
+/// Stable, collision-free id for a custom-folder game. The game name provides a
+/// readable, bounded slug; the full install path — normalized for Windows
+/// case/separator identity — provides a SHA-256 suffix so two games under the
+/// same long root can never collapse to one id. Deterministic across processes
+/// (unlike a randomized `DefaultHasher`).
+fn custom_game_id(install_dir: &Path, name: &str) -> String {
+    format!(
+        "custom-{}-{}",
+        name_slug(name),
+        stable_path_hash(install_dir)
+    )
+}
+
+/// Readable, bounded ascii kebab slug of a game name; empty input -> "game".
+fn name_slug(name: &str) -> String {
+    let mut slug = String::with_capacity(40);
+    let mut pending_dash = false;
+    for ch in name.chars() {
+        if ch.is_ascii_alphanumeric() {
+            if pending_dash && !slug.is_empty() {
+                slug.push('-');
+            }
+            pending_dash = false;
+            slug.push(ch.to_ascii_lowercase());
+            if slug.len() >= 40 {
+                break;
+            }
+        } else {
+            pending_dash = true;
+        }
+    }
+    if slug.is_empty() {
+        "game".to_string()
+    } else {
+        slug
+    }
+}
+
+/// Case/separator-normalized string identity of a path. Windows paths are
+/// case-insensitive and accept either separator, so the same location always
+/// hashes to the same value.
+fn normalize_path_identity(path: &Path) -> String {
+    let unified = path.to_string_lossy().replace('/', "\\");
+    if cfg!(windows) {
+        unified.to_lowercase()
+    } else {
+        unified
+    }
+}
+
+/// First 12 hex chars of the SHA-256 of the normalized path — deterministic and
+/// stable across runs.
+fn stable_path_hash(path: &Path) -> String {
+    use sha2::{Digest, Sha256};
+    let digest = Sha256::digest(normalize_path_identity(path).as_bytes());
+    digest[..6].iter().map(|b| format!("{:02x}", b)).collect()
 }
 
 static EXCLUDED_FOLDER_NAMES: Lazy<HashSet<&'static str>> = Lazy::new(|| {
@@ -402,7 +640,6 @@ pub async fn fetch_steam_art(state: State<'_, AppState>, name: String) -> AppRes
         return Ok(empty_art());
     }
     let _ = ART_HTTP_TIMEOUT_SECS;
-    let _ = SGDB_USER_AGENT;
     let client = state.http_art.clone();
 
     let url = format!(

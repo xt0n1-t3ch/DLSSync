@@ -25,7 +25,7 @@
   import { resetNudgeSession } from "../lib/community";
   import BrandMark from "../components/BrandMark.svelte";
   import Select from "../components/Select.svelte";
-  import { t, locale, setLocale, translate, LOCALES, LOCALE_LABELS, type Locale } from "../lib/i18n/index";
+  import { t, locale, loadLocale, translate, LOCALES, LOCALE_LABELS, type Locale } from "../lib/i18n/index";
   import { get } from "svelte/store";
   import type { BrandKey } from "../lib/brands";
   import { appUpdaterEnabled, distributionLabel } from "../lib/distribution";
@@ -82,7 +82,7 @@
   $effect(() => {
     if (localeChoice === get(locale)) return;
     const next = localeChoice;
-    setLocale(next);
+    void loadLocale(next);
     if ($settings) {
       void persistSettings({ ...$settings, ui_prefs: { ...$settings.ui_prefs, language: next } });
     }
@@ -356,7 +356,7 @@
     }
     try {
       await revealPath(appPaths.settings_file);
-    } catch (err: unknown) {
+    } catch {
       try {
         await openPath(appPaths.settings_dir);
       } catch (err2: unknown) {

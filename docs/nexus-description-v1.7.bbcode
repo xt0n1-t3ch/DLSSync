@@ -1,0 +1,72 @@
+[center][img]https://raw.githubusercontent.com/xt0n1-t3ch/DLSSync/main/.github/assets/nexus/banner-header-1300x372.png[/img]
+
+[size=5][b]One trusted sync layer for DLSS, FSR, XeSS, DirectStorage and Windows drivers.[/b][/size]
+
+DLSSync scans your installed games, shows exactly what is outdated, and lets you review every file before anything changes. The public catalog is signed, every download is hash-checked against that catalog, vendor publishers are verified with Authenticode, and every apply starts with a restorable backup.
+
+[url=https://github.com/xt0n1-t3ch/DLSSync][img]https://img.shields.io/badge/Source-Code_on_GitHub-181717?style=for-the-badge&logo=github&logoColor=white[/img][/url]
+[url=https://github.com/xt0n1-t3ch/DLSSync-Manifest][img]https://img.shields.io/badge/Signed-Public_Catalog-0B8F6A?style=for-the-badge&logo=files&logoColor=white[/img][/url][/center]
+
+[size=4][b]What DLSSync manages[/b][/size]
+
+[list]
+[*][b]NVIDIA:[/b] DLSS Super Resolution, Frame Generation, Ray Reconstruction, Streamline and Reflex.
+[*][b]AMD:[/b] FidelityFX Super Resolution, Frame Generation, loader, Vulkan and denoiser runtimes.
+[*][b]Intel:[/b] XeSS Super Resolution, XeSS Frame Generation and XeLL.
+[*][b]Microsoft:[/b] DirectStorage and DirectStorage Core.
+[*][b]Drivers:[/b] NVIDIA, AMD and Intel GPU releases plus applicable Windows device-driver updates.
+[/list]
+
+[size=4][b]Why it is different[/b][/size]
+
+[list]
+[*][b]Review before apply.[/b] Update Plan shows the exact file, current and target version, upstream source, signer, expected hash, backup and anti-cheat risk.
+[*][b]Signed public catalog.[/b] Catalog metadata must pass its detached Ed25519 signature and schema before DLSSync stores or uses it.
+[*][b]Traceable upstream downloads.[/b] Every row shows its exact source. Most current families come directly from vendor releases; historical NVIDIA DLSS and much of the AMD FSR and Intel XeSS back-catalog use the clearly labeled DLSS Swapper community archive where stable first-party assets are unavailable.
+[*][b]Publisher enforcement.[/b] A matching hash is not enough when the Authenticode publisher is wrong.
+[*][b]Reversible changes.[/b] Backups and the Operation Journal keep the evidence required to inspect or roll back an operation.
+[*][b]Anti-cheat awareness.[/b] Protected games are identified before mutation and require an explicit review path.
+[*][b]Zero telemetry.[/b] There are no accounts, analytics or tracking. Diagnostics stay local unless you choose to export them.
+[/list]
+
+[size=4][b]Important: Nexus build behavior[/b][/size]
+
+This download is the Nexus Mods compliant build. [b]Application self-updates are disabled[/b], and DLSSync makes [b]no automatic catalog request[/b] when it starts, opens Catalog or regains focus.
+
+The embedded signed catalog remains available offline. When you choose [b]Refresh Catalog[/b], DLSSync fetches the current manifest and detached signature from the public upstream, verifies both, rejects invalid or older data, and then shows the version delta. That button is the only catalog network trigger in this build.
+
+Public catalog and verification source: [url=https://github.com/xt0n1-t3ch/DLSSync-Manifest]DLSSync-Manifest on GitHub[/url]
+
+[size=4][b]New in 1.7.0[/b][/size]
+
+[list]
+[*]Trust Center with Ed25519 state, catalog commit, generation date, refresh method and public-key fingerprint.
+[*]Reviewable Update Plans with row exclusion, JSON export and stale-plan detection.
+[*]Append-only Operation Journal for scans, refreshes, plans, applies, rollbacks and driver actions.
+[*]A real [b]dlssync[/b] CLI for status, scan, catalog, plan, apply, rollback, journal and doctor workflows.
+[*]Portable mode that keeps settings, catalog, backups, logs and journal under [b]&lt;exe&gt;\data[/b].
+[*]Favorites, stronger filters and complete English, Spanish, Brazilian Portuguese, German, French, Japanese, Russian and Simplified Chinese interfaces.
+[/list]
+
+[size=4][b]How to use[/b][/size]
+
+[list=1]
+[*]Install or extract DLSSync and open [b]Library[/b].
+[*]Scan the detected launchers or add a custom game folder in Settings.
+[*]Open a game and review its installed component versions and trust state.
+[*]Choose the updates, inspect the Update Plan, then apply the selected rows.
+[*]Use Backups or Operation Journal when you need to inspect or restore an earlier state.
+[/list]
+
+[size=4][b]Links[/b][/size]
+
+[list]
+[*][url=https://github.com/xt0n1-t3ch/DLSSync]Source code and documentation[/url]
+[*][url=https://github.com/xt0n1-t3ch/DLSSync-Manifest]Signed manifest, schema and independent verification[/url]
+[*][url=https://github.com/xt0n1-t3ch/DLSSync/issues]Bug reports and feature requests[/url]
+[*][url=https://github.com/xt0n1-t3ch/DLSSync/releases]Standard and portable releases[/url]
+[/list]
+
+[size=4][b]Requirements[/b][/size]
+
+Windows 10 or Windows 11, x64. Administrator approval is requested only for per-machine driver operations that Windows itself requires to run elevated.

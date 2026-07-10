@@ -1,6 +1,7 @@
 <script lang="ts">
   import { t } from "../lib/i18n/index";
   import { launcherLabel } from "../lib/labels";
+  import { favoriteIds, toggleFavorite } from "../lib/stores";
   import type { DetectedGame } from "../lib/api";
 
   let {
@@ -44,10 +45,22 @@
     void game.id;
     imgErrored = false;
   });
+
+  let isFavorite = $derived($favoriteIds.has(game.id));
 </script>
 
 <button class="detail-back" onclick={onClose} title={$t("component.gameDrawer.backToLibraryTitle")} aria-label={$t("component.gameDrawer.backToLibrary")}>
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+</button>
+<button
+  class="detail-fav"
+  class:is-fav={isFavorite}
+  onclick={() => void toggleFavorite(game.id)}
+  aria-pressed={isFavorite}
+  title={isFavorite ? $t("component.card.unfavorite") : $t("component.card.favorite")}
+  aria-label={isFavorite ? $t("component.card.unfavorite") : $t("component.card.favorite")}
+>
+  <svg width="16" height="16" viewBox="0 0 24 24" fill={isFavorite ? "currentColor" : "none"} stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
 </button>
 <header class="detail-hero" data-launcher={game.launcher} style:--game-accent={coverAccentColor ?? "var(--accent)"}>
   <div class="drawer-art">
@@ -135,6 +148,30 @@
   }
   .detail-back:hover { background: var(--art-chrome-scrim-strong); border-color: var(--art-chrome-border-strong); transform: translateX(-1px); }
   .detail-back:focus-visible { outline: none; box-shadow: var(--shadow-ring); }
+
+  .detail-fav {
+    position: absolute;
+    top: var(--space-3);
+    right: var(--space-3);
+    z-index: 5;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-full);
+    color: var(--art-chrome-fg);
+    background: var(--art-chrome-scrim);
+    border: 1px solid var(--art-chrome-border);
+    cursor: pointer;
+    backdrop-filter: var(--glass-blur-bar);
+    -webkit-backdrop-filter: var(--glass-blur-bar);
+    transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), transform var(--dur-instant) var(--ease);
+  }
+  .detail-fav:hover { background: var(--art-chrome-scrim-strong); color: var(--gh-star); border-color: var(--art-chrome-border-strong); }
+  .detail-fav:active { transform: scale(0.92); }
+  .detail-fav:focus-visible { outline: none; box-shadow: var(--shadow-ring); }
+  .detail-fav.is-fav { color: var(--gh-star); border-color: color-mix(in oklab, var(--gh-star) 55%, transparent); }
 
   .detail-hero {
     flex-shrink: 0;

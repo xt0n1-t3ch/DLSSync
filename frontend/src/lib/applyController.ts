@@ -23,6 +23,9 @@ import { familyVendor, familyCatalogKey, launcherLabel } from "./labels";
 import { translate, locale } from "./i18n/index";
 import { notifyApplySuccess } from "./community";
 import type { LauncherKind } from "./api";
+import { getCatalogStatus } from "./api";
+import { reviewUpdatePlan } from "../features/update-plan/model";
+import type { ReviewedUpdatePlan } from "../features/update-plan/model";
 
 export interface ApplyTarget {
   game_id: string;
@@ -34,6 +37,7 @@ export interface ApplyTarget {
 export interface DispatchOptions {
   showModal?: () => void;
   toast?: (kind: Toast["kind"], message: string) => void;
+  reviewPlan?: (targets: ApplyTarget[]) => Promise<ReviewedUpdatePlan | null>;
 }
 
 const DEFAULT_TOAST = (kind: Toast["kind"], message: string): void => showToast(kind, message);
@@ -86,6 +90,14 @@ export async function dispatchApply(
     (opts.toast ?? DEFAULT_TOAST)("warning", translate(loc, "toast.applyInProgress"));
     return null;
   }
+  const reviewed = await (opts.reviewPlan ?? reviewUpdatePlan)(targets);
+  if (!reviewed) return null;
+  const currentCatalog = await getCatalogStatus();
+  if (currentCatalog.provenance.generated_at !== reviewed.catalogGeneratedAt) {
+    (opts.toast ?? DEFAULT_TOAST)("warning", translate(loc, "toast.updatePlanStale"));
+    return null;
+  }
+  targets = reviewed.targets;
   pruneEndedApplyState();
   const { trackers, requests } = prepareApply(targets);
   activeApplies.update((m) => ({ ...m, ...trackers }));

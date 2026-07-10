@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
-  import { invoke } from "@tauri-apps/api/core";
+  import { invokeCommand as transport, COMMANDS } from "../generated/bindings";
   import { get } from "svelte/store";
   import { fly, slide } from "svelte/transition";
   import { showToast, updateBannerActive } from "../lib/stores";
@@ -48,22 +48,27 @@
     } catch {
       dismissedVersion = null;
     }
-    void loadRuntimeMode();
-    void checkForUpdates();
+    void startUpdaterChecks();
+  });
+
+  async function startUpdaterChecks(): Promise<void> {
+    await loadRuntimeMode();
+    if (runtime?.portable) return;
+    await checkForUpdates();
     timer = setInterval(() => { void checkForUpdates(); }, POLL_INTERVAL_MS);
     window.addEventListener("dlssync:check-updates", handleExternalCheck);
-  });
+  }
 
   async function loadRuntimeMode(): Promise<void> {
     try {
-      runtime = await invoke<RuntimeMode>("runtime_mode");
+      runtime = await transport<RuntimeMode>(COMMANDS.runtime_mode);
     } catch {
       runtime = null;
     }
   }
 
   function handleExternalCheck(e: Event): void {
-    if (!appUpdaterEnabled) return;
+    if (!appUpdaterEnabled || runtime?.portable) return;
     const detail = (e as CustomEvent<{ force?: boolean }>).detail;
     if (detail?.force) {
       try { localStorage.removeItem(DISMISS_KEY); } catch {}
@@ -141,7 +146,7 @@
   }
 
   async function checkForUpdates(): Promise<void> {
-    if (!appUpdaterEnabled) return;
+    if (!appUpdaterEnabled || runtime?.portable) return;
     if (stage === "downloading" || stage === "installing") return;
     const fake = devFakeUpdate();
     if (fake) {

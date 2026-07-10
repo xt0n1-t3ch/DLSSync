@@ -9,7 +9,22 @@ const distDir = resolve(here, "../../frontend/dist/assets");
 
 const BUDGET_JS_GZIP_BYTES = 250 * 1024;
 const BUDGET_CSS_GZIP_BYTES = 75 * 1024;
-const KNOWN_CHUNK_PREFIXES = ["index-", "image-", "app-", "window-", "icons-", "svelte-", "tauri-", "vendor-"];
+const KNOWN_CHUNK_PREFIXES = [
+  "index-",
+  "image-",
+  "app-",
+  "window-",
+  "icons-",
+  "svelte-",
+  "tauri-",
+  "vendor-",
+  "pt-BR-",
+  "de-",
+  "fr-",
+  "ja-",
+  "ru-",
+  "zh-CN-",
+];
 const STEALTH_CHUNK_MIN_BYTES = 1024;
 
 function gzipBytes(path: string): number {

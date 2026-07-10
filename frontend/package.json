@@ -1,11 +1,12 @@
 {
   "name": "dlssync-frontend",
   "private": true,
-  "version": "1.6.9",
+  "version": "1.7.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "lint": "eslint . --max-warnings 0",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest run --config vitest.config.ts",
@@ -24,10 +25,14 @@
     "@tsconfig/svelte": "^5.0.0",
     "@types/node": "^25.9.1",
     "@vitest/coverage-v8": "^4.1.0",
+    "eslint": "10.6.0",
+    "eslint-plugin-svelte": "3.20.0",
+    "globals": "^17.7.0",
     "happy-dom": "^20.9.0",
     "svelte": "^5.0.0",
     "svelte-check": "^4.0.0",
     "typescript": "^5.7.0",
+    "typescript-eslint": "8.63.0",
     "vite": "^6.4.3",
     "vitest": "^4.1.0"
   },

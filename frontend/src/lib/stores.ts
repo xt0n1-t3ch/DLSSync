@@ -1,13 +1,23 @@
 import { writable, derived, get, type Writable, type Readable } from "svelte/store";
 import { translate, locale } from "./i18n/index";
 import {
+  matchesTechnology,
+  matchesAntiCheat,
+  type TechnologyFilter,
+  type AntiCheatFilter,
+} from "./libraryFilters";
+import { hasAntiCheat } from "./anticheat";
+import {
   scanLibraries,
+  detectAnticheat,
   refreshCatalog,
   catalogSummary,
   catalogLatestShas as fetchCatalogLatestShas,
   listBackups,
   getSettings,
   saveSettings,
+  addFavoriteGame,
+  removeFavoriteGame,
   detectDlls,
   detectDlssEnabler,
   enrichGameArt,
@@ -284,8 +294,10 @@ export async function optimisticToggle(opts: {
 
 export const searchQuery: Writable<string> = writable("");
 export const launcherFilter: Writable<string> = writable("all");
-export type StatusFilter = UpdateStatus | "all" | "hidden";
+export type StatusFilter = UpdateStatus | "all" | "hidden" | "favorite";
 export const statusFilter: Writable<StatusFilter> = writable("all");
+export const technologyFilter: Writable<TechnologyFilter> = writable("all");
+export const antiCheatFilter: Writable<AntiCheatFilter> = writable("all");
 
 export const drawerGameId: Writable<string | null> = writable(null);
 
@@ -356,9 +368,64 @@ export const gameStatuses: Readable<GameStatusMap> = derived(
 
 export const hiddenIds: Readable<Set<string>> = derived(settings, ($s) => new Set($s?.blacklist ?? []));
 
+/** The set of favorited game ids, owned by UiPreferences.favorite_game_ids. */
+export const favoriteIds: Readable<Set<string>> = derived(
+  settings,
+  ($s) => new Set($s?.ui_prefs.favorite_game_ids ?? []),
+);
+
+/** Toggle a game's favorite state and persist it. No-op without loaded settings. */
+export async function toggleFavorite(gameId: string): Promise<void> {
+  const $s = get(settings);
+  if (!$s) return;
+  const isFavorite = ($s.ui_prefs.favorite_game_ids ?? []).includes(gameId);
+  try {
+    // Atomic backend command returns the authoritative list; merge it onto the
+    // latest settings so a concurrent toggle on another game is never clobbered
+    // by a stale whole-settings snapshot (the old persistSettings round-trip bug).
+    const next = isFavorite ? await removeFavoriteGame(gameId) : await addFavoriteGame(gameId);
+    const latest = get(settings);
+    if (latest) {
+      settings.set({ ...latest, ui_prefs: { ...latest.ui_prefs, favorite_game_ids: next } });
+    }
+  } catch (err: unknown) {
+    showToast("danger", translate(get(locale), "toast.settingsSaveFailed", { msg: formatError(err) }));
+  }
+}
+
+/** Games with a detected anti-cheat, probed via the same API the drawer uses.
+ *  A probe failure counts as "not flagged"; the backend apply guards remain the
+ *  hard safety net. Populated after each scan (see scanGames). */
+export const antiCheatIds: Writable<Set<string>> = writable(new Set());
+
+export async function refreshAntiCheat(list: DetectedGame[] = get(games)): Promise<void> {
+  const flagged = new Set<string>();
+  for (const game of list) {
+    try {
+      const report = await detectAnticheat(game.install_dir, game.app_id, game.name);
+      if (hasAntiCheat(report)) flagged.add(game.id);
+    } catch {
+      /* probe failure = not flagged */
+    }
+  }
+  antiCheatIds.set(flagged);
+}
+
 export const filteredGames: Readable<DetectedGame[]> = derived(
-  [games, searchQuery, launcherFilter, statusFilter, gameStatuses, hiddenIds],
-  ([$games, $q, $launcher, $status, $statuses, $hidden]) => {
+  [
+    games,
+    searchQuery,
+    launcherFilter,
+    statusFilter,
+    gameStatuses,
+    hiddenIds,
+    favoriteIds,
+    gameDlls,
+    technologyFilter,
+    antiCheatFilter,
+    antiCheatIds,
+  ],
+  ([$games, $q, $launcher, $status, $statuses, $hidden, $favorites, $dlls, $tech, $ac, $acIds]) => {
     const q = $q.trim().toLowerCase();
     return $games.filter((g) => {
       const isHidden = $hidden.has(g.id);
@@ -366,9 +433,15 @@ export const filteredGames: Readable<DetectedGame[]> = derived(
         if (!isHidden) return false;
       } else {
         if (isHidden) return false;
-        if ($status !== "all" && $statuses[g.id] !== $status) return false;
+        if ($status === "favorite") {
+          if (!$favorites.has(g.id)) return false;
+        } else if ($status !== "all" && $statuses[g.id] !== $status) {
+          return false;
+        }
       }
       if ($launcher !== "all" && g.launcher !== $launcher) return false;
+      if (!matchesTechnology($dlls[g.id] ?? [], $tech)) return false;
+      if (!matchesAntiCheat(g.id, $acIds, $ac)) return false;
       if (q && !g.name.toLowerCase().includes(q)) return false;
       return true;
     });
@@ -574,6 +647,7 @@ export async function scanGames(opts: QuietableOptions = {}): Promise<void> {
       showToast("success", translate(get(locale), "toast.scanGamesFound", { count: result.length }));
     }
     void loadAllDlls(result);
+    void refreshAntiCheat(result);
     void enrichManualArt(result);
   } catch (err: unknown) {
     const message = formatError(err);
@@ -708,20 +782,24 @@ export async function bootstrapCatalog(): Promise<void> {
     await loadCatalogShas();
     catalogStatus.set({ kind: "success", label: "ready" });
   } catch {
-    catalogStatus.set({ kind: "warning", label: "loading" });
-    void loadCatalog();
+    catalogStatus.set({ kind: "danger", label: "error" });
   }
 }
 
-export async function loadCatalog(opts: QuietableOptions = {}): Promise<void> {
+export interface CatalogLoadOptions extends QuietableOptions {
+  trigger?: "automatic" | "manual_user";
+}
+
+export async function loadCatalog(opts: CatalogLoadOptions = {}): Promise<void> {
   catalogStatus.set({ kind: "warning", label: "loading" });
   const before = { ...get(catalogLatestByKey) };
   try {
-    await refreshCatalog();
+    const result = await refreshCatalog(opts.trigger ?? "automatic");
     const summary = await catalogSummary();
     applySummary(summary);
     await loadCatalogShas();
     catalogStatus.set({ kind: "success", label: "ready" });
+    if (result.blocked_by_policy) return;
     const after = get(catalogLatestByKey);
     const diffs = diffCatalogLatest(before, after);
     if (diffs.length > 0) emitCatalogUpdateNotifications(diffs);

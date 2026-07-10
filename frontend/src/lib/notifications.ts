@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invokeCommand as transport, COMMANDS } from "../generated/bindings";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { writable, type Writable } from "svelte/store";
 import { resolveBrandKey } from "./brands";
@@ -93,11 +93,11 @@ export interface ListFilter {
 export const notifications: Writable<NotificationEntry[]> = writable([]);
 
 export async function listNotifications(filter?: ListFilter): Promise<NotificationEntry[]> {
-  return invoke("list_notifications", { filter });
+  return transport(COMMANDS.list_notifications, { filter });
 }
 
 export async function markRead(id: string): Promise<void> {
-  await invoke("mark_notification_read", { id });
+  await transport(COMMANDS.mark_notification_read, { id });
   const now = new Date().toISOString();
   notifications.update((arr) =>
     arr.map((e) => (e.id === id && e.read_at == null ? { ...e, read_at: now } : e)),
@@ -105,23 +105,23 @@ export async function markRead(id: string): Promise<void> {
 }
 
 export async function markAllRead(): Promise<number> {
-  const count: number = await invoke("mark_all_notifications_read");
+  const count: number = await transport(COMMANDS.mark_all_notifications_read);
   const now = new Date().toISOString();
   notifications.update((arr) => arr.map((e) => (e.read_at ? e : { ...e, read_at: now })));
   return count;
 }
 
 export async function dismiss(id: string): Promise<void> {
-  await invoke("dismiss_notification", { id });
+  await transport(COMMANDS.dismiss_notification, { id });
   notifications.update((arr) => arr.filter((e) => e.id !== id));
 }
 
 export async function pushNotification(entry: NotificationEntry): Promise<void> {
-  return invoke("push_notification", { entry });
+  return transport(COMMANDS.push_notification, { entry });
 }
 
 export async function unreadCount(): Promise<number> {
-  return invoke("notifications_unread_count");
+  return transport(COMMANDS.notifications_unread_count);
 }
 
 export async function refreshNotifications(): Promise<void> {

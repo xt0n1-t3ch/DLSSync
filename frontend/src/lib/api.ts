@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invokeCommand as transport, COMMANDS } from "../generated/bindings";
 
 export type LauncherKind =
   | "steam"
@@ -103,6 +103,7 @@ export interface DeleteOutcome {
 }
 
 export interface AppPathsDto {
+  install_mode: "installed" | "portable";
   root: string;
   backups_dir: string;
   cache_dir: string;
@@ -110,6 +111,8 @@ export interface AppPathsDto {
   settings_dir: string;
   backups_db: string;
   catalog_cache: string;
+  journal_db: string;
+  catalog_metadata: string;
   settings_file: string;
 }
 
@@ -207,6 +210,66 @@ export interface CatalogSummary {
   incompatible_games: string[];
 }
 
+export type CatalogRefreshTrigger = "automatic" | "manual_user";
+
+export interface CatalogDelta {
+  added: number;
+  updated: number;
+  removed: number;
+}
+
+export interface CatalogProvenance {
+  manifest_url: string;
+  manifest_repository: string;
+  generated_at: string;
+  checked_at: string;
+  signature_verified: boolean;
+  public_key_fingerprint: string;
+  source_commit: string | null;
+  trigger: CatalogRefreshTrigger;
+}
+
+export interface CatalogRefreshResult {
+  refreshed: boolean;
+  blocked_by_policy: boolean;
+  provenance: CatalogProvenance;
+  delta: CatalogDelta;
+}
+
+export interface CatalogRuntimeStatus {
+  distribution: "standard" | "nexus";
+  install_mode: "installed" | "portable";
+  automatic_refresh_enabled: boolean;
+  manual_refresh_enabled: boolean;
+  app_updates_enabled: boolean;
+  provenance: CatalogProvenance;
+}
+
+export type OperationActor = "gui" | "cli" | "background";
+export type OperationKind = "scan" | "catalog_refresh" | "plan" | "dll_apply" | "rollback" | "driver_install";
+export type OperationStatus = "started" | "succeeded" | "failed" | "cancelled";
+
+export interface JournalFilter {
+  target?: string | null;
+  kind?: OperationKind | null;
+  status?: OperationStatus | null;
+  limit?: number | null;
+}
+
+export interface OperationRecord {
+  id: string;
+  created_at: string;
+  actor: OperationActor;
+  kind: OperationKind;
+  status: OperationStatus;
+  target: string | null;
+  summary: string;
+  details: Record<string, string>;
+  duration_ms: number | null;
+  backup_id: string | null;
+  error: string | null;
+}
+
 export interface VendorSummary {
   vendor: string;
   families: FamilySummary[];
@@ -255,6 +318,7 @@ export interface UiPreferences {
   backups_group_by: BackupsGroupBy;
   settings_active_tab: SettingsTab;
   command_palette_recent: string[];
+  favorite_game_ids: string[];
   show_support_nudge: boolean;
   language: string;
 }
@@ -476,62 +540,76 @@ export const DEFAULT_LAUNCHERS: LauncherKind[] = [
 export async function scanLibraries(
   launchers: LauncherKind[] = DEFAULT_LAUNCHERS,
 ): Promise<DetectedGame[]> {
-  return invoke("scan_libraries", { launchers });
+  return transport(COMMANDS.scan_libraries, { launchers });
 }
 
 export async function detectDlls(installDir: string): Promise<DllRecord[]> {
-  return invoke("detect_dlls", { installDir });
+  return transport(COMMANDS.detect_dlls, { installDir });
 }
 
 export async function detectDlssEnabler(installDir: string): Promise<boolean> {
-  return invoke("detect_dlss_enabler", { installDir });
+  return transport(COMMANDS.detect_dlss_enabler, { installDir });
 }
 
-export async function refreshCatalog(): Promise<void> {
-  return invoke("refresh_catalog");
+export async function refreshCatalog(
+  trigger: CatalogRefreshTrigger,
+): Promise<CatalogRefreshResult> {
+  return transport(COMMANDS.refresh_catalog, { trigger });
+}
+
+export async function getCatalogStatus(): Promise<CatalogRuntimeStatus> {
+  return transport(COMMANDS.catalog_status);
+}
+
+export async function listJournal(filter: JournalFilter = {}): Promise<OperationRecord[]> {
+  return transport(COMMANDS.journal_list, { filter });
+}
+
+export async function exportJournal(filter: JournalFilter = {}): Promise<string> {
+  return transport(COMMANDS.journal_export, { filter });
 }
 
 export async function catalogSummary(): Promise<CatalogSummary> {
-  return invoke("catalog_summary");
+  return transport(COMMANDS.catalog_summary);
 }
 
 export async function catalogLatestShas(): Promise<Record<string, string>> {
-  return invoke("catalog_latest_shas");
+  return transport(COMMANDS.catalog_latest_shas);
 }
 
 export async function listReleases(vendor: string, family: string): Promise<Release[]> {
-  return invoke("list_releases", { vendor, family });
+  return transport(COMMANDS.list_releases, { vendor, family });
 }
 
 export async function listBackups(): Promise<BackupEntry[]> {
-  return invoke("list_backups");
+  return transport(COMMANDS.list_backups);
 }
 
 export async function restoreBackup(backupId: string): Promise<void> {
-  return invoke("restore_backup", { backupId });
+  return transport(COMMANDS.restore_backup, { backupId });
 }
 
 export async function deleteBackup(backupId: string): Promise<DeleteOutcome> {
-  return invoke("delete_backup", { backupId });
+  return transport(COMMANDS.delete_backup, { backupId });
 }
 
 export async function getAppPaths(): Promise<AppPathsDto> {
-  return invoke("get_app_paths");
+  return transport(COMMANDS.get_app_paths);
 }
 
 export async function getSystemInfo(): Promise<SystemInfo> {
-  return invoke("get_system_info");
+  return transport(COMMANDS.get_system_info);
 }
 
 export async function checkDriverUpdates(): Promise<DriverStatusReport[]> {
-  return invoke("check_driver_updates");
+  return transport(COMMANDS.check_driver_updates);
 }
 
 export async function listDriverHistory(
   model: string,
   vendor: "nvidia" | "amd" | "intel",
 ): Promise<DriverReleaseDto[]> {
-  return invoke("list_driver_history", { model, vendor });
+  return transport(COMMANDS.list_driver_history, { model, vendor });
 }
 
 export type ProtectionKind = "anti_cheat" | "anti_tamper" | "drm";
@@ -554,7 +632,7 @@ export async function detectAnticheat(
   appId: string | null,
   name: string,
 ): Promise<AntiCheatReport> {
-  return invoke("detect_anticheat", { installDir, appId, name });
+  return transport(COMMANDS.detect_anticheat, { installDir, appId, name });
 }
 
 export type InstallStage =
@@ -586,7 +664,7 @@ export async function installDriver(
   vendor: string,
   downloadUrl: string,
 ): Promise<DriverInstallOutcome> {
-  return invoke("install_driver", { vendor, downloadUrl });
+  return transport(COMMANDS.install_driver, { vendor, downloadUrl });
 }
 
 
@@ -683,24 +761,24 @@ export function driverInstallContext(
 }
 
 export async function scanSystemDrivers(): Promise<SystemDeviceGroup[]> {
-  return invoke("scan_system_drivers");
+  return transport(COMMANDS.scan_system_drivers);
 }
 
 export async function installSystemDriver(
   updateId: string,
   context?: DriverInstallContext,
 ): Promise<SystemDriverOutcome> {
-  return invoke("install_system_driver", { updateId, context: context ?? null });
+  return transport(COMMANDS.install_system_driver, { updateId, context: context ?? null });
 }
 
 /** Roll a System & Components driver back to a previously-snapshotted version. */
 export async function restoreSystemDriver(backupId: string): Promise<SystemDriverOutcome> {
-  return invoke("restore_system_driver", { backupId });
+  return transport(COMMANDS.restore_system_driver, { backupId });
 }
 
 /** DriverStore versions (current + superseded) of a driver package, newest-first. */
 export async function systemDriverVersions(infName: string): Promise<DriverStoreVersion[]> {
-  return invoke("system_driver_versions", { infName });
+  return transport(COMMANDS.system_driver_versions, { infName });
 }
 
 export type DlssPreset =
@@ -746,7 +824,7 @@ export interface DlssOverrideReadback {
 }
 
 export async function dlssOverridesSupported(): Promise<boolean> {
-  return invoke("dlss_overrides_supported");
+  return transport(COMMANDS.dlss_overrides_supported);
 }
 
 export interface DlssApplyOutcome {
@@ -758,83 +836,91 @@ export async function applyDlssOverride(
   scope: OverrideScope,
   config: DlssOverrideConfig,
 ): Promise<DlssApplyOutcome> {
-  return invoke("apply_dlss_override", { scope, config });
+  return transport(COMMANDS.apply_dlss_override, { scope, config });
 }
 
 export async function resetDlssOverride(scope: OverrideScope): Promise<void> {
-  return invoke("reset_dlss_override", { scope });
+  return transport(COMMANDS.reset_dlss_override, { scope });
 }
 
 export async function readDlssOverrideConfig(scope: OverrideScope): Promise<DlssOverrideReadback> {
-  return invoke("read_dlss_override_config", { scope });
+  return transport(COMMANDS.read_dlss_override_config, { scope });
 }
 
 export async function findGameExecutable(installDir: string): Promise<string | null> {
-  return invoke("find_game_executable", { installDir });
+  return transport(COMMANDS.find_game_executable, { installDir });
 }
 
 export async function getSettings(): Promise<AppSettings> {
-  return invoke("get_settings");
+  return transport(COMMANDS.get_settings);
 }
 
 export async function saveSettings(settings: AppSettings): Promise<void> {
-  return invoke("save_settings", { settings });
+  return transport(COMMANDS.save_settings, { settings });
 }
 
 export async function addBlacklistEntry(gameId: string): Promise<string[]> {
-  return invoke("add_blacklist_entry", { gameId });
+  return transport(COMMANDS.add_blacklist_entry, { gameId });
 }
 
 export async function removeBlacklistEntry(gameId: string): Promise<string[]> {
-  return invoke("remove_blacklist_entry", { gameId });
+  return transport(COMMANDS.remove_blacklist_entry, { gameId });
+}
+
+export async function addFavoriteGame(gameId: string): Promise<string[]> {
+  return transport(COMMANDS.add_favorite_game, { gameId });
+}
+
+export async function removeFavoriteGame(gameId: string): Promise<string[]> {
+  return transport(COMMANDS.remove_favorite_game, { gameId });
 }
 
 export async function saveWindowState(windowState: WindowState): Promise<void> {
-  return invoke("save_window_state", { windowState });
+  return transport(COMMANDS.save_window_state, { windowState });
 }
 
 export async function applyUpdate(request: ApplyRequest): Promise<ApplyResult> {
-  return invoke("apply_update", { request });
+  return transport(COMMANDS.apply_update, { request });
 }
 
 export async function applyUpdateBatch(request: ApplyBatchRequest): Promise<ApplyBatchResult> {
-  return invoke("apply_update_batch", { request });
+  return transport(COMMANDS.apply_update_batch, { request });
 }
 
 export async function applyStreamlineSet(items: ApplyRequest[]): Promise<StreamlineSetResult> {
-  return invoke("apply_streamline_set", { items });
+  return transport(COMMANDS.apply_streamline_set, { items });
 }
 
 export async function applyDllSet(items: ApplyRequest[]): Promise<StreamlineSetResult> {
-  return invoke("apply_dll_set", { items });
+  return transport(COMMANDS.apply_dll_set, { items });
 }
 
 export async function cancelApply(applyId: string): Promise<boolean> {
-  return invoke("cancel_apply", { applyId });
+  return transport(COMMANDS.cancel_apply, { applyId });
 }
 
 export async function cancelAllApplies(): Promise<number> {
-  return invoke("cancel_all_applies");
+  return transport(COMMANDS.cancel_all_applies);
 }
 
 export async function setDlssDebugOverlay(enabled: boolean): Promise<void> {
-  return invoke("set_dlss_debug_overlay", { enabled });
+  return transport(COMMANDS.set_dlss_debug_overlay, { enabled });
 }
 
 export async function getDlssDebugOverlay(): Promise<boolean> {
-  return invoke("get_dlss_debug_overlay");
+  return transport(COMMANDS.get_dlss_debug_overlay);
 }
 
 export async function enrichGameArt(name: string, apiKey: string): Promise<GameArt> {
-  return invoke("enrich_game_art", { name, apiKey });
+  return transport(COMMANDS.enrich_game_art, { name, apiKey });
 }
 
 export async function fetchSteamArt(name: string): Promise<GameArt> {
-  return invoke("fetch_steam_art", { name });
+  return transport(COMMANDS.fetch_steam_art, { name });
 }
 
 export async function openPath(path: string): Promise<void> {
-  return invoke("open_path", { path });
+  return transport(COMMANDS.open_path, { path });
 }
 
 export async function openUrl(url: string): Promise<void> {
@@ -843,7 +929,7 @@ export async function openUrl(url: string): Promise<void> {
 }
 
 export async function revealPath(path: string): Promise<void> {
-  return invoke("reveal_path", { path });
+  return transport(COMMANDS.reveal_path, { path });
 }
 
 export interface LogPaths {
@@ -858,31 +944,31 @@ export interface IssueReport {
 }
 
 export async function getLogPaths(): Promise<LogPaths> {
-  return invoke("get_log_paths");
+  return transport(COMMANDS.get_log_paths);
 }
 
 export async function readRecentLogs(maxLines?: number): Promise<string> {
-  return invoke("read_recent_logs", { maxLines });
+  return transport(COMMANDS.read_recent_logs, { maxLines });
 }
 
 export async function buildIssueReport(context?: string): Promise<IssueReport> {
-  return invoke("build_issue_report", { context });
+  return transport(COMMANDS.build_issue_report, { context });
 }
 
 export async function setEfficiencyMode(enable: boolean): Promise<void> {
-  return invoke("set_efficiency_mode", { enable });
+  return transport(COMMANDS.set_efficiency_mode, { enable });
 }
 
 export async function hideMainWindow(): Promise<void> {
-  return invoke("hide_main_window");
+  return transport(COMMANDS.hide_main_window);
 }
 
 export async function showMainWindow(): Promise<void> {
-  return invoke("show_main_window");
+  return transport(COMMANDS.show_main_window);
 }
 
 /** Set the tray tooltip/badge to the count of games with pending updates.
  *  0 reverts the tray to its idle tooltip. */
 export async function traySetPending(count: number): Promise<void> {
-  return invoke("tray_set_pending", { count });
+  return transport(COMMANDS.tray_set_pending, { count });
 }

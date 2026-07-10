@@ -1,11 +1,16 @@
 import { get, writable } from "svelte/store";
 import { EXTERNAL_URLS } from "./ux";
+import { PRODUCT } from "../generated/product";
 import { settings, persistSettings } from "./stores";
 import { isNexusBuild } from "./distribution";
 
 const STAR_CACHE_KEY = "dlssync.starCount.v1";
 const STAR_TTL_MS = 6 * 60 * 60 * 1000;
-const STAR_ENDPOINT = "https://api.github.com/repos/xt0n1-t3ch/DLSSync";
+// Derived from the product owner (repository) — never a duplicated literal.
+const STAR_ENDPOINT = PRODUCT.repository.replace(
+  "https://github.com/",
+  "https://api.github.com/repos/",
+);
 
 /** True while the support card is on screen. It persists until the user dismisses
  * it or chooses "Don't show again" - it never auto-times-out. */

@@ -63,6 +63,13 @@ driver-install = { path = "../crates/driver-install" }
 system-drivers = { path = "../crates/system-drivers" }
 nvapi-drs = { path = "../crates/nvapi-drs" }
 anticheat-detect = { path = "../crates/anticheat-detect" }
+dlssync-application = { path = "../crates/dlssync-application" }
+dlssync-contracts = { path = "../crates/dlssync-contracts" }
+operation-journal = { path = "../crates/operation-journal" }
+specta.workspace = true
+specta-typescript.workspace = true
+specta-serde.workspace = true
+tauri-specta.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 winreg = { workspace = true }

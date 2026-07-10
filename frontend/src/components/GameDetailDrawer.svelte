@@ -638,9 +638,23 @@
 
     <div class="drawer-body">
       {#if busy}
-        <div class="loading-state">
-          <span class="spinner spin"></span>
-          <span>{rescanning ? $t("component.gameDrawer.loading.rescanning") : $t("component.gameDrawer.loading.scanning")} — {game.install_dir.split(/[\\/]/).pop()}</span>
+        <div class="loading-state scanning" role="status" aria-live="polite">
+          <div class="scan-head">
+            <span class="spinner spin"></span>
+            <span class="scan-label">{rescanning ? $t("component.gameDrawer.loading.rescanning") : $t("component.gameDrawer.loading.scanning")} — {game.install_dir.split(/[\\/]/).pop()}</span>
+          </div>
+          <div class="scan-skeleton" aria-hidden="true">
+            {#each [70, 56, 64, 48] as w, i (i)}
+              <div class="scan-skel-row">
+                <div class="scan-skel-icon skeleton"></div>
+                <div class="scan-skel-lines">
+                  <div class="scan-skel-line skeleton" style:width="{w}%"></div>
+                  <div class="scan-skel-line sm skeleton"></div>
+                </div>
+                <div class="scan-skel-pill skeleton"></div>
+              </div>
+            {/each}
+          </div>
         </div>
       {:else}
         {#if scanError}
@@ -781,6 +795,37 @@
     text-align: center;
     color: var(--text-muted);
   }
+  .loading-state.scanning {
+    align-items: stretch;
+    text-align: left;
+    padding: var(--space-2) 0 var(--space-3);
+    gap: var(--space-4);
+  }
+  .scan-head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--fs-sm);
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+  .scan-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .scan-skeleton { display: flex; flex-direction: column; gap: var(--space-2); }
+  .scan-skel-row {
+    display: grid;
+    grid-template-columns: 34px 1fr 56px;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--bg-card);
+  }
+  .scan-skel-icon { width: 34px; height: 34px; border-radius: var(--radius-md); }
+  .scan-skel-lines { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+  .scan-skel-line { height: 11px; border-radius: var(--radius-full); }
+  .scan-skel-line.sm { height: 8px; width: 34%; }
+  .scan-skel-pill { height: 18px; border-radius: var(--radius-full); }
   .empty-state h3 { color: var(--text-primary); font-size: var(--fs-lg); font-weight: 600; margin-top: 6px; }
   .empty-state p { font-size: var(--fs-sm); max-width: 360px; line-height: 1.55; }
   .empty-state svg { opacity: 0.6; }

@@ -7,13 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-07-10
+
+The trust-and-control release. DLSSync now shows the exact signed evidence behind a catalog and every proposed DLL change, keeps a durable operation journal, exposes the same safe plan/apply/rollback flow through a CLI, and finally makes the portable build keep all of its state beside the executable. The Nexus edition remains silent until the user explicitly refreshes the catalog.
+
 ### Added
 
-- Nexus Mods compliant distribution. A dedicated `nexus` build keeps the full DLL/FSR/XeSS/Streamline/DirectStorage/driver sync intact but removes the application self-updater so the package meets Nexus Mods hosting rules. The `nexus` Cargo feature drops the Tauri updater plugin from the binary; `scripts/build-nexus.mjs` generates a `tauri.conf.json` with `plugins.updater.active = false` and no endpoints and a capability file without `updater:default`; the frontend nexus build ships no app-updater code path. The signed DLL catalog is pinned to an immutable manifest commit instead of tracking `@main`, so download destinations cannot change without a source edit and a new release. `docs/nexus-build.md` documents the build and verification chain; `scripts/verify-nexus-build.mjs` enforces the strip.
+- A Trust Center showing Ed25519 verification, catalog generation time, distribution mode, refresh method, public-key fingerprint, and a direct link to the public manifest repository.
+- A reviewable Update Plan before DLL mutation, with exact files, current and target versions, source, expected hash, Authenticode publisher, row exclusion, JSON export, and catalog-drift rejection.
+- An append-only SQLite Operation Journal for catalog refreshes, plans, applies, rollbacks, scans, and driver actions, with filters and redacted JSON export.
+- `dlssync-cli` commands for status, scan, signed catalog status/refresh, plan, confirmed apply, confirmed rollback, journal list/export, and doctor output in human or `--json` form.
+- `dlssync-application`, `dlssync-contracts`, `operation-journal`, and `xtask` owners so GUI and CLI consume the same policies and use cases without Tauri domain logic.
+- Generated, versioned Rust-to-TypeScript contract bindings plus drift and architecture gates.
+- Feature-sliced frontend boundaries, deterministic dev-only preview fixtures, strict ESLint, a dedicated Journal view, and a restored GitHub source button in every distribution.
 
 ### Changed
 
-- In the Nexus build, every in-app link that pointed at the DLSSync GitHub repository — the source/sponsor/report buttons, the author profile and star links, the support nudge, the apply-failure issue report, and the live star-count request — is hidden, and the "check for updates" and changelog actions open the Nexus Mods page. The distributed package surfaces no link to an auto-updating download or to the source repository, and makes no GitHub network request.
+- The Nexus build disables application self-updates and every automatic catalog request, but an explicit `Refresh Catalog` now fetches the current signed upstream manifest. Opening Catalog, starting the app, or restoring focus performs no network refresh.
+- Portable archives now include `portable.flag`; settings, catalog, backups, plans, logs, and journal resolve under `<exe>\data`, and automatic app updates stay disabled.
+- `product.toml` now owns product identity, repositories, URLs, distribution capabilities, and the portable marker; the workspace package version owns `1.7.0`.
+- GitHub source and signed-manifest links are visible again in the Nexus UI, while updater behavior remains disabled.
+
+### Security
+
+- Manual catalog refresh requires the detached Ed25519 signature in every profile, rejects empty or older catalogs, and atomically persists the verified bytes, signature, and provenance metadata.
+- CLI apply stages and verifies every download before mutation, requires a trusted Authenticode publisher, creates backups first, writes atomically, verifies post-write hashes, and restores already-written files after a partial failure.
+- Catalog downloads retain hard byte and decompression ceilings, and traversal/zip-slip coverage remains green.
+
+### Fixed
+
+- Rust tests for `driver-install` now carry an `asInvoker` Windows manifest, so `cargo test --workspace` no longer triggers UAC error 740 solely because the test executable name contains `install`.
+- First-run catalog state always loads the signed embedded fallback even when no cache file exists.
+- The portable release documentation no longer claims state is stored under the user profile.
 
 ## [1.6.9] - 2026-06-12
 
