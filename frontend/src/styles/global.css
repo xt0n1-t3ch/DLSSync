@@ -543,7 +543,34 @@ input::placeholder, textarea::placeholder { color: var(--text-placeholder); }
 .state-dot[data-state="outdated"] { background: var(--warning); box-shadow: 0 0 6px var(--warning-glow); }
 .state-dot[data-state="current"] { background: var(--success); }
 .state-dot[data-state="anticheat"] { background: var(--danger); box-shadow: 0 0 6px var(--danger-glow); }
+.state-dot[data-state="failed"] { background: var(--danger); box-shadow: 0 0 6px var(--danger-glow); }
 .state-dot[data-state="beta"] { background: var(--info); }
+
+/* Section switcher used to move between peer views that share a domain
+   (Backups snapshots <-> Activity journal). Token-only segmented control. */
+.view-tabs {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  margin-bottom: var(--space-3);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.view-tab {
+  padding: 6px 16px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.view-tab:hover { color: var(--text-primary); background: var(--bg-elevated); }
+.view-tab:focus-visible { outline: none; box-shadow: var(--shadow-ring); }
+.view-tab[aria-current="page"] { background: var(--accent-dim); color: var(--accent); }
 
 .seg-bar {
   display: flex;

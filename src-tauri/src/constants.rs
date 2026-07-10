@@ -5,12 +5,7 @@ pub const STEAM_HERO_PATH: &str = "library_hero.jpg";
 pub const STEAM_CAPSULE_PATH: &str = "library_600x900_2x.jpg";
 
 pub const SGDB_API_BASE: &str = "https://www.steamgriddb.com/api/v2";
-pub const SGDB_USER_AGENT: &str = "dlssync/0.1 (https://github.com/xt0n1-t3ch/dlssync)";
 pub const SGDB_GRID_DIMS: &str = "460x215,920x430";
 pub const SGDB_HERO_DIMS: &str = "1920x620,3840x2160";
 
 pub const ART_HTTP_TIMEOUT_SECS: u64 = 8;
-
-pub const PORTABLE_MARKER_FILENAME: &str = "portable.txt";
-pub const GITHUB_LATEST_RELEASE_URL: &str = "https://github.com/xt0n1-t3ch/DLSSync/releases/latest";
-pub const GITHUB_NEW_ISSUE_URL: &str = "https://github.com/xt0n1-t3ch/DLSSync/issues/new";

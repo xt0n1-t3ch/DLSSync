@@ -12,6 +12,7 @@ pub use zip::{
 };
 
 use serde::{Deserialize, Serialize};
+use sha2::Digest as _;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -50,6 +51,10 @@ pub enum CatalogError {
     MissingSignature { url: String },
     #[error("manifest signature verification failed: {0}")]
     Signature(String),
+    #[error("catalog is empty — refusing to replace the current catalog")]
+    EmptyCatalog,
+    #[error("catalog downgrade refused: current {current}, fetched {fetched}")]
+    Downgrade { current: String, fetched: String },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -236,6 +241,12 @@ pub const DEFAULT_MANIFEST_URL: &str =
 pub const DEFAULT_MANIFEST_URL: &str =
     "https://cdn.jsdelivr.net/gh/xt0n1-t3ch/dlssync-manifest@afc77c0da20834b616375a66338e70e113d64686/manifest.json";
 
+/// Canonical moving upstream used only for a user-requested catalog refresh.
+/// The Nexus build never calls this automatically; its policy is enforced in
+/// `dlssync-application` before any request is created.
+pub const CANONICAL_MANIFEST_URL: &str =
+    "https://cdn.jsdelivr.net/gh/xt0n1-t3ch/dlssync-manifest@main/manifest.json";
+
 pub const MANIFEST_ENV_VAR: &str = "DLSSYNC_MANIFEST_URL";
 
 const MANIFEST_RETRY_BACKOFF_MS: &[u64] = &[200, 800, 2000];
@@ -377,6 +388,21 @@ impl Catalog {
         }
     }
 
+    /// Fetch an explicitly selected upstream, require its detached signature in
+    /// every build profile, reject empty/older data, then atomically stage the
+    /// exact signed bytes and signature. This is the manual Nexus refresh path.
+    pub async fn fetch_verified_with_cache_from(
+        client: &reqwest::Client,
+        cache_path: &Path,
+        url: &str,
+        minimum_generated_at: Option<chrono::DateTime<chrono::Utc>>,
+    ) -> Result<Self, CatalogError> {
+        let (catalog, raw, signature) = fetch_raw_strict_with_retry(client, url).await?;
+        validate_catalog_candidate(&catalog, minimum_generated_at)?;
+        write_verified_cache_atomic(cache_path, &raw, &signature)?;
+        Ok(catalog)
+    }
+
     pub fn releases(&self, vendor: &str, family: &str) -> Vec<Release> {
         self.vendors
             .get(vendor)
@@ -426,6 +452,65 @@ impl Catalog {
             .max_by_key(|r| r.version_packed)
             .cloned()
     }
+}
+
+fn validate_catalog_candidate(
+    catalog: &Catalog,
+    minimum_generated_at: Option<chrono::DateTime<chrono::Utc>>,
+) -> Result<(), CatalogError> {
+    if catalog.vendors.is_empty() {
+        return Err(CatalogError::EmptyCatalog);
+    }
+    if let Some(current) = minimum_generated_at {
+        if catalog.generated_at < current {
+            return Err(CatalogError::Downgrade {
+                current: current.to_rfc3339(),
+                fetched: catalog.generated_at.to_rfc3339(),
+            });
+        }
+    }
+    Ok(())
+}
+
+async fn fetch_raw_strict_with_retry(
+    client: &reqwest::Client,
+    url: &str,
+) -> Result<(Catalog, Vec<u8>, String), CatalogError> {
+    let mut last_err = String::new();
+    for (idx, backoff) in MANIFEST_RETRY_BACKOFF_MS.iter().enumerate() {
+        match fetch_raw_strict_once(client, url).await {
+            Ok(value) => return Ok(value),
+            Err(error) => {
+                last_err = error.to_string();
+                if idx + 1 < MANIFEST_RETRY_BACKOFF_MS.len() {
+                    tokio::time::sleep(Duration::from_millis(*backoff)).await;
+                }
+            }
+        }
+    }
+    Err(CatalogError::Retries {
+        attempts: MANIFEST_RETRY_BACKOFF_MS.len() as u32,
+        last: last_err,
+    })
+}
+
+async fn fetch_raw_strict_once(
+    client: &reqwest::Client,
+    url: &str,
+) -> Result<(Catalog, Vec<u8>, String), CatalogError> {
+    let bytes = client
+        .get(url)
+        .send()
+        .await?
+        .error_for_status()?
+        .bytes()
+        .await?;
+    let signature = fetch_signature(client, url)
+        .await?
+        .ok_or_else(|| CatalogError::MissingSignature { url: url.into() })?;
+    verify_manifest_signature(&bytes, &signature).map_err(CatalogError::Signature)?;
+    let catalog = serde_json::from_slice::<Catalog>(&bytes)?;
+    Ok((catalog, bytes.to_vec(), signature))
 }
 
 async fn try_fetch(client: &reqwest::Client, url: &str) -> Result<Catalog, CatalogError> {
@@ -601,6 +686,40 @@ fn write_catalog_cache(cache_path: &Path, raw: &[u8], sig: Option<&str>) {
             let _ = std::fs::remove_file(sig_path);
         }
     }
+}
+
+fn write_verified_cache_atomic(
+    cache_path: &Path,
+    raw: &[u8],
+    signature: &str,
+) -> Result<(), CatalogError> {
+    let parent = cache_path
+        .parent()
+        .ok_or_else(|| CatalogError::Missing("catalog cache has no parent".into()))?;
+    std::fs::create_dir_all(parent)?;
+    let mut manifest_stage = tempfile::NamedTempFile::new_in(parent)?;
+    let mut signature_stage = tempfile::NamedTempFile::new_in(parent)?;
+    {
+        use std::io::Write as _;
+        manifest_stage.write_all(raw)?;
+        manifest_stage.as_file().sync_all()?;
+        signature_stage.write_all(signature.as_bytes())?;
+        signature_stage.as_file().sync_all()?;
+    }
+    signature_stage
+        .persist(cache_sig_path(cache_path))
+        .map_err(|error| error.error)?;
+    manifest_stage
+        .persist(cache_path)
+        .map_err(|error| error.error)?;
+    Ok(())
+}
+
+pub fn manifest_public_key_fingerprint() -> String {
+    let digest = sha2::Sha256::digest(
+        hex::decode(MANIFEST_PUBKEY_HEX).expect("embedded manifest key is valid hex"),
+    );
+    hex::encode(digest)
 }
 
 /// Load + parse an on-disk cache after requiring its detached signature to verify.
@@ -1124,5 +1243,61 @@ mod tests {
         assert!(c
             .find_latest_for_file("intel", "xess_sr", "nvngx_dlss.dll")
             .is_none());
+    }
+
+    #[tokio::test]
+    async fn strict_manual_fetch_requires_signature_and_persists_a_verified_pair() {
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/manifest.json"))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(FALLBACK_MANIFEST))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/manifest.json.sig"))
+            .respond_with(ResponseTemplate::new(200).set_body_string(FALLBACK_SIGNATURE))
+            .mount(&server)
+            .await;
+
+        let dir = tempfile::tempdir().unwrap();
+        let cache = dir.path().join("catalog.json");
+        let catalog = Catalog::fetch_verified_with_cache_from(
+            &reqwest::Client::new(),
+            &cache,
+            &format!("{}/manifest.json", server.uri()),
+            None,
+        )
+        .await
+        .unwrap();
+        assert!(!catalog.vendors.is_empty());
+        assert!(load_verified_cache(&cache).is_some());
+    }
+
+    #[test]
+    fn candidate_validation_rejects_empty_and_older_catalogs() {
+        let empty = Catalog {
+            schema_version: 2,
+            generated_at: chrono::Utc::now(),
+            vendors: BTreeMap::new(),
+            incompatible_games: Vec::new(),
+            anticheat: None,
+            anti_cheat_binaries: Vec::new(),
+        };
+        assert!(matches!(
+            validate_catalog_candidate(&empty, None),
+            Err(CatalogError::EmptyCatalog)
+        ));
+
+        let catalog = embedded_fallback_catalog().unwrap();
+        assert!(matches!(
+            validate_catalog_candidate(
+                &catalog,
+                Some(catalog.generated_at + chrono::Duration::seconds(1))
+            ),
+            Err(CatalogError::Downgrade { .. })
+        ));
     }
 }

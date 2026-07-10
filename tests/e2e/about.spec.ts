@@ -8,6 +8,8 @@ test.describe("about", () => {
     await gotoView(page, "about");
 
     await expect(page.getByText(`v${appVersion}`, { exact: false }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "GitHub", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Manifest", exact: true })).toBeVisible();
     await expect(page.locator(".source-card").first()).toBeVisible();
     await expect(page.getByText("Your system", { exact: false }).first()).toBeVisible();
   });

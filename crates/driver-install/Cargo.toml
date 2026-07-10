@@ -28,3 +28,6 @@ windows = { workspace = true, features = [
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "io-util", "fs", "time"] }
 tempfile.workspace = true
 wiremock = "0.6"
+
+[target.'cfg(windows)'.build-dependencies]
+embed-resource = "3.0.9"

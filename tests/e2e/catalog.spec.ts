@@ -8,6 +8,9 @@ test.describe("catalog", () => {
     const { page } = app;
     await gotoView(page, "catalog");
 
+    await expect(page.getByRole("heading", { name: "Trust Center", exact: true })).toBeVisible();
+    await expect(page.getByText("Signature verified", { exact: true })).toBeVisible();
+
     await expect(page.locator(".vendor-card").first()).toBeVisible();
     await expect(page.locator(".feature-row, .feature-row-btn").first()).toBeVisible();
 

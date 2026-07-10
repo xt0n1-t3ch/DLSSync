@@ -49,7 +49,7 @@ describe("Drivers — admin disclaimer + version history", () => {
 describe("api/stores — install carries snapshot context", () => {
   it("installSystemDriver forwards a context arg", () => {
     expect(api).toMatch(/installSystemDriver\(\s*updateId: string,\s*context\?: DriverInstallContext,/);
-    expect(api).toMatch(/invoke\("install_system_driver", \{ updateId, context: context \?\? null \}\)/);
+    expect(api).toMatch(/transport\(COMMANDS\.install_system_driver, \{ updateId, context: context \?\? null \}\)/);
   });
 
   it("driverInstallContext maps the matched-device fields", () => {

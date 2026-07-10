@@ -44,5 +44,8 @@ foreground desktop window, not the target WebView2, so it grabs whatever browser
 - **`orca computer` screenshot** — on Windows it captures the foreground/topmost window, not the
   specific WebView2, so a maximized browser wins the capture. Windows `SetForegroundWindow` from a
   background process is unreliable, so this cannot be made deterministic. Use CDP-to-WebView2.
-- **Single instance** — the installed v1.x in the tray holds the single-instance lock and shadows a
-  fresh dev/test build. Close the installed instance before launching the build under test.
+- **Single instance** — ordinary debug and release launches keep the production single-instance
+  behavior. The hermetic Playwright fixture sets `DLSSYNC_E2E=1`, which disables that plug-in only
+  in debug builds so an installed DLSSync instance cannot shadow the test process. It also assigns
+  `WEBVIEW2_USER_DATA_FOLDER` inside the hermetic data root; Microsoft documents that WebView2
+  environment creation fails when a shared browser process is already using different options.

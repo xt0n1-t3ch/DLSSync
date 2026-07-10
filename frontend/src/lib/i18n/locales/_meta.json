@@ -2059,6 +2059,11 @@
     "desc": "Footer note describing the 6-hour auto-refresh cadence",
     "where": "frontend/src/views/Catalog.svelte"
   },
+  "view.catalog.foot.nexusManual": {
+    "en": "automatic catalog updates are disabled in the Nexus build",
+    "desc": "Nexus footer disclosure that only an explicit user refresh can contact the signed upstream catalog",
+    "where": "frontend/src/views/Catalog.svelte"
+  },
   "view.catalog.foot.refreshTitle": {
     "en": "Pull the manifest from upstream now",
     "desc": "title tooltip on the footer 'Refresh now' button",

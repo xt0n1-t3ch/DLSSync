@@ -268,7 +268,7 @@
         triggerApplyAllOutdated();
         break;
       case "action.rescan": void scanGames(); break;
-      case "action.refresh_manifest": void loadCatalog(); break;
+      case "action.refresh_manifest": void loadCatalog({ trigger: "manual_user" }); break;
       case "action.check_updates": triggerUpdateCheck(); break;
       case "action.restore_recent":
         currentView.set("backups");

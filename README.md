@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <sub><b>New in v1.6.9:</b> security and integrity hardening for the build and manifest pipeline: the vulnerable esbuild transitive binary is pinned to the patched line, empty dynamic anti-cheat binary rows stay out of the public catalog, and the v1.6.8 side-button navigation polish carries forward. See <a href="CHANGELOG.md#169---2026-06-12">CHANGELOG</a>.</sub>
+  <sub><b>New in v1.7.0:</b> signed Trust Center, reviewable Update Plans, Operation Journal, CLI, real portable data isolation, and a Nexus-safe manual catalog refresh. See <a href="CHANGELOG.md#170---2026-07-10">CHANGELOG</a>.</sub>
 </p>
 
 <p align="center">
@@ -102,7 +102,7 @@ DLSSync detects every game installed via Steam, Epic Games, GOG Galaxy, Ubisoft 
   </tbody>
 </table>
 
-Replacements pass two independent signature checks. A SHA-256 mismatch or an Authenticode publisher mismatch refuses the write. Every replaced DLL goes into a local SQLite snapshot store, so any change reverts in one click.
+Replacements pass two independent signature checks. A hash mismatch against the signed catalog — or an Authenticode publisher mismatch — refuses the write. Every replaced DLL goes into a local SQLite snapshot store, so any change reverts in one click.
 
 **Beyond DLLs, DLSSync keeps the whole rig current.** The Drivers tab updates your NVIDIA, AMD and Intel GPU drivers — with per-card version history and signature-verified installs — and other Windows device drivers (audio, network, Bluetooth, chipset, storage and more) through the Windows Update Agent, with an anti-downgrade guard and a System Restore checkpoint before each install. It can also apply reversible NVIDIA DLSS preset and frame-generation overrides through the driver profile.
 
@@ -131,7 +131,7 @@ Most tools swap one DLL family. DLSSync keeps your whole graphics stack — and 
     <tr><td>Background daemon — tray, autostart, updates without opening the app</td><td align="center">✅</td><td align="center">❌</td><td align="center">➖</td><td align="center">❌</td><td align="center">❌</td></tr>
     <tr><td>Update NVIDIA / AMD / Intel <b>GPU drivers</b></td><td align="center">✅</td><td align="center">❌</td><td align="center">❌</td><td align="center">❌</td><td align="center">❌</td></tr>
     <tr><td>Update other <b>Windows device drivers</b> (audio, network, chipset…)</td><td align="center">✅</td><td align="center">❌</td><td align="center">❌</td><td align="center">❌</td><td align="center">❌</td></tr>
-    <tr><td>SHA-256 <b>+ Authenticode</b> publisher gate before every write</td><td align="center">✅</td><td align="center">➖</td><td align="center">➖</td><td align="center">➖</td><td align="center">➖</td></tr>
+    <tr><td>Signed-catalog hash <b>+ Authenticode</b> publisher gate before every write</td><td align="center">✅</td><td align="center">➖</td><td align="center">➖</td><td align="center">➖</td><td align="center">➖</td></tr>
     <tr><td>Automatic backup + one-click rollback</td><td align="center">✅</td><td align="center">✅</td><td align="center">✅</td><td align="center">➖</td><td align="center">❌</td></tr>
     <tr><td>Single signed native binary — no Python or .NET runtime</td><td align="center">✅ <sub>(Rust)</sub></td><td align="center">❌ <sub>(.NET)</sub></td><td align="center">❌ <sub>(Python)</sub></td><td align="center">➖</td><td align="center">➖</td></tr>
     <tr><td>Per-user install, no admin required</td><td align="center">✅</td><td align="center">✅</td><td align="center">➖</td><td align="center">✅</td><td align="center">➖</td></tr>
@@ -145,9 +145,9 @@ Most tools swap one DLL family. DLSSync keeps your whole graphics stack — and 
 
 <h2 id="safety"><img src="./.github/assets/icons/shield.svg" width="26" align="center" alt=""/> &nbsp;Safety &amp; trust</h2>
 
-Every DLL DLSSync writes is fetched directly from the vendor's own release infrastructure — NVIDIA's GitHub SDK releases, Intel's NuGet packages, AMD's and Microsoft's official CDN endpoints. The app never re-hosts, repackages or patches a binary. Nothing goes into your game folder until it passes a SHA-256 hash check against the published catalog **and** an Authenticode publisher check that verifies the signer is the real NVIDIA, AMD, Intel or Microsoft certificate.
+Every catalog entry records its exact upstream asset and provenance. Current Streamline, Reflex, DirectStorage and the newest vendor builds come from first-party GitHub and NuGet releases (SHA-256); historical NVIDIA DLSS and much of the AMD FSR and Intel XeSS back-catalog use the established DLSS Swapper community archive (MD5), because those redistributables are not all exposed as stable first-party assets. DLSSync and its catalog repository never re-host, patch, or silently replace those binaries. Nothing goes into your game folder until it matches the hash recorded in the Ed25519-signed catalog and passes an Authenticode publisher check for NVIDIA, AMD, Intel, or Microsoft.
 
-The catalog itself is a public, auditable JSON file tracked in its own Git repository. Every entry carries the expected hash; you can verify any entry manually with `certutil -hashfile <dll> SHA256`. The app ships as an Apache 2.0 open-source project — every line of the update logic is readable in this repository.
+The catalog itself is a public, auditable JSON file tracked in its own Git repository. Every entry carries its expected hash and the algorithm that produced it; verify any entry manually with `certutil -hashfile <dll> SHA256` for vendor-direct assets, or `certutil -hashfile <dll> MD5` for entries sourced from the DLSS Swapper archive. The app ships as an Apache 2.0 open-source project — every line of the update logic is readable in this repository.
 
 ---
 
@@ -157,7 +157,7 @@ The catalog itself is a public, auditable JSON file tracked in its own Git repos
   <tr>
     <td width="50%" valign="top">
       <h4>Hash-verified DLLs</h4>
-      Every DLL is SHA-256 checked against the public CDN-hosted catalog before it lands in your game folder.
+      Every DLL is hash-checked against the public CDN-hosted catalog before it lands in your game folder — SHA-256 for vendor-direct assets, MD5 for DLSS Swapper-archived history.
     </td>
     <td width="50%" valign="top">
       <h4>Authenticode publisher gate</h4>
@@ -181,7 +181,7 @@ The catalog itself is a public, auditable JSON file tracked in its own Git repos
     </td>
     <td valign="top">
       <h4>Zero telemetry</h4>
-      No analytics, no accounts, no phone-home. The only outbound traffic is the GitHub Releases endpoint, the jsDelivr DLL catalog and Steam's public cover-art CDN.
+      No analytics, accounts, inventory upload, or tracking. Network access is limited to app/catalog checks allowed by the distribution, the exact upstream asset you choose, optional cover-art lookup, and explicit driver operations.
     </td>
   </tr>
   <tr>
@@ -215,7 +215,7 @@ The app gates every DLL replacement behind two independent signature checks.
 | Layer | Mechanism | Refuses |
 |---|---|---|
 | Update payload | Ed25519 signature over the NSIS bundle | An update whose signature does not verify against the embedded public key |
-| DLL replacement | SHA-256 plus Authenticode publisher subject match against the catalog | A DLL not signed by NVIDIA, AMD, Intel or Microsoft |
+| DLL replacement | Catalog hash (SHA-256, or MD5 for archived history) plus Authenticode publisher subject match | A DLL not signed by NVIDIA, AMD, Intel or Microsoft |
 | Rollback | Local SQLite snapshot of every replaced file before the write | Nothing. Restore is offline and instant |
 
 The DLL-sync path has no driver, no kernel-mode hook, no in-process injection — it reads and writes DLL files inside the game's own install directory. Two opt-in features reach beyond that path and are documented separately: the GPU driver updater downloads and launches the vendor's own signed installer (which self-elevates through UAC; DLSSync never elevates itself — see [docs/drivers.md](docs/drivers.md)), and the DLSS preset / frame-generation overrides write a reversible NVIDIA driver application profile through NVAPI, the same mechanism the NVIDIA app uses, not injection (see [docs/dlss-overrides.md](docs/dlss-overrides.md)). Every network call is unauthenticated and visible from `Settings > Detection`.
@@ -226,7 +226,7 @@ The DLL-sync path has no driver, no kernel-mode hook, no in-process injection �
 
 <p align="center">
   <a href="https://github.com/xt0n1-t3ch/DLSSync/releases/latest">
-    <img src="./.github/assets/download-button.svg" alt="Download DLSSync v1.6.9 for Windows 10 / 11" width="520"/>
+    <img src="./.github/assets/download-button.svg" alt="Download DLSSync v1.7.0 for Windows 10 / 11" width="520"/>
   </a>
 </p>
 
@@ -325,14 +325,15 @@ DLSSync detects anti-cheat per game (a local scan of the install folder for know
 
 <br/>
 
-The only outbound traffic is:
+DLSSync has no telemetry endpoint. Its functional network traffic is:
 
 - `api.github.com` for the release update check, capped at one request every 6 hours.
 - `cdn.jsdelivr.net` for the DLL catalog manifest.
 - `cdn.cloudflare.steamstatic.com` and `cdn2.steamgriddb.com` for game cover art, only if the art is not already cached locally.
+- The exact `cdn_url` recorded in the signed catalog when you download a selected DLL. Most current rows use vendor GitHub/NuGet assets; labeled historical rows can use the DLSS Swapper community archive.
 - For the GPU driver updater, only when you open the Drivers tab or install a driver: `gfwsl.geforce.com` and `raw.githubusercontent.com/ZenitH-AT/nvidia-data` (NVIDIA), `dsadata.intel.com` (Intel), and the AMD driver host (AMD).
 
-Every request is unauthenticated. No hardware identifier, install list or other identifying information is sent.
+Requests are unauthenticated. DLSSync never uploads the library as a batch or sends a tracking identifier. Optional artwork lookup sends the individual game title being resolved, and vendor driver endpoints receive the compatibility parameters required to identify a matching package.
 
 </details>
 

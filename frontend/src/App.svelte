@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { get } from "svelte/store";
-  import { invoke } from "@tauri-apps/api/core";
+  import { invokeCommand as transport, COMMANDS } from "./generated/bindings";
   import { fade, fly } from "svelte/transition";
   import Sidebar from "./components/Sidebar.svelte";
   import TopBar from "./components/TopBar.svelte";
@@ -15,6 +15,7 @@
   import SupportNudge from "./components/SupportNudge.svelte";
   import ApplyProgressModal from "./components/ApplyProgressModal.svelte";
   import ActivityDock from "./components/ActivityDock.svelte";
+  import UpdatePlanModal from "./widgets/UpdatePlanModal.svelte";
   import Library from "./views/Library.svelte";
   import GameDetailDrawer from "./components/GameDetailDrawer.svelte";
   import Catalog from "./views/Catalog.svelte";
@@ -22,6 +23,7 @@
   import Drivers from "./views/Drivers.svelte";
   import Settings from "./views/Settings.svelte";
   import About from "./views/About.svelte";
+  import Journal from "./views/Journal.svelte";
   import {
     currentView,
     drawerGameId,
@@ -42,7 +44,7 @@
     installDriverInstallListener,
     installSystemDriverListener,
   } from "./lib/driverInstallEvents";
-  import { isLocale, localeFromNavigator, setLocale, t } from "./lib/i18n/index";
+  import { isLocale, loadLocale, localeFromNavigator, t } from "./lib/i18n/index";
   import { motionDuration } from "./lib/ux";
   import {
     createAppNavigationHistory,
@@ -101,10 +103,10 @@
       }
       const persistedLocale = $settings.ui_prefs.language;
       if (isLocale(persistedLocale)) {
-        setLocale(persistedLocale);
+        await loadLocale(persistedLocale);
       } else {
         const guess = localeFromNavigator();
-        setLocale(guess);
+        await loadLocale(guess);
         void persistSettings({
           ...$settings,
           ui_prefs: { ...$settings.ui_prefs, language: guess },
@@ -140,7 +142,7 @@
       if (e.key === "F12") {
         e.preventDefault();
         try {
-          await invoke("open_devtools");
+          await transport(COMMANDS.open_devtools);
         } catch {
           /* outside tauri context */
         }
@@ -189,6 +191,8 @@
             <div in:fly={{ y: 8, duration: motionDuration(200) }} data-testid="view-catalog"><Catalog /></div>
           {:else if $currentView === "backups"}
             <div in:fly={{ y: 8, duration: motionDuration(200) }} data-testid="view-backups"><Backups /></div>
+          {:else if $currentView === "journal"}
+            <div in:fly={{ y: 8, duration: motionDuration(200) }} data-testid="view-journal"><Journal /></div>
           {:else if $currentView === "drivers"}
             <div in:fly={{ y: 8, duration: motionDuration(200) }} data-testid="view-drivers"><Drivers /></div>
           {:else if $currentView === "settings"}
@@ -215,6 +219,7 @@
 </div>
 <Toast />
 <ActivityDock />
+<UpdatePlanModal />
 <EfficiencyModeController />
 <UpdateBanner />
 <CommandPalette />
@@ -355,7 +360,10 @@
   .detail-rail :global(.detail-view) { width: 100%; height: 100%; }
   .rail-scrim { display: none; }
 
-  @media (min-width: 1120px) {
+  /* Side-by-side (drawer as a real column) only when the window is wide enough to
+     keep the content column comfortable (~630px+). Below that the drawer overlays
+     instead of crushing the library — see the max-width rule below. */
+  @media (min-width: 1400px) {
     .app-shell.rail-open {
       grid-template-columns: var(--sidebar-width) minmax(var(--rail-width), 1fr) var(--drawer-width);
     }
@@ -364,7 +372,7 @@
     }
   }
 
-  @media (max-width: 1119px) {
+  @media (max-width: 1399px) {
     .app-shell.rail-open,
     .app-shell.rail-open.sidebar-collapsed {
       grid-template-columns: var(--sidebar-width) minmax(0, 1fr) 0fr;

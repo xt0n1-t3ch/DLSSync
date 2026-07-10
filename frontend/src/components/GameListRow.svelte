@@ -12,14 +12,16 @@
   import { launcherIcon } from "../lib/launcherIcons";
   import { t } from "../lib/i18n/index";
 
-  let { game, hidden = false, onApply, onOpenFolder, onBlacklist, onClick, onContextMenu }: {
+  let { game, hidden = false, favorite = false, onApply, onOpenFolder, onBlacklist, onClick, onContextMenu, onToggleFavorite }: {
     game: DetectedGame;
     hidden?: boolean;
+    favorite?: boolean;
     onApply: (g: DetectedGame) => void;
     onOpenFolder: (g: DetectedGame) => void;
     onBlacklist: (g: DetectedGame) => void;
     onClick: (g: DetectedGame) => void;
     onContextMenu?: (g: DetectedGame, e: MouseEvent) => void;
+    onToggleFavorite?: (g: DetectedGame) => void;
   } = $props();
 
   let status: UpdateStatus = $derived(($gameStatuses[game.id] ?? "unknown") as UpdateStatus);
@@ -137,6 +139,18 @@
   </div>
 
   <div class="actions" onclick={(e) => e.stopPropagation()} role="presentation">
+    {#if onToggleFavorite}
+      <button
+        class="btn btn-ghost btn-sm fav-row-btn"
+        class:is-fav={favorite}
+        aria-pressed={favorite}
+        aria-label={favorite ? $t("component.card.unfavorite") : $t("component.card.favorite")}
+        title={favorite ? $t("component.card.unfavorite") : $t("component.card.favorite")}
+        onclick={() => onToggleFavorite?.(game)}
+      >
+        <svg width="13" height="13" viewBox="0 0 24 24" fill={favorite ? "currentColor" : "none"} stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      </button>
+    {/if}
     {#if status === "outdated" && !hidden}
       <button class="btn btn-primary btn-sm" onclick={() => onApply(game)} title={$t("component.card.applyLatest")}>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -272,6 +286,8 @@
     gap: 6px;
     flex-shrink: 0;
   }
+  .fav-row-btn.is-fav { color: var(--gh-star); }
+  .fav-row-btn.is-fav:hover { color: var(--gh-star); }
 
   @media (max-width: 1000px) {
     .list-row { grid-template-columns: 56px 1fr auto auto; gap: 10px; }

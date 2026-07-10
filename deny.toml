@@ -1,0 +1,40 @@
+[graph]
+all-features = true
+targets = ["x86_64-pc-windows-msvc"]
+
+[advisories]
+yanked = "deny"
+ignore = [
+  { id = "RUSTSEC-2024-0436", reason = "Specta 2.0.0-rc.25 depends on paste; this is an unmaintained notice with no patched release, not a vulnerability." },
+  { id = "RUSTSEC-2025-0075", reason = "Tauri 2.11.2 pulls urlpattern 0.3 and its unmaintained rust-unic graph; no compatible Tauri replacement exists." },
+  { id = "RUSTSEC-2025-0080", reason = "Tauri 2.11.2 pulls urlpattern 0.3 and its unmaintained rust-unic graph; no compatible Tauri replacement exists." },
+  { id = "RUSTSEC-2025-0081", reason = "Tauri 2.11.2 pulls urlpattern 0.3 and its unmaintained rust-unic graph; no compatible Tauri replacement exists." },
+  { id = "RUSTSEC-2025-0098", reason = "Tauri 2.11.2 pulls urlpattern 0.3; no safe upstream replacement exists and DLSSync does not expose URLPattern input." },
+  { id = "RUSTSEC-2025-0100", reason = "Tauri 2.11.2 pulls urlpattern 0.3; no safe upstream replacement exists and DLSSync does not expose URLPattern input." },
+]
+
+[licenses]
+confidence-threshold = 0.8
+allow = [
+  "Apache-2.0",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "BSL-1.0",
+  "CC0-1.0",
+  "CDLA-Permissive-2.0",
+  "ISC",
+  "MIT",
+  "MPL-2.0",
+  "Unicode-3.0",
+  "Unlicense",
+  "Zlib",
+]
+
+[bans]
+multiple-versions = "warn"
+wildcards = "allow"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

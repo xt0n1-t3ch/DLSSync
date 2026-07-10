@@ -47,4 +47,27 @@ test.describe("game detail", () => {
     await expect(page.locator(".drawer-body .warning-banner, .detail-view .warning-banner").first()).toBeVisible();
     await expect(page.locator(".ac-apply-risk, .ac-apply-confirm").first()).toBeVisible();
   });
+
+  test("anti-cheat confirmation opens the signed update plan before mutation", async ({ app }) => {
+    const { page } = app;
+    await gotoView(page, "library");
+
+    const protectedCard = page.locator(".game-card", { hasText: E2E_PROTECTED_GAME_NAME }).first();
+    await expect(protectedCard).toContainText("DLSS", { timeout: 30_000 });
+    await protectedCard.locator(".body").click();
+
+    const apply = page.locator(".foot-apply");
+    await expect(apply).toBeEnabled();
+    await apply.click();
+    await page.locator(".ac-confirm-proceed").click();
+
+    await expect(page.getByRole("heading", { name: "Review update plan", exact: true })).toBeVisible();
+    await expect(page.locator(".plan-proof")).toContainText("Ed25519");
+    await expect(page.getByRole("button", { name: "Apply selected", exact: true })).toBeEnabled();
+
+    // Close the modal so it never leaks into the shared worker-scoped app and
+    // blocks the next spec's navigation.
+    await page.locator(".plan-modal .close").click();
+    await expect(page.getByRole("heading", { name: "Review update plan", exact: true })).toBeHidden();
+  });
 });

@@ -76,6 +76,8 @@ pub struct UiPreferences {
     pub settings_active_tab: String,
     #[serde(default)]
     pub command_palette_recent: Vec<String>,
+    #[serde(default)]
+    pub favorite_game_ids: Vec<String>,
     #[serde(default = "default_true")]
     pub show_support_nudge: bool,
     #[serde(default)]
@@ -119,6 +121,7 @@ impl Default for UiPreferences {
             backups_group_by: DEFAULT_BACKUPS_GROUP_BY.into(),
             settings_active_tab: DEFAULT_SETTINGS_ACTIVE_TAB.into(),
             command_palette_recent: Vec::new(),
+            favorite_game_ids: Vec::new(),
             show_support_nudge: true,
             language: String::new(),
         }
@@ -359,26 +362,32 @@ fn persist(state: &AppState, settings: &AppSettings) -> AppResult<()> {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct AppPathsDto {
+    pub install_mode: dlssync_contracts::InstallMode,
     pub root: String,
     pub backups_dir: String,
     pub cache_dir: String,
     pub logs_dir: String,
     pub settings_dir: String,
     pub backups_db: String,
+    pub journal_db: String,
     pub catalog_cache: String,
+    pub catalog_metadata: String,
     pub settings_file: String,
 }
 
 impl From<&AppPaths> for AppPathsDto {
     fn from(p: &AppPaths) -> Self {
         Self {
+            install_mode: p.install_mode,
             root: p.root.to_string_lossy().into_owned(),
             backups_dir: p.backups_dir.to_string_lossy().into_owned(),
             cache_dir: p.cache_dir.to_string_lossy().into_owned(),
             logs_dir: p.logs_dir.to_string_lossy().into_owned(),
             settings_dir: p.settings_dir.to_string_lossy().into_owned(),
             backups_db: p.backups_db.to_string_lossy().into_owned(),
+            journal_db: p.journal_db.to_string_lossy().into_owned(),
             catalog_cache: p.catalog_cache.to_string_lossy().into_owned(),
+            catalog_metadata: p.catalog_metadata.to_string_lossy().into_owned(),
             settings_file: p.settings_file.to_string_lossy().into_owned(),
         }
     }
@@ -430,6 +439,35 @@ pub async fn remove_blacklist_entry(
 }
 
 #[tauri::command]
+pub async fn add_favorite_game(
+    state: State<'_, AppState>,
+    game_id: String,
+) -> AppResult<Vec<String>> {
+    let mut guard = state.settings.write();
+    if !guard
+        .ui_prefs
+        .favorite_game_ids
+        .iter()
+        .any(|g| g == &game_id)
+    {
+        guard.ui_prefs.favorite_game_ids.push(game_id);
+    }
+    persist(&state, &guard)?;
+    Ok(guard.ui_prefs.favorite_game_ids.clone())
+}
+
+#[tauri::command]
+pub async fn remove_favorite_game(
+    state: State<'_, AppState>,
+    game_id: String,
+) -> AppResult<Vec<String>> {
+    let mut guard = state.settings.write();
+    guard.ui_prefs.favorite_game_ids.retain(|g| g != &game_id);
+    persist(&state, &guard)?;
+    Ok(guard.ui_prefs.favorite_game_ids.clone())
+}
+
+#[tauri::command]
 pub async fn save_window_state(
     state: State<'_, AppState>,
     window_state: WindowState,
@@ -452,6 +490,7 @@ mod ui_prefs_tests {
         assert_eq!(prefs.library_sort, DEFAULT_LIBRARY_SORT);
         assert_eq!(prefs.backups_group_by, DEFAULT_BACKUPS_GROUP_BY);
         assert_eq!(prefs.settings_active_tab, DEFAULT_SETTINGS_ACTIVE_TAB);
+        assert!(prefs.favorite_game_ids.is_empty());
         assert!(prefs.command_palette_recent.is_empty());
         assert!(prefs.language.is_empty());
     }

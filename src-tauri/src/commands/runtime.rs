@@ -1,4 +1,4 @@
-use crate::constants::{GITHUB_LATEST_RELEASE_URL, PORTABLE_MARKER_FILENAME};
+use dlssync_application::product_config;
 use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]
@@ -7,10 +7,10 @@ pub struct RuntimeMode {
     pub release_url: String,
 }
 
-fn detect_portable() -> bool {
+fn detect_portable(marker_filename: &str) -> bool {
     std::env::current_exe()
         .ok()
-        .and_then(|p| p.parent().map(|d| d.join(PORTABLE_MARKER_FILENAME)))
+        .and_then(|p| p.parent().map(|d| d.join(marker_filename)))
         .map(|m| m.exists())
         .unwrap_or(false)
 }
@@ -21,9 +21,10 @@ pub fn devtools_allowed() -> bool {
 
 #[tauri::command]
 pub fn runtime_mode() -> RuntimeMode {
+    let config = product_config().expect("embedded product.toml must be valid");
     RuntimeMode {
-        portable: detect_portable(),
-        release_url: GITHUB_LATEST_RELEASE_URL.to_string(),
+        portable: detect_portable(&config.distribution.portable.data_marker),
+        release_url: config.links.releases_latest,
     }
 }
 

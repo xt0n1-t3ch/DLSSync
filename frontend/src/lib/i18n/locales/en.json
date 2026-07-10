@@ -33,6 +33,34 @@
     "scan_failed": "Scan failed"
   },
   "view": {
+    "journal": {
+      "title": "Operation Journal",
+      "subtitle": "A durable audit trail for scans, catalog refreshes, plans, applies, rollbacks, and drivers.",
+      "export": "Copy redacted JSON",
+      "filters": "Journal filters",
+      "kind": "Operation",
+      "result": "Result",
+      "all": "All",
+      "started": "Started",
+      "succeeded": "Succeeded",
+      "failed": "Failed",
+      "cancelled": "Cancelled",
+      "loading": "Loading operation history…",
+      "empty": "No operations match these filters.",
+      "kinds": {
+        "scan": "Scan",
+        "catalog_refresh": "Catalog",
+        "plan": "Plan",
+        "dll_apply": "Apply",
+        "rollback": "Rollback",
+        "driver_install": "Driver"
+      },
+      "actors": {
+        "gui": "App",
+        "cli": "CLI",
+        "background": "Background"
+      }
+    },
     "library": {
       "title": "Library",
       "subtitle": "{detected} games detected — {shown} shown",
@@ -66,6 +94,10 @@
         "launcher": "Launcher",
         "status": "Status",
         "sort": "Sort",
+        "technology": "Technology",
+        "antiCheat": "Anti-cheat",
+        "antiCheatFlagged": "Has anti-cheat",
+        "antiCheatClear": "No anti-cheat",
         "sortAria": "Sort library",
         "view": "View",
         "density": "Density"
@@ -75,6 +107,7 @@
         "custom": "Custom"
       },
       "statusFilter": {
+        "favorite": "Favorites",
         "all": "All games",
         "hidden": "Hidden"
       },
@@ -185,8 +218,22 @@
         "status": "Catalog {status}",
         "updated": "updated {ago}",
         "autoRefresh": "auto-refresh every 6 h",
+        "nexusManual": "automatic catalog updates are disabled in the Nexus build",
         "refreshTitle": "Pull the manifest from upstream now",
         "refreshNow": "Refresh now"
+      },
+      "trust": {
+        "eyebrow": "Supply-chain proof",
+        "title": "Trust Center",
+        "verified": "Signature verified",
+        "unverified": "Unverified",
+        "signature": "Catalog signature",
+        "generated": "Generated",
+        "method": "Last check",
+        "manual": "Manual refresh",
+        "automatic": "Automatic refresh",
+        "distribution": "Distribution",
+        "source": "Open public manifest and verification source"
       },
       "freshness": {
         "justNow": "just now",
@@ -266,6 +313,7 @@
     "backups": {
       "title": "Backups",
       "subtitle": "Every DLL replaced by DLSSync is snapshotted first. Restore any time, one click.",
+      "activityTab": "Activity",
       "expandAll": "Expand all",
       "collapseAll": "Collapse all",
       "emptyTitle": "No backups yet",
@@ -721,6 +769,9 @@
       "title": "About",
       "subtitle": "DLSSync keeps DLSS, FSR and XeSS technologies synchronized with vendor releases — hash-verified, vendor-signed, fully reversible.",
       "action": {
+        "sourceTitle": "Open the DLSSync source code on GitHub",
+        "manifestTitle": "Open the signed public catalog repository",
+        "manifest": "Manifest",
         "sponsorTitle": "GitHub Sponsors — recurring or one-time support",
         "kofiTitle": "Ko-fi — quick one-time tip",
         "nexusTitle": "DLSSync on Nexus Mods — endorse it to boost visibility",
@@ -786,7 +837,7 @@
       },
       "sources": {
         "title": "Manifest sources",
-        "sub": "Versions, dates, hashes and signature data come exclusively from these upstream projects."
+        "sub": "Versions, dates, hashes and signatures are tracked against these upstream projects, with older DLSS, FSR and XeSS builds backfilled from the community DLSS Swapper archive."
       },
       "author": {
         "title": "Made by",
@@ -1233,6 +1284,16 @@
     "streamlineOverride": "Updating Streamline replaces the shared sl.* plug-in set. Per-game DLSS overrides keep working; NVIDIA App global preset and ratio overrides may need to be set again. If a game misbehaves, restore the previous set from Backups."
   },
   "component": {
+    "updatePlan": {
+      "eyebrow": "Dry run with provenance",
+      "title": "Review update plan",
+      "subtitle": "Nothing changes until this exact signed plan is confirmed.",
+      "loading": "Loading trust evidence…",
+      "files": "files",
+      "signerPending": "Checking publisher…",
+      "export": "Copy plan JSON",
+      "apply": "Apply selected"
+    },
     "applyModal": {
       "eyebrow": {
         "completedWithFailures": "Apply completed with failures",
@@ -1398,6 +1459,8 @@
       "chipUpdateSuffix": " · update available",
       "moreCount_one": "{count} more",
       "moreCount_other": "{count} more",
+      "favorite": "Add to favorites",
+      "unfavorite": "Remove from favorites",
       "noSupportedDlls": "No supported DLLs",
       "rowAria": "{name}, {status}",
       "updatesShort_one": "{count} update",
@@ -1760,6 +1823,7 @@
     "settingsSaveFailed": "Could not save settings: {msg}",
     "saveFailed": "Could not save: {msg}",
     "nothingSelected": "Nothing selected",
+    "updatePlanStale": "The catalog changed while this plan was open. Review a fresh plan before applying.",
     "applyInProgress": "An apply is already running — wait for it to finish first",
     "cancelFailed": "Cancel failed: {msg}",
     "queuedAcross": "Queued {updates} across {games}",

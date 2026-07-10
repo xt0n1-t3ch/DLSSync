@@ -8,6 +8,7 @@ pub mod catalog;
 pub mod diagnostics;
 pub mod dlss_profile;
 pub mod drivers;
+pub mod journal;
 pub mod notifications;
 pub mod runtime;
 pub mod scan;

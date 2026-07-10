@@ -3,6 +3,8 @@ import { get } from "svelte/store";
 import {
   interpolate,
   isLocale,
+  loadLocale,
+  LOCALES,
   setLocale,
   t,
   translate,
@@ -39,15 +41,20 @@ describe("i18n engine", () => {
   });
 
   it("falls back to the default locale for an unknown locale", () => {
-    expect(translate("fr" as Locale, "app.name")).toBe("DLSSync");
+    expect(translate("xx" as Locale, "app.name")).toBe("DLSSync");
   });
 
   it("narrows locale tags with isLocale", () => {
-    expect(isLocale("en")).toBe(true);
-    expect(isLocale("es")).toBe(true);
+    expect(LOCALES.every((candidate) => isLocale(candidate))).toBe(true);
     expect(isLocale("")).toBe(false);
-    expect(isLocale("fr")).toBe(false);
+    expect(isLocale("it")).toBe(false);
     expect(isLocale(null)).toBe(false);
+  });
+
+  it("loads an extended locale on demand", async () => {
+    await loadLocale("fr");
+    expect(get(t)("language.label")).toBe("Langue");
+    setLocale("en");
   });
 
   it("re-derives the t store when the locale changes", () => {

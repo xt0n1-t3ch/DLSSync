@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { fly } from "svelte/transition";
   import { confirm } from "@tauri-apps/plugin-dialog";
-  import { backups, loadBackups, games, showToast, settings, persistSettings } from "../lib/stores";
+  import { backups, loadBackups, games, showToast, settings, persistSettings, currentView } from "../lib/stores";
   import { pushNotification, makeNotificationEntry } from "../lib/notifications";
   import { restoreBackup, restoreSystemDriver, deleteBackup, openPath, revealPath, type BackupEntry, type DetectedGame, type BackupsGroupBy } from "../lib/api";
   import { BACKUPS_GROUP_BYS, BACKUPS_GROUP_BY_DEFAULT } from "../lib/ux";
@@ -450,6 +450,10 @@
   }
 </script>
 
+<div class="view-tabs" role="group" aria-label={$t("view.backups.title")}>
+  <button class="view-tab" aria-current="page">{$t("view.backups.title")}</button>
+  <button class="view-tab" data-testid="nav-journal" onclick={() => currentView.set("journal")}>{$t("view.backups.activityTab")}</button>
+</div>
 <header class="view-header">
   <div>
     <h1 class="view-title">{$t("view.backups.title")}</h1>

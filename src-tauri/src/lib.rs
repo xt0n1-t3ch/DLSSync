@@ -2,6 +2,7 @@ mod commands;
 mod constants;
 mod efficiency;
 mod error;
+mod ipc_bindings;
 mod logging;
 mod netpolicy;
 mod paths;
@@ -266,14 +267,27 @@ pub fn run() {
     let _log_guard = logging::init();
     tracing::info!(version = env!("CARGO_PKG_VERSION"), "DLSSync starting");
 
-    let builder =
-        tauri::Builder::default().plugin(tauri_plugin_single_instance::init(|app, _, _| {
+    let builder = tauri::Builder::default();
+    #[cfg(debug_assertions)]
+    let builder = if std::env::var_os("DLSSYNC_E2E").as_deref() == Some(std::ffi::OsStr::new("1")) {
+        builder
+    } else {
+        builder.plugin(tauri_plugin_single_instance::init(|app, _, _| {
             use tauri::Manager;
             if let Some(w) = app.get_webview_window("main") {
                 let _ = w.set_focus();
                 let _ = w.show();
             }
-        }));
+        }))
+    };
+    #[cfg(not(debug_assertions))]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _, _| {
+        use tauri::Manager;
+        if let Some(w) = app.get_webview_window("main") {
+            let _ = w.set_focus();
+            let _ = w.show();
+        }
+    }));
 
     #[cfg(not(feature = "nexus"))]
     let builder = builder.plugin(tauri_plugin_updater::Builder::default().build());
@@ -332,6 +346,18 @@ pub fn run() {
 
             let state: tauri::State<'_, state::AppState> = app.state();
             *state.paths.write() = Some(app_paths.clone());
+            let config = dlssync_application::product_config()
+                .map_err(|e| format!("product config: {e}"))?;
+            let channel = if cfg!(feature = "nexus") {
+                dlssync_contracts::DistributionChannel::Nexus
+            } else {
+                dlssync_contracts::DistributionChannel::Standard
+            };
+            *state.distribution_policy.write() = dlssync_application::DistributionPolicy::resolve(
+                &config,
+                channel,
+                app_paths.install_mode,
+            );
 
             match backup_store::BackupStore::open(
                 app_paths.backups_db.clone(),
@@ -373,34 +399,70 @@ pub fn run() {
                 }
             }
 
+            match operation_journal::JournalStore::open(app_paths.journal_db.clone()) {
+                Ok(store) => {
+                    *state.journal.write() = Some(store);
+                    tracing::info!(
+                        db = %app_paths.journal_db.display(),
+                        "operation journal opened",
+                    );
+                }
+                Err(e) => {
+                    tracing::error!(
+                        db = %app_paths.journal_db.display(),
+                        error = %e,
+                        "operation journal open failed",
+                    );
+                }
+            }
+
             *state.catalog_cache_path.write() = Some(app_paths.catalog_cache.clone());
-            if app_paths.catalog_cache.exists() {
-                match dll_catalog::load_verified_cache(&app_paths.catalog_cache) {
-                    Some(cat) => {
+            let config = dlssync_application::product_config()
+                .map_err(|e| format!("product config: {e}"))?;
+            let cached = app_paths
+                .catalog_cache
+                .exists()
+                .then(|| dll_catalog::load_verified_cache(&app_paths.catalog_cache))
+                .flatten();
+            if let Some(cat) = cached {
+                let provenance =
+                    commands::catalog::load_persisted_provenance(&app_paths.catalog_metadata)
+                        .unwrap_or_else(|| {
+                            commands::catalog::provenance_for_current(
+                                &config,
+                                Some(&cat),
+                                dlssync_contracts::CatalogRefreshTrigger::Automatic,
+                                None,
+                            )
+                        });
+                *state.catalog_provenance.write() = Some(provenance);
+                *state.catalog.write() = Some(cat);
+                tracing::info!(
+                    path = %app_paths.catalog_cache.display(),
+                    "catalog loaded from cache",
+                );
+            } else {
+                if app_paths.catalog_cache.exists() {
+                    tracing::warn!(
+                        path = %app_paths.catalog_cache.display(),
+                        error = "cache invalid or signature verification failed",
+                        "catalog cache unreadable",
+                    );
+                }
+                match dll_catalog::embedded_fallback_catalog() {
+                    Ok(cat) => {
+                        *state.catalog_provenance.write() =
+                            Some(commands::catalog::provenance_for_current(
+                                &config,
+                                Some(&cat),
+                                dlssync_contracts::CatalogRefreshTrigger::Automatic,
+                                Some(dll_catalog::FALLBACK_MANIFEST_COMMIT_SHA.into()),
+                            ));
                         *state.catalog.write() = Some(cat);
-                        tracing::info!(
-                            path = %app_paths.catalog_cache.display(),
-                            "catalog loaded from cache",
-                        );
+                        tracing::info!("catalog loaded from embedded fallback");
                     }
-                    None => {
-                        tracing::warn!(
-                            path = %app_paths.catalog_cache.display(),
-                            error = "cache missing, invalid, or signature verification failed",
-                            "catalog cache unreadable",
-                        );
-                        match dll_catalog::embedded_fallback_catalog() {
-                            Ok(cat) => {
-                                *state.catalog.write() = Some(cat);
-                                tracing::info!("catalog loaded from embedded fallback");
-                            }
-                            Err(e) => {
-                                tracing::warn!(
-                                    error = %e,
-                                    "embedded fallback catalog unreadable",
-                                );
-                            }
-                        }
+                    Err(e) => {
+                        tracing::warn!(error = %e, "embedded fallback catalog unreadable");
                     }
                 }
             }
@@ -436,9 +498,12 @@ pub fn run() {
             commands::shell::open_path,
             commands::shell::reveal_path,
             commands::catalog::refresh_catalog,
+            commands::catalog::catalog_status,
             commands::catalog::catalog_summary,
             commands::catalog::catalog_latest_shas,
             commands::catalog::list_releases,
+            commands::journal::journal_list,
+            commands::journal::journal_export,
             commands::apply::apply_update,
             commands::apply::apply_update_batch,
             commands::apply::cancel_apply,
@@ -461,6 +526,8 @@ pub fn run() {
             commands::settings::save_settings,
             commands::settings::add_blacklist_entry,
             commands::settings::remove_blacklist_entry,
+            commands::settings::add_favorite_game,
+            commands::settings::remove_favorite_game,
             commands::settings::save_window_state,
             commands::settings::get_app_paths,
             commands::advanced::set_dlss_debug_overlay,

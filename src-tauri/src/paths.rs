@@ -1,8 +1,10 @@
+use dlssync_contracts::InstallMode;
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
 
 #[derive(Debug, Clone)]
 pub struct AppPaths {
+    pub install_mode: InstallMode,
     pub root: PathBuf,
     pub backups_dir: PathBuf,
     pub cache_dir: PathBuf,
@@ -10,7 +12,9 @@ pub struct AppPaths {
     pub settings_dir: PathBuf,
     pub backups_db: PathBuf,
     pub notifications_db: PathBuf,
+    pub journal_db: PathBuf,
     pub catalog_cache: PathBuf,
+    pub catalog_metadata: PathBuf,
     pub settings_file: PathBuf,
 }
 
@@ -44,18 +48,34 @@ impl AppPaths {
             .path()
             .home_dir()
             .map_err(|e| format!("home_dir: {e}"))?;
-        Ok(Self::from_root(home.join(root_subdir())))
+        let executable = std::env::current_exe().map_err(|e| format!("current_exe: {e}"))?;
+        let config =
+            dlssync_application::product_config().map_err(|e| format!("product config: {e}"))?;
+        let resolution = dlssync_application::resolve_data_root(
+            &executable,
+            home.join(root_subdir()),
+            None,
+            &config.distribution.portable.data_marker,
+        );
+        Ok(Self::from_root_with_mode(resolution.root, resolution.mode))
     }
 
     pub fn from_root(root: PathBuf) -> Self {
+        Self::from_root_with_mode(root, InstallMode::Installed)
+    }
+
+    pub fn from_root_with_mode(root: PathBuf, install_mode: InstallMode) -> Self {
         let backups_dir = root.join("Backups");
         let cache_dir = root.join("Cache");
         let logs_dir = root.join("Logs");
         let settings_dir = root.join("Settings");
         Self {
+            install_mode,
             backups_db: backups_dir.join("backups.db"),
             notifications_db: cache_dir.join("notifications.db"),
+            journal_db: cache_dir.join("operations.db"),
             catalog_cache: cache_dir.join("catalog.json"),
+            catalog_metadata: cache_dir.join("catalog.metadata.json"),
             settings_file: settings_dir.join("settings.json"),
             root,
             backups_dir,

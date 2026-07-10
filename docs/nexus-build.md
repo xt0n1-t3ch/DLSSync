@@ -9,9 +9,10 @@ The standard DLSSync build is unchanged. The Nexus build only strips the app sel
 - no updater endpoint in the generated Nexus Tauri config;
 - no `updater:default` permission in the generated Nexus capability file;
 - the About and Settings surfaces state that app updates are manual for Nexus compliance;
-- the signed DLL catalog URL is pinned to the embedded fallback manifest commit for this build, so DLL download destinations cannot change without a source change and a new application release.
+- opening the app, opening Catalog, restoring focus, and background ticks make zero catalog requests;
+- `Refresh Catalog` is the only action allowed to fetch the current signed public manifest.
 
-The DLL/FSR/XeSS/Streamline/DirectStorage sync core remains the same: downloads still go through the signed catalog, expected SHA-256 checks, vendor signature checks where applicable, staging, backups, and rollback. For Nexus, the catalog URL is immutable for the release channel instead of tracking `@main`.
+The DLL/FSR/XeSS/Streamline/DirectStorage sync core remains the same: downloads still go through the signed catalog, expected hash checks, Authenticode publisher enforcement, staging, backups, and rollback. The embedded signed catalog is the offline/default state; a user-triggered refresh may replace it only after Ed25519, schema, non-empty, and anti-downgrade checks pass.
 
 ## Build commands
 
@@ -45,6 +46,8 @@ pnpm run check:nexus
 pnpm --filter dlssync-frontend build:nexus
 rg "plugin-updater|latest\\.json|downloadAndInstall|tauri_plugin_updater" frontend/dist target/nexus -S
 cargo test -p dll-catalog --features nexus manifest_url_targets_the_signed_manifest_repo
+cargo test -p dlssync-application nexus_blocks_automatic_but_allows_manual_catalog_refresh
+cargo xtask verify-release --channel nexus
 cargo check -p dlssync --features nexus
 ```
 
@@ -53,7 +56,8 @@ Expected result:
 - `pnpm run check:nexus` passes;
 - frontend Nexus build has no app-updater import or `latest.json` endpoint;
 - Rust Nexus build compiles with the updater plugin registration disabled;
-- `dll-catalog` under `--features nexus` proves the manifest URL is pinned to `FALLBACK_MANIFEST_COMMIT_SHA` and does not contain `@main`;
+- `dll-catalog` proves the embedded fallback remains pinned and signed;
+- `dlssync-application` proves the Nexus policy blocks `automatic` and permits only `manual_user` refresh triggers;
 - generated Nexus config has `plugins.updater.active = false` and no endpoints;
 - generated Nexus capability has no `updater:default` permission.
 
@@ -65,13 +69,6 @@ Use this wording when explaining the release:
 
 ## In-app source links
 
-The Nexus build hides every in-app link to the DLSSync GitHub repository so the package surfaces no path to an auto-updating download or to the source repo. The `showSourceLinks` flag (`frontend/src/lib/distribution.ts`, `false` for the nexus build) gates:
+The Nexus build exposes the application source and the signed public catalog as transparency links. These links do not install or auto-update the application. The application update action itself remains disabled and routes users to the Nexus Mods page; the Tauri updater plugin, endpoint, permission, and polling code stay absent from the Nexus package.
 
-- the About header GitHub, Sponsor, and Report buttons;
-- the About footer GitHub profile link and the "Star on GitHub" support action;
-- the support nudge "Star" action;
-- the apply-failure "Report issue" button (the clipboard "Copy report" stays);
-- the live GitHub star-count request (no network call to the GitHub API);
-- the share action, which targets the Nexus mod page instead of the repo.
-
-The "check for updates" and changelog actions open the Nexus Mods page. Upstream vendor SDK links (NVIDIA, Intel, AMD, Microsoft) and non-GitHub links (Ko-fi, Discord, the project website, the Nexus page) are unaffected. The signed DLL catalog (manifest) repository is still referenced for transparency — it is the audited DLL source Nexus asked to verify, not an application build.
+The Catalog footer states that automatic catalog updates are disabled. Its explicit button contacts the canonical manifest repository only after the user clicks it, and the Trust Center shows the signature result, generation time, refresh method, and pinned public-key fingerprint.

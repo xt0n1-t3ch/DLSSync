@@ -3,6 +3,7 @@
   import { fade, fly } from "svelte/transition";
   import {
     catalogVendors,
+    bootstrapCatalog,
     loadCatalog,
     manifestUpdatedAt,
     catalogStatus,
@@ -25,8 +26,11 @@
   import CatalogVersionsFlyout from "./../components/CatalogVersionsFlyout.svelte";
   import BrandMark from "./../components/BrandMark.svelte";
   import { t, locale, translate } from "../lib/i18n/index";
+  import { isNexusBuild } from "../lib/distribution";
+  import { getCatalogStatus, type CatalogRuntimeStatus } from "../lib/api";
 
   let refreshing = $state(false);
+  let trust = $state<CatalogRuntimeStatus | null>(null);
   let flyoutTarget = $state<{
     vendor: string;
     vendorLabel: string;
@@ -38,7 +42,8 @@
   } | null>(null);
 
   onMount(() => {
-    void loadCatalog();
+    void bootstrapCatalog();
+    void getCatalogStatus().then((value) => (trust = value));
     void loadDriverUpdates();
   });
 
@@ -57,7 +62,10 @@
   async function refresh(): Promise<void> {
     if (refreshing) return;
     refreshing = true;
-    try { await loadCatalog(); } finally { refreshing = false; }
+    try {
+      await loadCatalog({ trigger: "manual_user" });
+      trust = await getCatalogStatus();
+    } finally { refreshing = false; }
   }
 
   type Row = { id: string; iconId: string; title: string; latest: string; releaseCount: number; isAdvanced: boolean; featureSlot: FeatureSlot; catalogKey: string; families: string[]; advancedFamilies?: CatalogFamily[] };
@@ -257,6 +265,29 @@
   </div>
 </section>
 
+{#if trust}
+  <section class="trust-center" in:fade={{ duration: 200 }} aria-labelledby="trust-center-title">
+    <div class="trust-head">
+      <div>
+        <h2 id="trust-center-title">{$t("view.catalog.trust.title")}</h2>
+      </div>
+      <span class="trust-verdict" data-valid={trust.provenance.signature_verified}>
+        {trust.provenance.signature_verified ? $t("view.catalog.trust.verified") : $t("view.catalog.trust.unverified")}
+      </span>
+    </div>
+    <div class="trust-grid">
+      <div><span>{$t("view.catalog.trust.signature")}</span><strong>Ed25519</strong></div>
+      <div><span>{$t("view.catalog.trust.generated")}</span><strong>{new Date(trust.provenance.generated_at).toLocaleString($locale)}</strong></div>
+      <div><span>{$t("view.catalog.trust.method")}</span><strong>{trust.provenance.trigger === "manual_user" ? $t("view.catalog.trust.manual") : $t("view.catalog.trust.automatic")}</strong></div>
+      <div><span>{$t("view.catalog.trust.distribution")}</span><strong>{trust.distribution} · {trust.install_mode}</strong></div>
+    </div>
+    <button class="trust-source" onclick={() => openExternal(trust!.provenance.manifest_repository)}>
+      <span>{$t("view.catalog.trust.source")}</span>
+      <code>{trust.provenance.public_key_fingerprint.slice(0, 20)}…</code>
+    </button>
+  </section>
+{/if}
+
 <section class="driver-catalog" in:fade={{ duration: 200 }}>
   <div class="driver-cat-head">
     <h2 class="driver-cat-title">{$t("view.catalog.gpuDrivers.title")}</h2>
@@ -319,7 +350,7 @@
   <div class="catalog-grid">
     {#each filteredView as v, i (v.vendor)}
       {@const portal = vendorPortal(v.vendor)}
-      <section class="vendor-card" data-weight={bentoWeight(v.totalReleases)} in:fly={{ y: 12, duration: 320, delay: 80 + i * 50 }}>
+      <section class="vendor-card" data-weight={bentoWeight(v.totalReleases)} style:--vendor-accent={v.accent} in:fly={{ y: 12, duration: 320, delay: 80 + i * 50 }}>
         <div class="vendor-stripe" style:background={v.accent}></div>
         <header class="vendor-head">
           <div class="vendor-dot" style:background={v.accent} style:box-shadow="0 0 14px {v.accent}80"></div>
@@ -375,7 +406,7 @@
       {/if}
     </div>
     <div class="foot-actions">
-      <span class="foot-meta">{$t("view.catalog.foot.autoRefresh")}</span>
+      <span class="foot-meta">{isNexusBuild ? $t("view.catalog.foot.nexusManual") : $t("view.catalog.foot.autoRefresh")}</span>
       <button class="foot-refresh" onclick={refresh} disabled={refreshing} title={$t("view.catalog.foot.refreshTitle")}>
         {#if refreshing}
           <span class="spin"></span>
@@ -419,6 +450,18 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
   }
+  .trust-center { margin-bottom: 18px; padding: 18px; border: 1px solid color-mix(in oklab, var(--success) 38%, var(--border)); border-radius: var(--radius-lg); background: linear-gradient(135deg, color-mix(in oklab, var(--success) 8%, var(--bg-card)), var(--bg-card)); }
+  .trust-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 16px; }
+  .trust-head h2 { margin: 0; font-size: var(--fs-lg); }
+  .trust-verdict { padding: 6px 10px; border-radius: 999px; font-size: var(--fs-xs); font-weight: 700; background: var(--bg-input); color: var(--text-muted); }
+  .trust-verdict[data-valid="true"] { color: var(--success); background: color-mix(in oklab, var(--success) 12%, transparent); }
+  .trust-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .trust-grid > div { min-width: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); background: color-mix(in oklab, var(--bg-input) 72%, transparent); }
+  .trust-grid span, .trust-source span { display: block; color: var(--text-muted); font-size: var(--fs-xs); margin-bottom: 4px; }
+  .trust-grid strong { display: block; overflow: hidden; text-overflow: ellipsis; font-size: var(--fs-sm); }
+  .trust-source { width: 100%; margin-top: 10px; padding: 10px 12px; text-align: left; border: 1px solid var(--border); border-radius: var(--radius-md); background: transparent; color: var(--text-primary); cursor: pointer; }
+  .trust-source code { color: var(--accent); font-size: var(--fs-xs); }
+  @media (max-width: 900px) { .trust-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   .driver-cat-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
   .driver-cat-title { font-size: 15px; font-weight: 700; color: var(--text-primary); letter-spacing: var(--letter-tight); }
   .driver-cat-sub { font-size: var(--fs-xs); color: var(--text-muted); }
@@ -541,26 +584,35 @@
   .feature-row-btn {
     width: 100%;
     display: grid;
-    grid-template-columns: 24px 1fr auto auto;
+    grid-template-columns: 30px 1fr auto auto;
     align-items: center;
-    gap: 10px;
-    padding: 9px 10px;
+    gap: 11px;
+    padding: 9px 11px 9px 9px;
     border-radius: var(--radius-md);
-    background: var(--bg-elevated);
+    background: color-mix(in oklab, var(--vendor-accent, transparent) 4%, var(--bg-elevated));
     border: 1px solid transparent;
     color: inherit;
     text-align: left;
     cursor: pointer;
     transition: background 0.12s var(--ease), border-color 0.12s var(--ease), transform 0.1s var(--ease);
   }
-  .feature-row-btn:hover { background: var(--bg-card-hover); border-color: var(--border-hover); transform: translateX(2px); }
+  .feature-row-btn:hover { background: color-mix(in oklab, var(--vendor-accent, var(--accent)) 9%, var(--bg-card-hover)); border-color: color-mix(in oklab, var(--vendor-accent, var(--border-hover)) 32%, var(--border)); transform: translateX(2px); }
   .feature-row-btn:focus-visible { outline: none; border-color: var(--accent); box-shadow: var(--shadow-ring); }
   .feature-row-btn.is-advanced { background: transparent; border: 1px dashed var(--border); }
   .feature-row-btn.is-advanced:hover { background: var(--bg-card-hover); border-color: var(--border-hover); border-style: solid; }
-  .feature-glyph { display: inline-flex; }
-  .feature-meta-col { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .feature-glyph {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: var(--radius-sm);
+    background: color-mix(in oklab, var(--vendor-accent, var(--accent)) 14%, transparent);
+  }
+  .feature-row-btn.is-advanced .feature-glyph { background: var(--bg-elevated); }
+  .feature-meta-col { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   .feature-title { font-size: var(--fs-sm); color: var(--text-primary); font-weight: 600; letter-spacing: var(--letter-tight); }
-  .feature-sub { font-size: var(--fs-xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: var(--letter-wider); font-weight: 600; }
+  .feature-sub { font-size: var(--fs-xs); color: var(--text-muted); font-weight: 500; letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums; }
   .feature-version { font-size: var(--fs-sm); font-variant-numeric: tabular-nums; font-weight: 600; }
   .feature-arrow { color: var(--text-muted); flex-shrink: 0; opacity: 0.4; transition: opacity 0.12s var(--ease), transform 0.12s var(--ease); }
   .feature-row-btn:hover .feature-arrow { opacity: 1; transform: translateX(2px); }
