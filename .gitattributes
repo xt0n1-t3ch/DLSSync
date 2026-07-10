@@ -1,3 +1,8 @@
+# Normalize all text to LF in the repo and on checkout so cross-platform builds
+# (Windows CI included) stay byte-identical. cargo xtask check-bindings compares
+# generated files byte-for-byte, so a CRLF checkout would otherwise read as stale.
+* text=auto eol=lf
+
 .gitattributes text eol=lf
 CHANGELOG.md text eol=lf
 crates/dll-catalog/fallback/manifest.json text eol=lf
