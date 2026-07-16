@@ -30,7 +30,6 @@ jobs:
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: "22"
-          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -61,12 +60,6 @@ jobs:
         with:
           components: rustfmt, clippy
           targets: x86_64-pc-windows-msvc
-
-      - name: Rust cache
-        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
-        with:
-          workspaces: ". -> target"
-          shared-key: "windows-rust"
 
       - name: Stub frontend dist for tauri::generate_context!
         shell: pwsh
@@ -141,18 +134,11 @@ jobs:
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: "22"
-          cache: "pnpm"
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
         with:
           targets: x86_64-pc-windows-msvc
-
-      - name: Rust cache
-        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
-        with:
-          workspaces: ". -> target"
-          shared-key: "windows-rust"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -170,4 +156,4 @@ jobs:
         with:
           name: playwright-report
           path: tests/e2e/.report
-          retention-days: 7
+          retention-days: 1
